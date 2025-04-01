@@ -1,0 +1,77 @@
+\documentclass{article}
+\usepackage{amsmath}
+\usepackage{braket}
+\makeatletter
+\newcommand\E{\@ifnextchar[{\@with}{\@without}}
+\def\@with[#1]#2{E_{#2}^{(#1)}}
+\def\@without#1{E_{#1}}
+\makeatother
+\begin{document}
+\[\E{tot} = \E{TB} + \E{disp} + \E{charge} + \E{rep}\]
+\[\E{TB} = \]
+\[\E{disp} = \]
+\[\E{charge} = \]
+\begin{equation}
+\begin{split}
+\E{GFN2-xTB} &= \E[0]{rep}+\E[0,1,2]{disp}+\E[1]{EHT}+\E[2]{IES+IXC}+\E[2]{AES+AXC}+\E[3]{IES+IXC}\\
+&=\E{rep}+\E{disp}^{D4'}+\E{EHT}+\E{\gamma}+\E{AES}+\E{AXC}+\E{\Gamma}^{GFN2}
+\end{split}
+\end{equation}
+\begin{equation}
+\begin{split}
+\E{rep} &= \frac{1}{2}\sum_{A,B}\frac{Z^{eff}_A Z^{eff}_B}{R_{AB}}e^{-\sqrt{a_Aa_B}(R_{AB})^{(k_f)}}\\
+k_f &= \begin{cases}1 & if A,B\in\{\text{H},\text{He}\}\\\frac{3}{2}&otherwise\end{cases} 
+\end{split}
+\end{equation}
+$Z^{eff}$ and $a$ are variables fitted for each element. A,B are the labels of atoms. 
+Since we only have C and H in our systems we can simplify this quite a bit in code. 
+$R_{AB}$ is the distance between the A and B atoms
+\begin{equation}
+\begin{split}
+\E{EHT} &= \sum_{\mu\nu}P_{\mu\nu} + H^{ETH}_{\mu\nu}
+\end{split}
+\end{equation}
+where $\mu$ and $\nu$ are AO indecies, $l$ and $l'$ index shells. Both AO's are associated with an atom labled A and B. 
+\begin{equation}
+\begin{split}
+P_{\mu\nu} &= P^{(0)}_{\mu\nu}+ \delta P_{\mu\nu}\\
+H_{\mu\nu} &= \frac{1}{2}K^{ll'}_{AB}S_{\mu\nu}(H_{\mu\mu}+H_{\nu\nu})\\&\cdot X(EN_A,EN_B)\\&\cdot \Pi(R_{AB},l,l')\\&\cdot Y(\zeta^A_l,\zeta^b_{l'}), \forall \mu \in l(A), \nu \in l'(B)
+\end{split}
+\end{equation}
+$K^{ll'}_{AB}$ is a element and shell specific fitted constant however, in GFN2 it only depends on the shells. 
+$S_{\mu\nu}=\braket{\phi_\mu|\phi_\nu}$ is just the overlap of the orbitals. In GFN2 $H_{\kappa\kappa}=h^l_A-\delta h^l_{CN'_A}CN'_A$ where $CN'_A$ is the modified GFN2-type Coordinate Number for the element of atom A. $h^l_A$ and $\delta h^l_{CN'_A}$ are both fitted constants. $EN_A$ is the electronegativity of the element of atom A. 
+
+\begin{equation}
+\begin{split}
+    X(EN_A,EN_B) &= 1 + k_{EN}\Delta EN_{AB}^2\\
+    k_{EN} &= 0.02 \text{ in GFN2}\\
+    \Delta EN_{AB}^2 &= (EN_A-EN_B)^2  
+\end{split}
+\end{equation}
+The electronegativity for C and H are 2.55 and 2.20 according to wikipedia.
+Thus here is a table for the combinations we will be working with:\\ 
+\begin{tabular}{c|c|l}
+    A&B&$X(EN_A,EN_B)$\\
+    \hline
+    C&C&$1$\\
+    C&H&$1+0.02\cdot (0.35^2)$\\
+    H&C&$1+0.02\cdot (0.35^2)$\\
+    H&H&$1$\\
+\end{tabular}
+\begin{equation}
+\begin{split}
+    \Pi(R_{AB},l,l') &= \left(1 + k^{\text{poly}}_{A,l}\left(\frac{R_{AB}}{R_{\text{cov},AB}}\right)^\frac{1}{2}\right)\left(1 + k^{\text{poly}}_{B,l'}\left(\frac{R_{AB}}{R_{\text{cov},AB}}\right)^\frac{1}{2}\right)\\
+\end{split}
+\end{equation}
+$R_{\text{cov},AB}$ are the summed covalent radii and taken from Reference 61\footnote{p.2109, https://www.taylorfrancis.com/books/mono/10.1201/b12286/crc-handbook-chemistry-physics-william-haynes}, the covalent radii is the second number in the table for each element, $H_{\text{cov}}=0.32$, $C_{\text{cov}}=????????????????$ (can be found on wiki as 0.75). $k^{\text{poly}}_{A,l}$ and $k^{\text{poly}}_{B,l'}$ are element and shell specific constants. 
+\begin{equation}
+\begin{split}
+    Y(\zeta^A_l,\zeta^b_{l'}) &= \left(\frac{2\sqrt{\zeta^A_l\zeta^b_{l'}}}{\zeta^A_l+\zeta^b_{l'}}\right)^\frac{1}{2}\\
+\end{split}
+\end{equation}
+Here, $\zeta^A_l$ are the STO exponents of the GFN2-xTB AO basis.\\
+Slater Type Orbitals are defined as such: 
+$$\chi_{\zeta,n,l,m}(r, \theta, \varphi) = NY_{l,m}(\theta, \varphi)r^{n-1}e^{-\zeta r}$$ 
+N is a normalisation constant, Y are spherical harmonic funtions, n, l, m are the quantum numbers for the AO. $r,\theta,\varphi$ are polar 3D coordinates. $\zeta$ determines the radial extent of the STO, a large value gives rise to a function that is "tight" around the nucleus and a small value gives a more "diffuse" function. This $\zeta$ is the one mentioned in the Y term of $\E{EHT}$ and is a value fitted when constructing the basis set.  
+
+\end{document}
