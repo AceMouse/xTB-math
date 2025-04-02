@@ -80,6 +80,7 @@ $$\chi_{\zeta,n,l,m}(r, \theta, \varphi) = NY_{l,m}(\theta, \varphi)r^{n-1}e^{-\
 N is a normalisation constant, Y are spherical harmonic funtions, n, l, m are the quantum numbers for the AO. $r,\theta,\varphi$ are polar 3D coordinates. $\zeta$ determines the radial extent of the STO, a large value gives rise to a function that is "tight" around the nucleus and a small value gives a more "diffuse" function. This $\zeta$ is the one mentioned in the Y term of $\E{EHT}$ and is a value fitted when constructing the basis set.  
 
 \subsection{Isotropic electrostatic and XC energy}
+\subsubsection{Second order}
 \begin{equation}
 \begin{split}
     \E{\gamma} &= \frac{1}{2}\sum_{A,B}^{N_{atoms}}\sum_{l\in A}\sum_{l'\in B}q_lq_{l'}\gamma_{AB,ll'}\\
@@ -88,5 +89,11 @@ N is a normalisation constant, Y are spherical harmonic funtions, n, l, m are th
 \end{split}
 \end{equation}
 $q_l$ is a partial muliken charge. $\eta_A$ and $\eta_B$ are element-specific fit parameters, while $k_A^l$ and $k_B^{l'}$ are element-specific scaling factors for the individual shells ($k_A^l=0$ when $l=0$).
-
+\subsubsection{Third order}
+\begin{equation}
+\begin{split}
+    \E{\Gamma}^{GFN2} &= \frac{1}{3}\sum_A^{N_{atoms}}\sum_{l\in A}(q_l)^3K^\Gamma_l\Gamma_A
+\end{split}
+\end{equation}
+$K^\Gamma_l$ is a shell specific constant common for all elements and $\Gamma_A$ is an element specific constant. 
 \end{document}
