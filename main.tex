@@ -11,12 +11,14 @@
 \[\E{TB} = \]
 \[\E{disp} = \]
 \[\E{charge} = \]
+\section{Total Energy for GFN2-xTB}
 \begin{equation}
 \begin{split}
 \E{GFN2-xTB} &= \E[0]{rep}+\E[0,1,2]{disp}+\E[1]{EHT}+\E[2]{IES+IXC}+\E[2]{AES+AXC}+\E[3]{IES+IXC}\\
 &=\E{rep}+\E{disp}^{D4'}+\E{EHT}+\E{\gamma}+\E{AES}+\E{AXC}+\E{\Gamma}^{GFN2}
 \end{split}
 \end{equation}
+\subsection{Repulsion Energy}
 \begin{equation}
 \begin{split}
 \E{rep} &= \frac{1}{2}\sum_{A,B}\frac{Z^{eff}_A Z^{eff}_B}{R_{AB}}e^{-\sqrt{a_Aa_B}(R_{AB})^{(k_f)}}\\
@@ -25,7 +27,8 @@ k_f &= \begin{cases}1 & if A,B\in\{\text{H},\text{He}\}\\\frac{3}{2}&otherwise\e
 \end{equation}
 $Z^{eff}$ and $a$ are variables fitted for each element. A,B are the labels of atoms. 
 Since we only have C and H in our systems we can simplify this quite a bit in code. 
-$R_{AB}$ is the distance between the A and B atoms
+$R_{AB}$ is the distance between the A and B atoms.
+\subsection{Extended Hückel Theory Energy}
 \begin{equation}
 \begin{split}
 \E{EHT} &= \sum_{\mu\nu}P_{\mu\nu} + H^{EHT}_{\mu\nu}
@@ -35,7 +38,9 @@ where $\mu$ and $\nu$ are AO indecies, $l$ and $l'$ index shells. Both AO's are 
 \begin{equation}
 \begin{split}
 P_{\mu\nu} &= P^{(0)}_{\mu\nu}+ \delta P_{\mu\nu}\\
-H_{\mu\nu} &= \frac{1}{2}K^{ll'}_{AB}S_{\mu\nu}(H_{\mu\mu}+H_{\nu\nu})\\&\cdot X(EN_A,EN_B)\\&\cdot \Pi(R_{AB},l,l')\\&\cdot Y(\zeta^A_l,\zeta^b_{l'}), \forall \mu \in l(A), \nu \in l'(B)
+    P^{(0)}_{\mu\nu}&=??\\ 
+    \delta P_{\mu\nu} &=??\\
+H^{EHT}_{\mu\nu} &= \frac{1}{2}K^{ll'}_{AB}S_{\mu\nu}(H_{\mu\mu}+H_{\nu\nu})\\&\cdot X(EN_A,EN_B)\\&\cdot \Pi(R_{AB},l,l')\\&\cdot Y(\zeta^A_l,\zeta^B_{l'}), \forall \mu \in l(A), \nu \in l'(B)
 \end{split}
 \end{equation}
 $K^{ll'}_{AB}$ is a element and shell specific fitted constant however, in GFN2 it only depends on the shells. 
@@ -73,5 +78,15 @@ Here, $\zeta^A_l$ are the STO exponents of the GFN2-xTB AO basis.\\
 Slater Type Orbitals are defined as such: 
 $$\chi_{\zeta,n,l,m}(r, \theta, \varphi) = NY_{l,m}(\theta, \varphi)r^{n-1}e^{-\zeta r}$$ 
 N is a normalisation constant, Y are spherical harmonic funtions, n, l, m are the quantum numbers for the AO. $r,\theta,\varphi$ are polar 3D coordinates. $\zeta$ determines the radial extent of the STO, a large value gives rise to a function that is "tight" around the nucleus and a small value gives a more "diffuse" function. This $\zeta$ is the one mentioned in the Y term of $\E{EHT}$ and is a value fitted when constructing the basis set.  
+
+\subsection{Isotropic electrostatic and XC energy}
+\begin{equation}
+\begin{split}
+    \E{\gamma} &= \frac{1}{2}\sum_{A,B}^{N_{atoms}}\sum_{l\in A}\sum_{l'\in B}q_lq_{l'}\gamma_{AB,ll'}\\
+    \gamma_{AB,ll'} &= \frac{1}{\sqrt{R_{AB}^2+\eta^{-2}_{AB,ll'}}}\\
+    \eta_{AB,ll'}&=\frac{1}{2}\left[\eta_A(1+k_A^l)+\eta_B(1+k_B^{l'})\right]
+\end{split}
+\end{equation}
+$q_l$ is a partial muliken charge. $\eta_A$ and $\eta_B$ are element-specific fit parameters, while $k_A^l$ and $k_B^{l'}$ are element-specific scaling factors for the individual shells ($k_A^l=0$ when $l=0$).
 
 \end{document}
