@@ -77,7 +77,7 @@ $R_{\text{cov},AB}$ are the summed covalent radii and taken from Reference 61\fo
 Here, $\zeta^A_l$ are the STO exponents of the GFN2-xTB AO basis.\\
 Slater Type Orbitals are defined as such: 
 $$\chi_{\zeta,n,l,m}(r, \theta, \varphi) = NY_{l,m}(\theta, \varphi)r^{n-1}e^{-\zeta r}$$ 
-N is a normalisation constant, Y are spherical harmonic funtions, n, l, m are the quantum numbers for the AO. $r,\theta,\varphi$ are polar 3D coordinates. $\zeta$ determines the radial extent of the STO, a large value gives rise to a function that is "tight" around the nucleus and a small value gives a more "diffuse" function. This $\zeta$ is the one mentioned in the Y term of $\E{EHT}$ and is a value fitted when constructing the basis set.  
+N is a normalisation constant, Y are spherical harmonic funtions, n, l, m are the quantum numbers for the AO. $r,\theta,\varphi$ are polar 3D coordinates. $\zeta$ determines the radial extent of the STO, a large value gives rise to a function that is "tight" around the nucleus and a small value gives a more "diffuse" function. This $\zeta$ is the one mentioned in the Y term of $\E{EHT}$ and is a value fitted when constructing the basis set, thus it is given to us.  
 
 \subsection{Isotropic electrostatic and XC energy}
 \subsubsection{Second order}
@@ -96,4 +96,41 @@ $q_l$ is a partial muliken charge. $\eta_A$ and $\eta_B$ are element-specific fi
 \end{split}
 \end{equation}
 $K^\Gamma_l$ is a shell specific constant common for all elements and $\Gamma_A$ is an element specific constant. 
+\subsection{Anisotropic electrostatic energy}
+\begin{equation}
+\begin{split}
+    \E{AES} &= \E{q\mu}+\E{q\Theta} + \E{\mu\mu}\\
+    &= \frac{1}{2}\sum_{A,B}\{f_3(R_{AB})[q_A(\pmb{\mu}_B^T\pmb{R}_{BA})+q_B(\pmb{\mu}_A^T\pmb{R}_{AB})]\\
+    &\quad + f_5(R_{AB})[q_A\pmb{R}_{AB}^T\pmb{\Theta}_B\pmb{R}_{AB}+q_B\pmb{R}_{AB}^T\pmb{\Theta}_A\pmb{R}_{AB}\\
+    &\quad -3(\pmb{\mu}_A^T\pmb{R}_{AB})(\pmb{\mu}_B^T\pmb{R}_{AB}) + (\pmb{\mu}_A^T\pmb{\mu}_B)R_{AB}^2] \}\\
+\end{split}
+\end{equation}
+What is $\pmb{R}$? If $ ^T$ is transposition then it has to be a tensor of some kind, we believe it to be a coloumn vector due to the sandwiching of $\Theta$. 
+$\pmb{\mu}_A$ is the cumulative atomic dipole moment of atom A (probably a coloumn vector) and $\pmb{\Theta}_A$ is the corresponding traceless quadrupole moment (probably a 2 dimensional matrix). The curly braces and brackets are used in the same way as normal parenthesis for showing order of operations. $q_A$ is the atomic charge of atom A. 
+\begin{align}
+    \Theta_A^{\alpha\beta} &= \frac{3}{2} \theta_A^{\alpha\beta} - \frac{\delta_{\alpha\beta}}{2} \left( \theta_A^{xx} + \theta_A^{yy} + \theta_A^{zz} \right)\\
+    \theta_A^{\alpha\beta} &= \sum_{\kappa \in A} \sum_{\lambda} P_{\lambda} \left( \alpha_A D_{\lambda\kappa}^{\beta} + \beta_A D_{\lambda\kappa}^{\alpha} - \alpha_A \beta_A S_{\lambda\kappa} - Q_{\lambda\kappa}^{\alpha\beta} \right)\\
+    q_A &= Z_A - \sum_{\kappa \in A} \sum_{\lambda} P_{\kappa\lambda} S_{\lambda\kappa}\\
+    \mu_A^{\alpha} &= \sum_{\kappa \in A} \sum_{\lambda} P_{\kappa\lambda} \left( \alpha_A S_{\kappa\lambda} - D_{\kappa\lambda}^{\alpha} \right)\\
+D_{\lambda\kappa}^{\alpha} &= \braket{ \phi_{\lambda} | \alpha_i | \phi_{\kappa}}\\
+Q_{\lambda\kappa}^{\alpha\beta} &= \braket{ \phi_{\lambda} | \alpha_i\beta_i | \phi_{\kappa}}
+\end{align}
+$\alpha$ and $\beta$ are Cartesian components (wtf is this? why do they dispear when we use $\pmb{\Theta}$ and so on?? Is it because they are used to index in the matrix and vector? is $\delta_{\alpha\beta}$ just the delta function then, that would make some sence. But what is $\alpha_i$ then!?)
+\begin{align}
+    f_n(R_{AB}) &= \frac{f_{damp}(a_n,R_{AB})}{R_{AB}^n}=\frac{1}{R_{AB}^n}\frac{1}{1+6\left(\frac{R_0^{AB}}{R_{AB}}\right)^{a_n}}\\
+    R_0^{AB} &= 0.5 ({R^A_0}'+ {R^B_0}')\\
+    {R^A_0}' &= \begin{cases}R^A_0 + \frac{R_{max}-R^A_0}{1+exp[-4(CN_A'-N_{val}-\Delta_{val})]} & \text{if }N_{val}\text{ is given}\\5.0 \text{ bohrs} & \text{otherwise}\end{cases}\\
+        R_{max} &= 5.0 \text{ bohrs}\\
+    \Delta_{val} &= 1.2
+\end{align}
+$R_0^A$ is a fitted value for 12 elements and 5.0 for the rest. $a_n$ are adjusted global parameters. 
+
+
+
+\subsection{Anisotropic XC energy}
+\begin{equation}
+    \E{AXC} = \sum_A (f^{\mu_A}_{XC}|\pmb{\mu}_A|^2 + f^{\Theta_A}_{XC}||\pmb{\Theta}_A||^2)
+\end{equation}
+Where $f^{\mu_A}_{XC}$ and $f^{\Theta_A}_{XC}$ are fitted values. What norms are these?
+
 \end{document}
