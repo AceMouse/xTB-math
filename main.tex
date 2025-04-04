@@ -133,4 +133,46 @@ $R_0^A$ is a fitted value for 12 elements and 5.0 for the rest. $a_n$ are adjust
 \end{equation}
 Where $f^{\mu_A}_{XC}$ and $f^{\Theta_A}_{XC}$ are fitted values. What norms are these?
 
+\newpage
+
+\subsection{Dispersion Energy}
+\begin{equation}
+\begin{split}
+  \E{disp}^{D4'} = &-\sum_{A>B} \sum_{n=6,8} s_n \frac{C_n^{AB} (q_A, CN^A_{cov}, q_B, CN^B_{cov})}{R^n_{AB}} f^{(n)}_{damp,BJ} (R_{AB}) \\
+  &-s_9 \sum_{A>B>C} \frac{(3cos(\theta_{ABC})cos(\theta_{BCA})cos(\theta_{CAB})+1)C_9^{ABC}(CN_{cov}^A,CN_{cov}^B,CN_{cov}^C)}{(R_{AB} R_{AC} R_{BC})^3} \\
+  &\times f^{(9)}_{damp,zero}(R_{AB},R_{AC},R_{BC}).
+\end{split}
+\end{equation}
+
+The term in the second line is the three-body Axilrod–
+Teller–Muto (ATM) (What is this??????) term and the last line is the corresponding zero-damping function for this term.
+
+\(C_6^{AB}\) is the pairwise dipole-dipole dispersion coefficients calculated by numerical integration via the Casimir-Polder relation.
+\begin{equation}
+  C_6^{AB} = \frac{3}{\pi} \sum_{j} w_j \overline{\alpha}_A (i\omega_j, q_A, CN_{cov}^A)\overline{\alpha}_B (i\omega_j, q_B, CN_{cov}^B)
+\end{equation}
+
+\(C_8^{AB}\) is calculated recursively from the lowest order \(C_6^{AB}\) coefficients.
+
+\begin{equation}
+  C_8^{AB} = 3C_6^{AB} \sqrt{\mathcal{Q}^A\mathcal{Q}^B}
+\end{equation}
+
+\begin{equation}
+  \mathcal{Q}^A = s_{42} \sqrt{Z^A} \frac{\braket{r^4}^A}{\braket{r^2}^A}
+\end{equation}
+
+\(\sqrt{Z^A}\) is the ad hoc nuclear charge dependent factor. (How do we get Z?????)
+
+\(\braket{r4}\) and \(\braket{r2}\) are simple multipole-type expectation values derived from atomic densities which are averaged geometrically to get the pair coefficients. (What is 'r', how we get??????)
+
+
+\(CN^A_{cov}\) is the covalent coordination number for atom A.
+
+\(q\) is the atomic charge, so \(q_A\) is the atomic charge for atom A.
+
+The damping and scaling parameters in the
+dispersion model are a1 = 0.52, a2 = 5.0, (do we need the damping params???) s6 = 1.0, s8 = 2.7, and s9 = 5.0.
+
+
 \end{document}
