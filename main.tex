@@ -1,11 +1,17 @@
 \documentclass{article}
 \usepackage{amsmath}
 \usepackage{braket}
+
 \makeatletter
 \newcommand\E{\@ifnextchar[{\@with}{\@without}}
 \def\@with[#1]#2{E_{#2}^{(#1)}}
 \def\@without#1{E_{#1}}
 \makeatother
+
+\makeatletter
+\newcommand\footnoteref[1]{\protected@xdef\@thefnmark{\ref{#1}}\@footnotemark}
+\makeatother
+
 \begin{document}
 \[\E{tot} = \E{TB} + \E{disp} + \E{charge} + \E{rep}\]
 \[\E{TB} = \]
@@ -144,14 +150,63 @@ Where $f^{\mu_A}_{XC}$ and $f^{\Theta_A}_{XC}$ are fitted values. What norms are
 \end{split}
 \end{equation}
 
+\vspace{10pt}
+\noindent
 The term in the second line is the three-body Axilrod–
 Teller–Muto (ATM) (What is this??????) term and the last line is the corresponding zero-damping function for this term.
 
+
+\vspace{10pt}
+\noindent
 \(C_6^{AB}\) is the pairwise dipole-dipole dispersion coefficients calculated by numerical integration via the Casimir-Polder relation.
 \begin{equation}
   C_6^{AB} = \frac{3}{\pi} \sum_{j} w_j \overline{\alpha}_A (i\omega_j, q_A, CN_{cov}^A)\overline{\alpha}_B (i\omega_j, q_B, CN_{cov}^B)
 \end{equation}
 
+\noindent
+\(w_j\) are the integration weights, which are derived from a trapeziodal partitioning between the grid points \(j(j \in [1,23])\).
+
+\noindent
+The isotropically averaged, dynamic dipole-dipole polarizabilites \(\overline{\alpha}\) at the \(j\)th imaginary frequency \(i\omega_j\) are obtained from the self-consistent D4 model; i.e., they are depending on the covalent coordination number and are also charge dependent.
+
+\begin{equation}
+  \overline{\alpha}_A(i\omega_j, q_A, CN_{cov}^A) = \sum_{r}^{N_{A,ref}} \xi_A^r (q_A, q_{A,r}) \overline{\alpha}_{A,r}(i\omega_j, q_{A,r}, CN_{cov}^{A,r}) W_A^r(CN_{cov}^A, CN_{cov}^{A,r})
+\end{equation}
+
+\noindent
+The Gaussian weighting for each reference system is given by:
+\begin{equation}
+  W_A^r(CN_{cov}^A, CN_{cov}^{A,r}) = \sum_{j=1}^{N_{gauss}} \frac{1}{\mathcal{N}} \exp\left[-6j \cdot (CN_{cov}^A - CN_{cov}^{A,r})^2\right]
+\end{equation}
+
+with
+\begin{equation}
+  \sum_{r}^{N_{A,ref}} W_A^r(CN_{cov}^A, CN_{cov}^{A,r}) = 1
+\end{equation}
+
+\vspace{10pt}
+\noindent
+\(\mathcal{N}\) is a normalization constant.
+
+\noindent
+The number of Gaussian function per reference system \(N_{gauss}\) is mostly one, but equal to three for \(CN_{cov}^{A,r} = 0\) and reference systems with similar coordination number.
+
+\noindent
+The carge-dependency is included via the empirical scaling function \(\xi_A^r\).
+\begin{equation}
+  \xi_A^r(q_A, q_{A,r}) = \exp\left[3\left\{1-\exp\left[4\eta_A\left(1-\frac{Z_A^{eff} + q_{A,r}}{Z_A^{eff} + q_A}\right)\right]\right\}\right]
+\end{equation}
+
+\noindent
+where \(\eta_A\) is the chemical hardness taken from ref 98.
+
+\noindent
+\(Z_A^{eff}\) is the effective nuclear charge of atom A, which has been determined by subtracting the number of core electrons represented by the def2-ECPs in the time-dependent DFT reference calculations.
+
+
+
+\vspace{10pt}
+\noindent
 \(C_8^{AB}\) is calculated recursively from the lowest order \(C_6^{AB}\) coefficients.
 
 \begin{equation}
@@ -162,17 +217,68 @@ Teller–Muto (ATM) (What is this??????) term and the last line is the correspon
   \mathcal{Q}^A = s_{42} \sqrt{Z^A} \frac{\braket{r^4}^A}{\braket{r^2}^A}
 \end{equation}
 
+
+\vspace{10pt}
+\noindent
 \(\sqrt{Z^A}\) is the ad hoc nuclear charge dependent factor. (How do we get Z?????)
 
-\(\braket{r4}\) and \(\braket{r2}\) are simple multipole-type expectation values derived from atomic densities which are averaged geometrically to get the pair coefficients. (What is 'r', how we get??????)
+\(\braket{r4}\) and \(\braket{r2}\) are simple multipole-type expectation values derived from atomic densities which are averaged geometrically to get the pair coefficients. (What is 'r', how we get??????) (what is \(s_{42}\)???)
 
-
+\vspace{20pt}
+\noindent
 \(CN^A_{cov}\) is the covalent coordination number for atom A.
 
+\vspace{10pt}
+\noindent
 \(q\) is the atomic charge, so \(q_A\) is the atomic charge for atom A.
 
+\vspace{10pt}
+\noindent
 The damping and scaling parameters in the
-dispersion model are a1 = 0.52, a2 = 5.0, (do we need the damping params???) s6 = 1.0, s8 = 2.7, and s9 = 5.0.
+dispersion model are:
+\[
+  a1 = 0.52 \quad|\quad a2 = 5.0 \quad|\quad s6 = 1.0 \quad|\quad s8 = 2.7 \quad|\quad s9 = 5.0
+\]
+
+
+\vspace{10pt}
+\noindent
+\(C_9^{ABC}\) is the triple-dipole constant\footnote{\label{dft-d}https://www.researchgate.net/publication/43347348\_A\_Consistent\_and\_Accurate\_Ab\_Initio\_Parametrization\_of\_Density\_Functional\_Dispersion\_Correction\_DFT-D\_for\_the\_94\_Elements\_H-Pu}:
+\begin{equation}
+  C_9^{ABC} = \frac{3}{\pi} \int_0^\infty \alpha^A(i\omega) \alpha^B(i\omega)\alpha^C(i\omega)d\omega
+\end{equation}
+
+
+\vspace{10pt}
+\noindent
+The three-body contribution is typically \(<5-10\%\) of \(E_{disp}\), so it is small enough that we can reasonably approximate the coefficients by a geometric mean as\footnoteref{dft-d}:
+
+\begin{equation}
+  C_9^{ABC} \approx -\sqrt{C_6^{AB} C_6^{AC} C_6^{BC}}
+\end{equation}
+
+
+\vspace{10pt}
+\noindent
+\(\theta_{ABC}\) is the angle between the two edges going from B to the other two atoms. \(\theta_{BCA}\) is the angle between the edges going from C to the other two and so on.
+
+
+\vspace{10pt}
+\noindent
+BJ = Becke-Johnson
+
+\begin{equation}
+  f_n^{damp,BJ}(R_{AB}) = \frac{R_{AB}^n}{R_{AB}^n + (a_1 \cdot R_{AB}^{crit} + a_2)^6}
+\end{equation}
+
+\begin{equation}
+  R_{AB}^{crit} = \sqrt{\frac{C_8^{AB}}{C_6^{AB}}}
+\end{equation}
+
+
+\begin{equation}
+  f_9^{damp,zero}(R_{AB}, R_{AC}, R_{BC}) = \left(1 + 6 \left(\sqrt{\frac{R_{AB}^{crit} R_{BC}^{crit} R_{CA}^{crit}}{R_{AB} R_{BC} R_{CA}}}\right)^{16}\right)^{-1}
+\end{equation}
 
 
 \end{document}
