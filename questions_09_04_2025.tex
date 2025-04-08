@@ -47,7 +47,18 @@ P_{\mu\nu} &= P^{(0)}_{\mu\nu}+ \delta P_{\mu\nu}\\
 H^{EHT}_{\mu\nu} &= \frac{1}{2}K^{ll'}_{AB}S_{\mu\nu}(H_{\mu\mu}+H_{\nu\nu})\\&\cdot X(EN_A,EN_B)\\&\cdot \Pi(R_{AB},l,l')\\&\cdot Y(\zeta^A_l,\zeta^B_{l'}), \forall \mu \in l(A), \nu \in l'(B)
 \end{split}
 \end{equation}
+
+\noindent
+$S_{\mu\nu}=\braket{\phi_\mu|\phi_\nu}$ is just the overlap of the orbitals.
+
+\vspace{10pt}
+\noindent
 \q{How do we calculate the density matrix or the zeroth order and delta terms? }
+
+\vspace{10pt}
+\noindent
+\q{How do we calculate the orbitals from the Slater exponents?}
+
 \subsection{Isotropic electrostatic and XC energy}
 \subsubsection{Second order}
 \begin{equation}
@@ -132,12 +143,6 @@ Where $f^{\mu_A}_{XC}$ and $f^{\Theta_A}_{XC}$ are fitted values.
 
 \vspace{10pt}
 \noindent
-The term in the second line is the three-body Axilrod–
-Teller–Muto (ATM) (What is this??????) term and the last line is the corresponding zero-damping function for this term.
-
-
-\vspace{10pt}
-\noindent
 \(C_6^{AB}\) is the pairwise dipole-dipole dispersion coefficients calculated by numerical integration via the Casimir-Polder relation.
 \begin{equation}
   C_6^{AB} = \frac{3}{\pi} \sum_{j} w_j \overline{\alpha}_A (i\omega_j, q_A, CN_{cov}^A)\overline{\alpha}_B (i\omega_j, q_B, CN_{cov}^B)
@@ -146,6 +151,11 @@ Teller–Muto (ATM) (What is this??????) term and the last line is the correspon
 \noindent
 \(w_j\) are the integration weights, which are derived from a trapeziodal partitioning between the grid points \(j(j \in [1,23])\).
 
+\vspace{10pt}
+\noindent
+\q{How are the integration weights calculated?}
+
+\vspace{10pt}
 \noindent
 The isotropically averaged, dynamic dipole-dipole polarizabilites \(\overline{\alpha}\) at the \(j\)th imaginary frequency \(i\omega_j\) are obtained from the self-consistent D4 model; i.e., they are depending on the covalent coordination number and are also charge dependent.
 
@@ -153,6 +163,15 @@ The isotropically averaged, dynamic dipole-dipole polarizabilites \(\overline{\a
   \overline{\alpha}_A(i\omega_j, q_A, CN_{cov}^A) = \sum_{r}^{N_{A,ref}} \xi_A^r (q_A, q_{A,r}) \overline{\alpha}_{A,r}(i\omega_j, q_{A,r}, CN_{cov}^{A,r}) W_A^r(CN_{cov}^A, CN_{cov}^{A,r})
 \end{equation}
 
+\vspace{10pt}
+\noindent
+\q{How do we get \(i\omega_j\)?}
+
+\vspace{10pt}
+\noindent
+\q{\(q_A\) is supposedly the atomic charge for atom A, but what is \(q_{A,r}\)?}
+
+\vspace{10pt}
 \noindent
 The Gaussian weighting for each reference system is given by:
 \begin{equation}
@@ -168,6 +187,12 @@ with
 \noindent
 \(\mathcal{N}\) is a normalization constant.
 
+\vspace{10pt}
+\noindent
+\q{Do you know what the constant \(\mathcal{N}\) is?}
+
+
+\vspace{10pt}
 \noindent
 The number of Gaussian function per reference system \(N_{gauss}\) is mostly one, but equal to three for \(CN_{cov}^{A,r} = 0\) and reference systems with similar coordination number.
 
@@ -183,6 +208,9 @@ where \(\eta_A\) is the chemical hardness taken from ref 98.
 \noindent
 \(Z_A^{eff}\) is the effective nuclear charge of atom A, which has been determined by subtracting the number of core electrons represented by the def2-ECPs in the time-dependent DFT reference calculations.
 
+\vspace{10pt}
+\noindent
+\q{It is not totally clear to us how to get \(Z_A^{eff}\) from the above text. Any hints?}
 
 
 \vspace{10pt}
@@ -200,9 +228,23 @@ where \(\eta_A\) is the chemical hardness taken from ref 98.
 
 \vspace{10pt}
 \noindent
-\(\sqrt{Z^A}\) is the ad hoc nuclear charge dependent factor. (How do we get Z?????)
+\(\sqrt{Z^A}\) is the ad hoc nuclear charge dependent factor.
 
-\(\braket{r4}\) and \(\braket{r2}\) are simple multipole-type expectation values derived from atomic densities which are averaged geometrically to get the pair coefficients. (What is 'r', how we get??????) (what is \(s_{42}\)???)
+\vspace{10pt}
+\noindent
+\q{How do we calculate \(Z^A\)?}
+
+\vspace{10pt}
+\noindent
+\(\braket{r4}\) and \(\braket{r2}\) are simple multipole-type expectation values derived from atomic densities which are averaged geometrically to get the pair coefficients.
+
+\vspace{10pt}
+\noindent
+\q{How do we calculate \(r\)?}
+
+\vspace{10pt}
+\noindent
+\q{Where do we find the value of \(s_{42}\)?}
 
 \vspace{20pt}
 \noindent
@@ -228,7 +270,6 @@ dispersion model are:
   C_9^{ABC} = \frac{3}{\pi} \int_0^\infty \alpha^A(i\omega) \alpha^B(i\omega)\alpha^C(i\omega)d\omega
 \end{equation}
 
-
 \vspace{10pt}
 \noindent
 The three-body contribution is typically \(<5-10\%\) of \(E_{disp}\), so it is small enough that we can reasonably approximate the coefficients by a geometric mean as\footnoteref{dft-d}:
@@ -236,6 +277,11 @@ The three-body contribution is typically \(<5-10\%\) of \(E_{disp}\), so it is s
 \begin{equation}
   C_9^{ABC} \approx -\sqrt{C_6^{AB} C_6^{AC} C_6^{BC}}
 \end{equation}
+
+
+\vspace{10pt}
+\noindent
+\q{Is it fine to just approximate \(C_9\)? Otherwise, what is \(i\omega\) and \(\alpha^A\)?}
 
 
 \vspace{10pt}
