@@ -1,6 +1,6 @@
-main.aux
-main.bbl
-main.blg
-main.log
-main_log.pdf
-main_log.ps
+*.aux
+*.bbl
+*.blg
+*.log
+*_log.pdf
+*_log.ps
