@@ -8,7 +8,7 @@ C = 5
 
 element_ids = [C,C,C]
 positions = [(1,0,0),(0,1,0),(0,0,1)]
-atoms = zip(element_ids, positions)
+atoms = list(zip(element_ids, positions))
  
 def dist(v1, v2): #euclidean distance. 
     d = 0
