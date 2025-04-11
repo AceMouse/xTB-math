@@ -89,7 +89,6 @@ def H_EHT(A_idx, B_idx, u, v, atoms, s_uv):
     R_AB = dist(v1,v2)**2
     k_polyA = shellPoly[A][u]
     k_polyB = shellPoly[B][v]
-    # TODO: What is Rcov_AB?
     Rcov_AB = atomicRadii[A] + atomicRadii[B]
     II = (1 + k_polyA * (R_AB / Rcov_AB)**0.5) * (1 + k_polyB * (R_AB / Rcov_AB)**0.5)
     Y = ((2 * sqrt(slaterExponent[A][u] * slaterExponent[B][v])) / (slaterExponent[A][u] + slaterExponent[B][v]))**0.5
@@ -101,15 +100,13 @@ def H_EHT(A_idx, B_idx, u, v, atoms, s_uv):
 # atom: The atom to compute for
 # atoms: All atoms
 def GFN2_coordination_number(A_idx, atoms):
-    # TODO: Find these covalent radii values
-    R_Acov = 0
-    R_Bcov = 0
-
-    _,v1 = list(atoms)[A_idx]
+    A,v1 = atoms[A_idx]
+    R_Acov = atomicRadii[A]
 
     acc = 0
-    for i,(_,v2) in enumerate(atoms):
+    for i,(B,v2) in enumerate(atoms):
         if i != A_idx:
+            R_Bcov = atomicRadii[B]
             R_AB = dist(v1,v2)**2
             acc += (1 + exp(-10 * (4 * (R_Acov + R_Bcov)/3 * R_AB - 1)))**-1 * (1 + exp(-20 * (4 * (R_Acov + R_Bcov + 2)/3 * R_AB - 1)))**-1
 
