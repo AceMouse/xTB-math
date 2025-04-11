@@ -1,6 +1,6 @@
-from math import sqrt, exp, e
+from math import sqrt, exp
 from enum import Enum
-from gfn2 import kExpLight, kExpHeavy, repAlpha, repZeff, nShell, chemicalHardness, shellHardness, thirdOrderAtom, kshell
+from gfn2 import kExpLight, kExpHeavy, repAlpha, repZeff, nShell, chemicalHardness, shellHardness, thirdOrderAtom, kshell, selfEnergy, kCN, shellPoly
 
 H = 0
 He = 1
@@ -38,78 +38,76 @@ def isotropic_electrostatic_and_XC_energy_second_order(atoms, charges):
         for B,v2 in atoms:
             etaB = chemicalHardness[B]
             R_AB2 = dist(v1,v2)**2
-            for l in range(nShell[A]):
-                klA = shellHardness[A][l]
-                for lp in range(nShell[B]):
-                    klpB = shellHardness[B][lp]
-                    eta_ABllp = 0.5*(etaA*(1+klA)+etaB*(1+klpB))
-                    gamma_ABllp = 1./sqrt(R_AB2+eta_ABllp**(-2))
-                    acc += charges[A][l]*charges[B][lp]*gamma_ABllp
+            for u in range(nShell[A]):
+                kuA = shellHardness[A][u]
+                for v in range(nShell[B]):
+                    kvB = shellHardness[B][v]
+                    eta_ABuv = 0.5*(etaA*(1+kuA)+etaB*(1+kvB))
+                    gamma_ABuv = 1./sqrt(R_AB2+eta_ABuv**(-2))
+                    acc += charges[A][u]*charges[B][v]*gamma_ABuv
     acc *= 0.5
     return acc
 
 def isotropic_electrostatic_and_XC_energy_third_order(atoms, charges):
     acc = 0
     for A,_ in atoms:
-        for l in range(nShell[A]):
-            acc += (charges[A][l]**3)*kshell[l]*thirdOrderAtom[A]
+        for u in range(nShell[A]):
+            acc += (charges[A][u]**3)*kshell[u]*thirdOrderAtom[A]
     acc *= 1./3
     return acc
 
-
+Kll_AB = [
+    [1.85,2.04,2.00],
+    [2.04,2.23,2.00],
+    [2.00,2.00,2.23]
+]
 class Energy(Enum):
     REPULSION = 1.5
+
 
 # energy_type: The type of energy to compute for
 # s_uv: overlap of the orbitals. how do we get this?? (To get the coefficients to compute the slater orbites I think we need to compute the zeroth iteration for the wavefunction with a start guess?)
 def extended_huckel_energy(atoms, s_uv, energy_type: Energy):
     acc = 0
-    
-    # TODO: We need to compute the density matrix P
-    P_uv = 0
-
-    for A in atoms:
-        for B in atoms:
-            acc += P_uv * H_EHT(A, B, atoms, s_uv, energy_type)
+    for A,v1 in atoms:
+        for B,v2 in atoms:
+            for u in range(nShell[A]):
+                for v in range(nShell[B]):
+                    # TODO: We need to compute the density matrix P
+                    P_uv = 0
+                    acc += P_uv * H_EHT(A, B, u, v, v1, v2, atoms, energy_type)
     return acc
 
 
-def H_EHT(A, B, atoms, s_uv, energy_type: Energy):
-    # kll_AB: effective scaling factor common to all EHT methods. Find values in Table 2.
-    # TODO: How do we determine which of the fitted constants from Table 2 to use?
-    # I am guessing for repulsion energy we use K_rep and so on.
-    Kll_AB = energy_type.value # K^{ll'}_AB
+def H_EHT(A, B, u, v, v1, v2, atoms, s_uv, energy_type: Energy):
+    Kuv_AB = Kll_AB[u][v] 
 
-    # TODO: Find these fitted constants
-    hl_A = 0
-    # TODO: How do we get the delta? seems like it should depend on the result of CN'_A somehow?
-    delta_hl_CNA = 0
-    # TODO: Is it correct that these are just the same but for A and B respectively?
-    H_uu = hl_A - delta_hl_CNA * GFN2_coordinate_number(A, atoms)
-    H_vv = hl_A - delta_hl_CNA * GFN2_coordinate_number(B, atoms)
+    hl_A = selfEnergy[A]
+    delta_hl_CNA = kCN[A][GFN2_coordinate_number(A,v1, atoms)]
+    H_uu = hl_A - delta_hl_CNA * GFN2_coordinate_number(A,v1, atoms)
+    H_vv = hl_A - delta_hl_CNA * GFN2_coordinate_number(B,v2, atoms)
 
     X_electronegativity = 1 if A[0] == B[0] else 1 + 0.02 * (0.35**2)
     R_AB = dist(v1,v2)**2
-    # TODO: What is Rcov_AB? and k_poly?
-    k_polyA = 0
-    k_polyB = 0
+    # TODO: What is Rcov_AB?
+    k_polyA = shellPoly[A][u]
+    k_polyB = shellPoly[B][v]
     Rcov_AB = 0
     II = (1 + k_polyA (R_AB / Rcov_AB)**0.5)(1 + k_polyB (R_AB / Rcov_AB)**0.5)
 
-    return 0.5 * Kll_AB * s_uv * (H_uu + H_vv) * X_electronegativity * II
+    return 0.5 * Kuv_AB * s_uv * (H_uu + H_vv) * X_electronegativity * II
 
 
 # CN'_A
 # atom: The atom to compute for
 # atoms: All atoms
-def GFN2_coordinate_number(atom, atoms):
+def GFN2_coordinate_number(A, v1, atoms):
     # TODO: Find these covalent radii values
     R_Acov = 0
     R_Bcov = 0
 
-    A,v1 = atom
     for B,v2 in atoms:
         if A != B:
             R_AB = dist(v1,v2)**2
-            (1 + e**(-10 * (4 * (R_Acov + R_Bcov)/3 * R_AB - 1)))**-1 * (1 + e**(-20 * (4 * (R_Acov + R_Bcov + 2)/3 * R_AB - 1)))**-1
+            (1 + exp(-10 * (4 * (R_Acov + R_Bcov)/3 * R_AB - 1)))**-1 * (1 + exp(-20 * (4 * (R_Acov + R_Bcov + 2)/3 * R_AB - 1)))**-1
 
