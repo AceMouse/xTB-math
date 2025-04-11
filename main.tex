@@ -86,8 +86,8 @@ N is a normalisation constant, Y are spherical harmonic funtions, n, l, m are th
 \end{align}
 $q_l$ is a partial muliken charge. $\eta_A$ and $\eta_B$ are element-specific fit parameters, while $k_A^l$ and $k_B^{l'}$ are element-specific scaling factors for the individual shells ($k_A^l=0$ when $l=0$).
 \begin{align}
-    q_A &= \sum_{l \in A} q_l\\
-    q_l &= \sum_{l'\in B}P_{ll'}S_{ll'}
+    GAP_A &= \sum_{l \in A} q_l\\
+    q_l &= \sum_{l'\in B}P_{ll'}S_{ll'} = GOP_l
 \end{align}
 \subsubsection{Third order}
 \begin{equation}
@@ -108,11 +108,11 @@ $K^\Gamma_l$ is a shell specific constant common for all elements and $\Gamma_A$
 $\pmb{\mu}_A$ is the cumulative atomic dipole moment of atom A and $\pmb{\Theta}_A$ is the corresponding traceless quadrupole moment. The curly braces and brackets are used in the same way as normal parenthesis for showing order of operations. $q_A$ is the atomic charge of atom A. 
 \begin{align}
     \Theta_A^{\alpha\beta} &= \frac{3}{2} \theta_A^{\alpha\beta} - \frac{\delta_{\alpha\beta}}{2} \left( \theta_A^{xx} + \theta_A^{yy} + \theta_A^{zz} \right)\\
-    \theta_A^{\alpha\beta} &= \sum_{\kappa \in A} \sum_{\lambda} P_{\lambda} \left( \alpha_A D_{\lambda\kappa}^{\beta} + \beta_A D_{\lambda\kappa}^{\alpha} - \alpha_A \beta_A S_{\lambda\kappa} - Q_{\lambda\kappa}^{\alpha\beta} \right)\\
-    q_A &= Z_A - \sum_{\kappa \in A} \sum_{\lambda} P_{\kappa\lambda} S_{\lambda\kappa}\\
-    \mu_A^{\alpha} &= \sum_{\kappa \in A} \sum_{\lambda} P_{\kappa\lambda} \left( \alpha_A S_{\kappa\lambda} - D_{\kappa\lambda}^{\alpha} \right)\\
-D_{\lambda\kappa}^{\alpha} &= \braket{ \phi_{\lambda} | \alpha_i | \phi_{\kappa}}\\
-Q_{\lambda\kappa}^{\alpha\beta} &= \braket{ \phi_{\lambda} | \alpha_i\beta_i | \phi_{\kappa}}
+    \theta_A^{\alpha\beta} &= \sum_{l' \in A} \sum_{l} P_{l} \left( \alpha_A D_{ll'}^{\beta} + \beta_A D_{ll'}^{\alpha} - \alpha_A \beta_A S_{ll'} - Q_{ll'}^{\alpha\beta} \right)\\
+    q_A &= Z_A - GAP_A\\
+    \mu_A^{\alpha} &= \sum_{l' \in A} \sum_{l} P_{l'l} \left( \alpha_A S_{l'l} - D_{l'l}^{\alpha} \right)\\
+D_{ll'}^{\alpha} &= \braket{ \phi_{l} | \alpha_i | \phi_{l'}}\\
+Q_{ll'}^{\alpha\beta} &= \braket{ \phi_{l} | \alpha_i\beta_i | \phi_{l'}}
 \end{align}
 $\alpha$ and $\beta$ are Cartesian components labled $(x,y,z)^T$ with atom A being centered in $v_A = (x_i,y_i,y_z)^T$ where i is a form of pointer/label dereferencing. $\delta_{\alpha\beta}$ is just the delta function, i.e is is 1 if $\alpha$ and $\beta$ are the same label and 0 otherwise, this serves to include the term only for the diagonal. 
 
