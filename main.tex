@@ -13,10 +13,6 @@
 \makeatother
 
 \begin{document}
-\[\E{tot} = \E{TB} + \E{disp} + \E{charge} + \E{rep}\]
-\[\E{TB} = \]
-\[\E{disp} = \]
-\[\E{charge} = \]
 \section{Total Energy for GFN2-xTB}
 \begin{equation}
 \begin{split}
@@ -25,40 +21,34 @@
 \end{split}
 \end{equation}
 \subsection{Repulsion Energy}
-\begin{equation}
-\begin{split}
+\begin{align}
 \E{rep} &= \frac{1}{2}\sum_{A,B}\frac{Z^{eff}_A Z^{eff}_B}{R_{AB}}e^{-\sqrt{a_Aa_B}(R_{AB})^{(k_f)}}\\
 k_f &= \begin{cases}1 & if A,B\in\{\text{H},\text{He}\}\\\frac{3}{2}&otherwise\end{cases} 
-\end{split}
-\end{equation}
+\end{align}
 $Z^{eff}$ and $a$ are variables fitted for each element. A,B are the labels of atoms. 
 Since we only have C and H in our systems we can simplify this quite a bit in code. 
 $R_{AB}$ is the distance between the A and B atoms.
 \subsection{Extended Hückel Theory Energy}
 \begin{equation}
-\begin{split}
-\E{EHT} &= \sum_{\mu\nu}P_{\mu\nu} + H^{EHT}_{\mu\nu}
-\end{split}
+\E{EHT} = \sum_{\mu\nu}P_{\mu\nu}H^{EHT}_{\mu\nu}
 \end{equation}
 where $\mu$ and $\nu$ are AO indecies, $l$ and $l'$ index shells. Both AO's are associated with an atom labled A and B. 
-\begin{equation}
-\begin{split}
+\begin{align}
 P_{\mu\nu} &= P^{(0)}_{\mu\nu}+ \delta P_{\mu\nu}\\
-    P^{(0)}_{\mu\nu}&=??\\ 
-    \delta P_{\mu\nu} &=??\\
+    P^{(0)}_{\mu\nu}&=\sum_j^{occ. MO}c_{\mu j}c_{j\nu}\\ 
+    \delta P_{\mu\nu} &=??\quad\text{comes from the iteration, can be skipped for now}\\
+\begin{split}
 H^{EHT}_{\mu\nu} &= \frac{1}{2}K^{ll'}_{AB}S_{\mu\nu}(H_{\mu\mu}+H_{\nu\nu})\\&\cdot X(EN_A,EN_B)\\&\cdot \Pi(R_{AB},l,l')\\&\cdot Y(\zeta^A_l,\zeta^B_{l'}), \forall \mu \in l(A), \nu \in l'(B)
 \end{split}
-\end{equation}
+\end{align}
 $K^{ll'}_{AB}$ is a element and shell specific fitted constant however, in GFN2 it only depends on the shells. 
 $S_{\mu\nu}=\braket{\phi_\mu|\phi_\nu}$ is just the overlap of the orbitals. In GFN2 $H_{\kappa\kappa}=h^l_A-\delta h^l_{CN'_A}CN'_A$ where $CN'_A$ is the modified GFN2-type Coordinate Number for the element of atom A. $h^l_A$ and $\delta h^l_{CN'_A}$ are both fitted constants. $EN_A$ is the electronegativity of the element of atom A. 
 
-\begin{equation}
-\begin{split}
+\begin{align}
     X(EN_A,EN_B) &= 1 + k_{EN}\Delta EN_{AB}^2\\
     k_{EN} &= 0.02 \text{ in GFN2}\\
     \Delta EN_{AB}^2 &= (EN_A-EN_B)^2  
-\end{split}
-\end{equation}
+\end{align}
 The electronegativity for C and H are 2.55 and 2.20 according to wikipedia.
 Thus here is a table for the combinations we will be working with:\\ 
 \begin{tabular}{c|c|l}
@@ -82,19 +72,23 @@ $R_{\text{cov},AB}$ are the summed covalent radii and taken from Reference 61\fo
 \end{equation}
 Here, $\zeta^A_l$ are the STO exponents of the GFN2-xTB AO basis.\\
 Slater Type Orbitals are defined as such: 
-$$\chi_{\zeta,n,l,m}(r, \theta, \varphi) = NY_{l,m}(\theta, \varphi)r^{n-1}e^{-\zeta r}$$ 
+\begin{equation}
+\chi_{\zeta,n,l,m}(r, \theta, \varphi) = NY_{l,m}(\theta, \varphi)r^{n-1}e^{-\zeta r}
+\end{equation}
 N is a normalisation constant, Y are spherical harmonic funtions, n, l, m are the quantum numbers for the AO. $r,\theta,\varphi$ are polar 3D coordinates. $\zeta$ determines the radial extent of the STO, a large value gives rise to a function that is "tight" around the nucleus and a small value gives a more "diffuse" function. This $\zeta$ is the one mentioned in the Y term of $\E{EHT}$ and is a value fitted when constructing the basis set, thus it is given to us.  
 
 \subsection{Isotropic electrostatic and XC energy}
 \subsubsection{Second order}
-\begin{equation}
-\begin{split}
+\begin{align}
     \E{\gamma} &= \frac{1}{2}\sum_{A,B}^{N_{atoms}}\sum_{l\in A}\sum_{l'\in B}q_lq_{l'}\gamma_{AB,ll'}\\
     \gamma_{AB,ll'} &= \frac{1}{\sqrt{R_{AB}^2+\eta^{-2}_{AB,ll'}}}\\
     \eta_{AB,ll'}&=\frac{1}{2}\left[\eta_A(1+k_A^l)+\eta_B(1+k_B^{l'})\right]
-\end{split}
-\end{equation}
+\end{align}
 $q_l$ is a partial muliken charge. $\eta_A$ and $\eta_B$ are element-specific fit parameters, while $k_A^l$ and $k_B^{l'}$ are element-specific scaling factors for the individual shells ($k_A^l=0$ when $l=0$).
+\begin{align}
+    q_A &= \sum_{l \in A} q_l\\
+    q_l &= \sum_{l'\in B}P_{ll'}S_{ll'}
+\end{align}
 \subsubsection{Third order}
 \begin{equation}
 \begin{split}
