@@ -26,7 +26,7 @@ def repulsion_energy(atoms):
             kf = kExpLight if A in {H,He} and B in {H,He} else kExpHeavy
             R_AB = dist(v1,v2)
             frac = (repZeff[A] * repZeff[B])/R_AB
-            acc += frac*exp(-sqrt(repAlpha[A],repAlpha[B])*(R_AB**kf)) 
+            acc += frac*exp(-sqrt(repAlpha[A]*repAlpha[B])*(R_AB**kf)) 
 
     acc *= 0.5
     return acc
