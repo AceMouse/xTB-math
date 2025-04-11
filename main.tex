@@ -42,7 +42,16 @@ H^{EHT}_{\mu\nu} &= \frac{1}{2}K^{ll'}_{AB}S_{\mu\nu}(H_{\mu\mu}+H_{\nu\nu})\\&\
 \end{split}
 \end{align}
 $K^{ll'}_{AB}$ is a element and shell specific fitted constant however, in GFN2 it only depends on the shells. 
-$S_{\mu\nu}=\braket{\phi_\mu|\phi_\nu}$ is just the overlap of the orbitals. In GFN2 $H_{\kappa\kappa}=h^l_A-\delta h^l_{CN'_A}CN'_A$ where $CN'_A$ is the modified GFN2-type Coordinate Number for the element of atom A. $h^l_A$ and $\delta h^l_{CN'_A}$ are both fitted constants. $EN_A$ is the electronegativity of the element of atom A. 
+$S_{\mu\nu}=\braket{\phi_\mu|\phi_\nu}$ is just the overlap of the orbitals. In GFN2 $H_{\kappa\kappa}=h^l_A-\delta h^l_{CN'_A}CN'_A$ where $CN'_A$ is the modified GFN2-type Coordinate Number for the element of atom A.
+
+\begin{align}
+\begin{split}
+  CN^{'}_A = &\sum^{N_\text{atoms}}_{B \neq A} (1 + e^{-10(4(R_{A,\text{cov}} + R_{B,\text{cov}})/3R_{AB}-1)})^{-1} \\
+             &\times (1 + e^{-20(4(R_{A,\text{cov}} + R_{B,\text{cov}} + 2)/3R_{AB}-1)})^{-1}
+\end{split}
+\end{align}
+
+$h^l_A$ and $\delta h^l_{CN'_A}$ are both fitted constants. $EN_A$ is the electronegativity of the element of atom A. 
 
 \begin{align}
     X(EN_A,EN_B) &= 1 + k_{EN}\Delta EN_{AB}^2\\
@@ -64,7 +73,7 @@ Thus here is a table for the combinations we will be working with:\\
     \Pi(R_{AB},l,l') &= \left(1 + k^{\text{poly}}_{A,l}\left(\frac{R_{AB}}{R_{\text{cov},AB}}\right)^\frac{1}{2}\right)\left(1 + k^{\text{poly}}_{B,l'}\left(\frac{R_{AB}}{R_{\text{cov},AB}}\right)^\frac{1}{2}\right)\\
 \end{split}
 \end{equation}
-$R_{\text{cov},AB}$ are the summed covalent radii and taken from Reference 61\footnote{p.2109, https://www.taylorfrancis.com/books/mono/10.1201/b12286/crc-handbook-chemistry-physics-william-haynes}, the covalent radii is the second number in the table for each element, $H_{\text{cov}}=0.32$, $C_{\text{cov}}=????????????????$ (can be found on wiki as 0.75). $k^{\text{poly}}_{A,l}$ and $k^{\text{poly}}_{B,l'}$ are element and shell specific constants. 
+$R_{\text{cov},AB}$ are the summed covalent radii (\(R_{\text{cov},A} + R_{\text{cov},B}\)), the covalent radii is the second number in the table for each element, $H_{\text{cov}}=0.32$, $C_{\text{cov}}=????????????????$ (can be found on wiki as 0.75). $k^{\text{poly}}_{A,l}$ and $k^{\text{poly}}_{B,l'}$ are element and shell specific constants. 
 \begin{equation}
 \begin{split}
     Y(\zeta^A_l,\zeta^B_{l'}) &= \left(\frac{2\sqrt{\zeta^A_l\zeta^B_{l'}}}{\zeta^A_l+\zeta^B_{l'}}\right)^\frac{1}{2}\\
