@@ -1,6 +1,5 @@
 from math import sqrt, exp
-from enum import Enum
-from gfn2 import kExpLight, kExpHeavy, repAlpha, repZeff, nShell, chemicalHardness, shellHardness, thirdOrderAtom, kshell, selfEnergy, kCN, shellPoly
+from gfn2 import kExpLight, kExpHeavy, repAlpha, repZeff, nShell, chemicalHardness, shellHardness, thirdOrderAtom, kshell, selfEnergy, kCN, shellPoly, slaterExponent, atomicRadii
 
 H = 0
 He = 1
@@ -61,53 +60,58 @@ Kll_AB = [
     [2.04,2.23,2.00],
     [2.00,2.00,2.23]
 ]
-class Energy(Enum):
-    REPULSION = 1.5
-
 
 # energy_type: The type of energy to compute for
 # s_uv: overlap of the orbitals. how do we get this?? (To get the coefficients to compute the slater orbites I think we need to compute the zeroth iteration for the wavefunction with a start guess?)
-def extended_huckel_energy(atoms, s_uv, energy_type: Energy):
+def extended_huckel_energy(atoms, s_uv):
     acc = 0
-    for A,v1 in atoms:
-        for B,v2 in atoms:
+    for i,(A,_) in enumerate(atoms):
+        for j,(B,_) in enumerate(atoms):
             for u in range(nShell[A]):
                 for v in range(nShell[B]):
                     # TODO: We need to compute the density matrix P
                     P_uv = 0
-                    acc += P_uv * H_EHT(A, B, u, v, v1, v2, atoms, energy_type)
+                    acc += P_uv * H_EHT(i, j, u, v, atoms, s_uv)
     return acc
 
 
-def H_EHT(A, B, u, v, v1, v2, atoms, s_uv, energy_type: Energy):
+def H_EHT(A_idx, B_idx, u, v, atoms, s_uv):
     Kuv_AB = Kll_AB[u][v] 
 
+    A,v1 = atoms[A_idx]
+    B,v2 = atoms[B_idx]
     hl_A = selfEnergy[A]
-    delta_hl_CNA = kCN[A][GFN2_coordinate_number(A,v1, atoms)]
-    H_uu = hl_A - delta_hl_CNA * GFN2_coordinate_number(A,v1, atoms)
-    H_vv = hl_A - delta_hl_CNA * GFN2_coordinate_number(B,v2, atoms)
+    delta_hl_CNA = kCN[A][u]
+    H_uu = hl_A - delta_hl_CNA * GFN2_coordination_number(A_idx, atoms)
+    H_vv = hl_A - delta_hl_CNA * GFN2_coordination_number(B_idx, atoms)
 
     X_electronegativity = 1 if A[0] == B[0] else 1 + 0.02 * (0.35**2)
     R_AB = dist(v1,v2)**2
-    # TODO: What is Rcov_AB?
     k_polyA = shellPoly[A][u]
     k_polyB = shellPoly[B][v]
-    Rcov_AB = 0
-    II = (1 + k_polyA (R_AB / Rcov_AB)**0.5)(1 + k_polyB (R_AB / Rcov_AB)**0.5)
+    # TODO: What is Rcov_AB?
+    Rcov_AB = atomicRadii[A] + atomicRadii[B]
+    II = (1 + k_polyA * (R_AB / Rcov_AB)**0.5) * (1 + k_polyB * (R_AB / Rcov_AB)**0.5)
+    Y = ((2 * sqrt(slaterExponent[A][u] * slaterExponent[B][v])) / (slaterExponent[A][u] + slaterExponent[B][v]))**0.5
 
-    return 0.5 * Kuv_AB * s_uv * (H_uu + H_vv) * X_electronegativity * II
+    return 0.5 * Kuv_AB * s_uv * (H_uu + H_vv) * X_electronegativity * II * Y
 
 
 # CN'_A
 # atom: The atom to compute for
 # atoms: All atoms
-def GFN2_coordinate_number(A, v1, atoms):
+def GFN2_coordination_number(A_idx, atoms):
     # TODO: Find these covalent radii values
     R_Acov = 0
     R_Bcov = 0
 
-    for B,v2 in atoms:
-        if A != B:
+    _,v1 = list(atoms)[A_idx]
+
+    acc = 0
+    for i,(_,v2) in enumerate(atoms):
+        if i != A_idx:
             R_AB = dist(v1,v2)**2
-            (1 + exp(-10 * (4 * (R_Acov + R_Bcov)/3 * R_AB - 1)))**-1 * (1 + exp(-20 * (4 * (R_Acov + R_Bcov + 2)/3 * R_AB - 1)))**-1
+            acc += (1 + exp(-10 * (4 * (R_Acov + R_Bcov)/3 * R_AB - 1)))**-1 * (1 + exp(-20 * (4 * (R_Acov + R_Bcov + 2)/3 * R_AB - 1)))**-1
+
+    return acc
 
