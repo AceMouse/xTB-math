@@ -1,13 +1,14 @@
 from math import sqrt, exp
 from gfn2 import kExpLight, kExpHeavy, repAlpha, repZeff, nShell, chemicalHardness, shellHardness, thirdOrderAtom, kshell, selfEnergy, kCN, shellPoly, slaterExponent, atomicRadii
+import numpy as np
 
 H = 0
 He = 1
 C = 5
 
 
-element_ids = [C,C,C]
-positions = [(1,0,0),(0,1,0),(0,0,1)]
+element_ids = np.array([C,C], dtype=np.int32)#,C])
+positions = np.array([[1,0,0],[0,1,0]])#,[0,0,1]])
 atoms = list(zip(element_ids, positions))
  
 def dist(v1, v2): #euclidean distance. 
@@ -17,11 +18,51 @@ def dist(v1, v2): #euclidean distance.
     d = sqrt(d)
     return d
 
+def euclidian_dist(positions): 
+    # res_1,2 = sqrt(sum((v1-v2)^2)) = sqrt(sum(v1^2)-2*v1.v2+sum(v2^2))
+    '''
+    [
+    [sum(v1^2), sum(v2^2), sum(v3^2), ...],
+    [sum(v1^2), sum(v2^2), sum(v3^2), ...],
+    [sum(v1^2), sum(v2^2), sum(v3^2), ...],
+    ...
+    ]
+    = 
+    sum([
+    [v1^2, v2^2, v3^2, ...],
+    [v1^2, v2^2, v3^2, ...],
+    [v1^2, v2^2, v3^2, ...],
+    ...
+    ], axis = -1)
+    '''
+    pos_sqr = np.broadcast_to(np.sum(positions**2, axis=-1), (positions.shape[0], positions.shape[0])) 
+    '''
+    [
+    [v1.v1, v2.v1, v3.v1, ...],
+    [v1.v2, v2.v2, v3.v2, ...],
+    [v1.v3, v2.v3, v3.v3, ...],
+    ...
+    ]
+    '''
+    pos_pairs = np.matmul(positions, positions.transpose())
+    
+    '''
+    [
+    [sum(v1^2)-2*v1.v1+sum(v1^2), sum(v2^2)-2*v2.v1+sum(v1^2), sum(v3^2)-2*v3.v1+sum(v1^2), ...],
+    [sum(v1^2)-2*v1.v2+sum(v2^2), sum(v2^2)-2*v2.v2+sum(v2^2), sum(v3^2)-2*v3.v2+sum(v2^2), ...],
+    [sum(v1^2)-2*v1.v3+sum(v3^2), sum(v2^2)-2*v2.v3+sum(v3^2), sum(v3^2)-2*v3.v3+sum(v3^2), ...],
+    ...
+    ]
+    '''
+    return np.sqrt(pos_sqr-2*pos_pairs+pos_sqr.transpose())
+
 
 def repulsion_energy(atoms):
     acc = 0
-    for A,v1 in atoms:
-        for B,v2 in atoms:
+    for i,(A,v1) in enumerate(atoms):
+        for j,(B,v2) in enumerate(atoms):
+            if i==j:
+                continue
             kf = kExpLight if A in {H,He} and B in {H,He} else kExpHeavy
             R_AB = dist(v1,v2)
             frac = (repZeff[A] * repZeff[B])/R_AB
@@ -30,6 +71,21 @@ def repulsion_energy(atoms):
     acc *= 0.5
     return acc
 
+def repulsion_energy_np(element_ids, positions):
+    heavies = element_ids > He
+    kfs = np.outer(heavies, heavies)*(kExpHeavy-kExpLight) + kExpLight
+    repZeffs = np.take(repZeff,element_ids)
+    R_ABs = euclidian_dist(positions)
+    np.fill_diagonal(R_ABs,1) #avoid division by zero.
+    frac = np.outer(repZeffs,repZeffs)/R_ABs
+    repAlphas = np.take(repAlpha,element_ids)
+    energies = frac*np.exp(-np.sqrt(np.outer(repAlphas,repAlphas))*(R_ABs**kfs))
+    np.fill_diagonal(energies,0) # repulsion with it self is excluded. 
+    repE = 0.5*np.sum(energies)
+    return repE
+
+print(repulsion_energy(atoms))
+print(repulsion_energy_np(element_ids, positions))
 def isotropic_electrostatic_and_XC_energy_second_order(atoms, charges):
     acc = 0
     for A,v1 in atoms:
