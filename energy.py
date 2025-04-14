@@ -89,6 +89,7 @@ def repulsion_energy_np(element_ids, positions):
     np.fill_diagonal(energies,0) # repulsion with it self is excluded. 
     repE = 0.5*np.sum(energies)
     return repE
+
 t1 = time.time()
 print(repulsion_energy(atoms))
 t2 = time.time()
@@ -96,6 +97,7 @@ print(repulsion_energy_np(element_ids, positions))
 t3 = time.time()
 print("normal:", t2-t1)
 print("np:", t3-t2)
+
 def isotropic_electrostatic_and_XC_energy_second_order(atoms, charges):
     acc = 0
     for A,v1 in atoms:
@@ -164,7 +166,7 @@ def H_EHT(A_idx, B_idx, u, v, atoms, s_uv):
 
 
 # CN'_A
-# atom: The atom to compute for
+# A_idx: The index of the atom to compute for
 # atoms: All atoms
 def GFN2_coordination_number(A_idx, atoms):
     A,v1 = atoms[A_idx]
@@ -179,3 +181,23 @@ def GFN2_coordination_number(A_idx, atoms):
 
     return acc
 
+def GFN2_coordination_numbers_np(element_ids, positions):
+    R_cov = atomicRadii[element_ids]
+    R_cov_stack = np.broadcast_to(R_cov, (R_cov.shape[0], R_cov.shape[0])) 
+    R_covs = R_cov_stack + R_cov_stack.transpose()
+    distances = euclidian_dist(positions)**2
+    res = (1 + np.exp(-10 * (4 * R_covs/3 * distances - 1)))**-1 * (1 + np.exp(-20 * (4 * (R_covs+2)/3 * distances - 1)))**-1
+    np.fill_diagonal(res,0)
+    coordination_numbers = np.sum(res, axis=1)
+    return coordination_numbers
+
+
+
+t1 = time.time()
+for A in atoms:
+    GFN2_coordination_number(A[0], atoms)
+t2 = time.time()
+GFN2_coordination_numbers_np(element_ids, positions)
+t3 = time.time()
+print("normal:", t2-t1)
+print("np:", t3-t2)
