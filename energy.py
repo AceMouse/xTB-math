@@ -20,7 +20,12 @@ def dist(v1, v2): #euclidean distance.
         d += (a-b)**2
     d = sqrt(d)
     return d
-
+def euclidian_dist_sqr(positions):
+    pos_sqr = np.broadcast_to(np.sum(positions**2, axis=-1), (positions.shape[0], positions.shape[0])) 
+    pos_pairs = np.matmul(positions, positions.transpose())
+    dist_sqr = pos_sqr-2*pos_pairs+pos_sqr.transpose()
+    dist_sqr = dist_sqr * (dist_sqr > 0) # remove sligthly negative values so the sqrt works fine. 
+    return dist_sqr
 def euclidian_dist(positions): 
     # res_1,2 = sqrt(sum((v1-v2)^2)) = sqrt(sum(v1^2)-2*v1.v2+sum(v2^2))
     '''
@@ -98,6 +103,9 @@ t3 = time.time()
 print("normal:", t2-t1)
 print("np:", t3-t2)
 
+def get_partial_mulliken_charges(density_matrix, overlap_matrix):
+    return np.sum(density_matrix*overlap_matrix, axis=-1).reshape(-1,3)
+
 def isotropic_electrostatic_and_XC_energy_second_order(atoms, charges):
     acc = 0
     for A,v1 in atoms:
@@ -115,6 +123,24 @@ def isotropic_electrostatic_and_XC_energy_second_order(atoms, charges):
     acc *= 0.5
     return acc
 
+def density_initial_guess(element_ids): #TODO: Make good initial guess
+    n = element_ids.shape[0]*3
+    return np.ones((n,n))/n
+
+def overlap_initial_guess(element_ids):
+    n = element_ids.shape[0]*3
+    return np.eye(n)
+
+density_matrix = density_initial_guess(element_ids)
+overlap_matrix = overlap_initial_guess(element_ids)
+partial_mulliken_charges = get_partial_mulliken_charges(density_matrix, overlap_matrix)
+t1 = time.time()
+print(isotropic_electrostatic_and_XC_energy_second_order(atoms, partial_mulliken_charges))
+t2 = time.time()
+#print(isotropic_electrostatic_and_XC_energy_second_order_np(atoms, partial_mulliken_charges))
+t3 = time.time()
+print("normal:", t2-t1)
+#print("np:", t3-t2)
 
 def isotropic_electrostatic_and_XC_energy_third_order(atoms, charges):
     acc = 0
