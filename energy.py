@@ -10,8 +10,8 @@ C = 5
 #element_ids = np.array([C,C,C])
 #positions = np.array([[1,0,0],[0,1,0],[0,0,1]])
 rand = np.random.default_rng()
-element_ids = rand.choice(np.arange(repZeff.shape[0]), 1000)
-positions = rand.random((1000,3))
+element_ids = rand.choice(repZeff.shape[0], size=10)
+positions = rand.random((10,3))
 atoms = list(zip(element_ids, positions))
  
 def dist(v1, v2): #euclidean distance. 
@@ -123,24 +123,36 @@ def isotropic_electrostatic_and_XC_energy_second_order(atoms, charges):
     acc *= 0.5
     return acc
 
-def density_initial_guess(element_ids): #TODO: Make good initial guess
-    n = element_ids.shape[0]*3
+def isotropic_electrostatic_and_XC_energy_second_order_np(element_ids, positions, charges):
+    R_AB2 = np.repeat(euclidian_dist_sqr(positions),3,axis=0)
+    R_AB2 = np.repeat(R_AB2,3,axis=1)
+    ks = (shellHardness[element_ids]+1).flatten()
+    etas = np.broadcast_to(np.repeat(chemicalHardness[element_ids],3)*(ks), (ks.shape[0], ks.shape[0]))
+    eta_ABs = (etas + etas.transpose())*0.5
+    include_shell = np.repeat(nShell[element_ids], 3) > np.repeat(np.array([[1,2,3]]),element_ids.shape[0],axis=0).flatten()
+    include_shell = np.outer(include_shell, include_shell)
+    gamma_ABs = 1./np.sqrt(R_AB2+eta_ABs**(-2))
+    energies = np.outer(charges[element_ids].flatten(), charges[element_ids].flatten())*gamma_ABs
+    return np.sum(energies*include_shell)*0.5
+
+def density_initial_guess(): #TODO: Make good initial guess
+    n = repZeff.shape[0]*3
     return np.ones((n,n))/n
 
-def overlap_initial_guess(element_ids):
-    n = element_ids.shape[0]*3
+def overlap_initial_guess():
+    n = repZeff.shape[0]*3
     return np.eye(n)
 
-density_matrix = density_initial_guess(element_ids)
-overlap_matrix = overlap_initial_guess(element_ids)
+density_matrix = density_initial_guess()
+overlap_matrix = overlap_initial_guess()
 partial_mulliken_charges = get_partial_mulliken_charges(density_matrix, overlap_matrix)
 t1 = time.time()
 print(isotropic_electrostatic_and_XC_energy_second_order(atoms, partial_mulliken_charges))
 t2 = time.time()
-#print(isotropic_electrostatic_and_XC_energy_second_order_np(atoms, partial_mulliken_charges))
+print(isotropic_electrostatic_and_XC_energy_second_order_np(element_ids, positions, partial_mulliken_charges))
 t3 = time.time()
 print("normal:", t2-t1)
-#print("np:", t3-t2)
+print("np:", t3-t2)
 
 def isotropic_electrostatic_and_XC_energy_third_order(atoms, charges):
     acc = 0
@@ -220,8 +232,8 @@ def GFN2_coordination_numbers_np(element_ids, positions):
 
 
 t1 = time.time()
-for A in atoms:
-    GFN2_coordination_number(A[0], atoms)
+for A_idx,_ in enumerate(atoms):
+    GFN2_coordination_number(A_idx, atoms)
 t2 = time.time()
 GFN2_coordination_numbers_np(element_ids, positions)
 t3 = time.time()
