@@ -1,14 +1,17 @@
 from math import sqrt, exp
 from gfn2 import kExpLight, kExpHeavy, repAlpha, repZeff, nShell, chemicalHardness, shellHardness, thirdOrderAtom, kshell, selfEnergy, kCN, shellPoly, slaterExponent, atomicRadii
 import numpy as np
-
+import time
 H = 0
 He = 1
 C = 5
 
 
-element_ids = np.array([C,C], dtype=np.int32)#,C])
-positions = np.array([[1,0,0],[0,1,0]])#,[0,0,1]])
+#element_ids = np.array([C,C,C])
+#positions = np.array([[1,0,0],[0,1,0],[0,0,1]])
+rand = np.random.default_rng()
+element_ids = rand.choice(np.arange(repZeff.shape[0]), 1000)
+positions = rand.random((1000,3))
 atoms = list(zip(element_ids, positions))
  
 def dist(v1, v2): #euclidean distance. 
@@ -54,7 +57,10 @@ def euclidian_dist(positions):
     ...
     ]
     '''
-    return np.sqrt(pos_sqr-2*pos_pairs+pos_sqr.transpose())
+    dist_sqr = pos_sqr-2*pos_pairs+pos_sqr.transpose()
+    dist_sqr = dist_sqr * (dist_sqr > 0) # remove sligthly negative values so the sqrt works fine. 
+    dists = np.sqrt(dist_sqr)
+    return dists
 
 
 def repulsion_energy(atoms):
@@ -83,9 +89,13 @@ def repulsion_energy_np(element_ids, positions):
     np.fill_diagonal(energies,0) # repulsion with it self is excluded. 
     repE = 0.5*np.sum(energies)
     return repE
-
+t1 = time.time()
 print(repulsion_energy(atoms))
+t2 = time.time()
 print(repulsion_energy_np(element_ids, positions))
+t3 = time.time()
+print("normal:", t2-t1)
+print("np:", t3-t2)
 def isotropic_electrostatic_and_XC_energy_second_order(atoms, charges):
     acc = 0
     for A,v1 in atoms:
