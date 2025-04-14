@@ -80,11 +80,11 @@ def repulsion_energy(atoms):
 def repulsion_energy_np(element_ids, positions):
     heavies = element_ids > He
     kfs = np.outer(heavies, heavies)*(kExpHeavy-kExpLight) + kExpLight
-    repZeffs = np.take(repZeff,element_ids)
+    repZeffs = repZeff[element_ids]
     R_ABs = euclidian_dist(positions)
     np.fill_diagonal(R_ABs,1) #avoid division by zero.
     frac = np.outer(repZeffs,repZeffs)/R_ABs
-    repAlphas = np.take(repAlpha,element_ids)
+    repAlphas = repAlpha[element_ids]
     energies = frac*np.exp(-np.sqrt(np.outer(repAlphas,repAlphas))*(R_ABs**kfs))
     np.fill_diagonal(energies,0) # repulsion with it self is excluded. 
     repE = 0.5*np.sum(energies)
@@ -112,6 +112,7 @@ def isotropic_electrostatic_and_XC_energy_second_order(atoms, charges):
                     acc += charges[A][u]*charges[B][v]*gamma_ABuv
     acc *= 0.5
     return acc
+
 
 def isotropic_electrostatic_and_XC_energy_third_order(atoms, charges):
     acc = 0
