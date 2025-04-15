@@ -217,8 +217,8 @@ def extended_huckel_energy(atoms):
 
                     A,v1 = atoms[i]
                     B,v2 = atoms[j]
-                    hl_A = selfEnergy[A]
-                    hl_B = selfEnergy[B]
+                    hl_A = selfEnergy[A][u]
+                    hl_B = selfEnergy[B][v]
                     delta_hl_CNA = kCN[A][u]
                     delta_hl_CNB = kCN[B][v]
                     H_uu = hl_A - delta_hl_CNA * GFN2_coordination_number(i, atoms)
@@ -230,8 +230,10 @@ def extended_huckel_energy(atoms):
                     k_polyB = shellPoly[B][v]
                     Rcov_AB = atomicRadii[A] + atomicRadii[B]
                     II = (1 + k_polyA * (R_AB / Rcov_AB)**0.5) * (1 + k_polyB * (R_AB / Rcov_AB)**0.5)
+
                     Y = ((2 * sqrt(slaterExponent[A][u] * slaterExponent[B][v])) / (slaterExponent[A][u] + slaterExponent[B][v]))**0.5
-                    acc += P_uv * (0.5 * Kuv_AB * s_uv * (H_uu + H_vv) * X_electronegativity * II * Y)
+                    e = P_uv * (0.5 * Kuv_AB * s_uv * (H_uu + H_vv) * X_electronegativity * II * Y)
+                    acc += e
     return acc
 
 
