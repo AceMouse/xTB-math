@@ -18,7 +18,7 @@ def print_res(x1,x2,t1,t2,t3,label):
     print(f"  normal  = {x1:.3f} in {t2-t1:.10f} sec")
     print(f"  numpy   = {x2:.3f} in {t3-t2:.10f} sec")
     print(f"  diff    = {((x1-x2)*100)/x2:.02f}%")
-    print(f"  speedup = {((t2-t1))/(t3-t2)}x")
+    print(f"  speedup = {((t2-t1))/(t3-t2):.02f}x")
     
 def dist(v1, v2): #euclidean distance. 
     d = 0
