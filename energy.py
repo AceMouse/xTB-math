@@ -145,7 +145,8 @@ def isotropic_electrostatic_and_XC_energy_second_order_np(element_ids, positions
     ks = (shellHardness[element_ids]+1).flatten()
     etas = np.broadcast_to(np.repeat(chemicalHardness[element_ids],3)*(ks), (ks.shape[0], ks.shape[0]))
     eta_ABs = (etas + etas.transpose())*0.5
-    include_shell = np.repeat(nShell[element_ids], 3) >= np.repeat(np.array([[1,2,3]]),element_ids.shape[0],axis=0).flatten()
+    us = np.repeat(np.array([[0,1,2]]),element_ids.shape[0],axis=0).flatten()
+    include_shell = np.repeat(nShell[element_ids], 3) > us
     include_shell = np.outer(include_shell, include_shell)
     gamma_ABs = 1./np.sqrt(R_AB2+(eta_ABs**(-2)))
     energies = np.outer(charges[element_ids].flatten(), charges[element_ids].flatten())*gamma_ABs
@@ -176,9 +177,22 @@ def isotropic_electrostatic_and_XC_energy_third_order(atoms, charges):
     acc = 0
     for A,_ in atoms:
         for u in range(nShell[A]):
-            acc += (charges[A][u]**3)*kshell[u]*thirdOrderAtom[A]
-    acc *= 1./3
+            acc += (charges[A][u]**3)*(2.**-u)*thirdOrderAtom[A]
+    acc /= 3.
     return acc
+
+def isotropic_electrostatic_and_XC_energy_third_order_np(element_ids, positions, charges):
+    us = np.repeat(np.array([[0,1,2]]),element_ids.shape[0],axis=0).flatten()
+    include_shell = np.repeat(nShell[element_ids], 3) > us
+    energies = (charges[element_ids].flatten()**3)*(2.**(-us))*np.repeat(thirdOrderAtom[element_ids],3)
+    return np.sum(energies*include_shell)/3.
+
+t1 = time.time()
+x1 = isotropic_electrostatic_and_XC_energy_third_order(atoms, partial_mulliken_charges)
+t2 = time.time()
+x2 = isotropic_electrostatic_and_XC_energy_third_order_np(element_ids, positions, partial_mulliken_charges)
+t3 = time.time()
+print_res(x1*10**6,x2*10**6,t1,t2,t3,"isotropic electrostatic and XC energy third order")
 
 Kll_AB = [
     [1.85,2.04,2.00],
