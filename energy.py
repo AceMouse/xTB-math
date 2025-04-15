@@ -1,5 +1,5 @@
 from math import sqrt, exp
-from gfn2 import kExpLight, kExpHeavy, repAlpha, repZeff, nShell, chemicalHardness, shellHardness, thirdOrderAtom, kshell, selfEnergy, kCN, shellPoly, slaterExponent, atomicRadii
+from gfn2 import kExpLight, kExpHeavy, repAlpha, repZeff, nShell, chemicalHardness, shellHardness, thirdOrderAtom, kshell, selfEnergy, kCN, shellPoly, slaterExponent, atomicRadii, paulingEN
 import numpy as np
 import time
 H = 0
@@ -7,11 +7,11 @@ He = 1
 C = 5
 
 
-#element_ids = np.array([C,C,C])
-#positions = np.array([[1,0,0],[0,1,0],[0,0,1]])
+element_ids = np.array([C,C,C])
+positions = np.array([[1,0,0],[0,1,0],[0,0,1]])
 rand = np.random.default_rng()
-element_ids = rand.choice(repZeff.shape[0], size=1000)
-positions = rand.random((1000,3))
+#element_ids = rand.choice(repZeff.shape[0], size=1000)
+#positions = rand.random((1000,3))
 atoms = list(zip(element_ids, positions))
 def print_res(x1,x2,t1,t2,t3,label):
     print(f"{label}:")
@@ -109,6 +109,7 @@ t2 = time.time()
 x2 = repulsion_energy_np(element_ids, positions)
 t3 = time.time()
 print_res(x1,x2,t1,t2,t3,"repulsion")
+
 def get_partial_mulliken_charges(density_matrix, overlap_matrix):
     return np.sum(density_matrix*overlap_matrix, axis=-1).reshape(-1,3)
 
@@ -194,24 +195,86 @@ x2 = isotropic_electrostatic_and_XC_energy_third_order_np(element_ids, positions
 t3 = time.time()
 print_res(x1*10**6,x2*10**6,t1,t2,t3,"isotropic electrostatic and XC energy third order")
 
-Kll_AB = [
+Kll_AB = np.array([
     [1.85,2.04,2.00],
     [2.04,2.23,2.00],
     [2.00,2.00,2.23]
-]
+])
 
 # energy_type: The type of energy to compute for
 # s_uv: overlap of the orbitals. how do we get this?? (To get the coefficients to compute the slater orbites I think we need to compute the zeroth iteration for the wavefunction with a start guess?)
-def extended_huckel_energy(atoms, s_uv):
+def extended_huckel_energy(atoms):
     acc = 0
     for i,(A,_) in enumerate(atoms):
         for j,(B,_) in enumerate(atoms):
             for u in range(nShell[A]):
                 for v in range(nShell[B]):
-                    # TODO: We need to compute the density matrix P
-                    P_uv = 0
-                    acc += P_uv * H_EHT(i, j, u, v, atoms, s_uv)
+                    P_uv = density_matrix[A*3+u][B*3+v]
+                    s_uv = overlap_matrix[A*3+u][B*3+v]
+
+                    Kuv_AB = Kll_AB[u][v] 
+                    
+
+                    A,v1 = atoms[i]
+                    B,v2 = atoms[j]
+                    hl_A = selfEnergy[A]
+                    hl_B = selfEnergy[B]
+                    delta_hl_CNA = kCN[A][u]
+                    delta_hl_CNB = kCN[B][v]
+                    H_uu = hl_A - delta_hl_CNA * GFN2_coordination_number(i, atoms)
+                    H_vv = hl_B - delta_hl_CNB * GFN2_coordination_number(j, atoms)
+
+                    X_electronegativity = 1 if A == B else 1 + 0.02 * (0.35**2)
+                    R_AB = dist(v1,v2)**2
+                    k_polyA = shellPoly[A][u]
+                    k_polyB = shellPoly[B][v]
+                    Rcov_AB = atomicRadii[A] + atomicRadii[B]
+                    II = (1 + k_polyA * (R_AB / Rcov_AB)**0.5) * (1 + k_polyB * (R_AB / Rcov_AB)**0.5)
+                    Y = ((2 * sqrt(slaterExponent[A][u] * slaterExponent[B][v])) / (slaterExponent[A][u] + slaterExponent[B][v]))**0.5
+                    acc += P_uv * (0.5 * Kuv_AB * s_uv * (H_uu + H_vv) * X_electronegativity * II * Y)
     return acc
+
+
+def H_EHT_np(element_ids, positions):
+    us = np.repeat(np.array([[0,1,2]]),element_ids.shape[0],axis=0).flatten()
+    include_shell = np.repeat(nShell[element_ids], 3) > us
+    include_shell = np.outer(include_shell, include_shell)
+    Kuv_AB = np.tile(Kll_AB, (element_ids.shape[0], element_ids.shape[0])) * include_shell
+    P_uv = density_matrix[np.repeat(element_ids*3, 3) + us, np.repeat(element_ids*3, 3) + us]
+    s_uv = overlap_matrix[np.repeat(element_ids*3, 3) + us, np.repeat(element_ids*3, 3) + us]
+    hl_X = selfEnergy[element_ids].flatten()
+    delta_hl_CNX = kCN[element_ids, :3].flatten()
+    coordination_numbers = np.repeat(GFN2_coordination_numbers_np(element_ids, positions),3)
+    H_xx = hl_X - delta_hl_CNX * coordination_numbers
+    H_xxs = np.broadcast_to(H_xx, (H_xx.shape[0], H_xx.shape[0]))
+    H_uuvv = H_xxs + H_xxs.transpose()
+    X_electronegativity = paulingEN[np.repeat(element_ids, 3)]
+    # NOTE: Is it correct to broadcast it here? we need the right shape
+    X_electronegativities = np.broadcast_to(X_electronegativity, (X_electronegativity.shape[0], X_electronegativity.shape[0]))
+
+    k_polyX = shellPoly[element_ids, :3].flatten()
+    k_polyX = np.broadcast_to(k_polyX, (k_polyX.shape[0], k_polyX.shape[0]))
+    R_AB2 = np.repeat(euclidian_dist_sqr(positions),3,axis=0)
+    R_AB2 = np.repeat(R_AB2,3,axis=1)
+    atomicRadiis = np.repeat(atomicRadii[element_ids], 3)
+    atomicRadiis_mat = np.broadcast_to(atomicRadiis, (atomicRadiis.shape[0], atomicRadiis.shape[0]))
+    Rcov_AB = atomicRadiis_mat + atomicRadiis_mat.transpose()
+
+    II = 1 + k_polyX * (R_AB2 / Rcov_AB)**0.5
+    II = II * II.transpose()
+    #np.fill_diagonal(II,0)
+
+    # NOTE: Some of the slater exponents are 0, so we divide by 0
+    slaterExponents = slaterExponent[element_ids, :3].flatten()
+    Y = ((2 * np.sqrt(slaterExponents * slaterExponents)) / (slaterExponents + slaterExponents))**0.5
+
+    # NOTE: Is this the correct version?
+    #slaterExponents = slaterExponent[element_ids, :3].flatten()
+    #slaterExponents = np.broadcast_to(slaterExponents, (slaterExponents.shape[0], slaterExponents.shape[0]))
+    #Y = ((2 * np.sqrt(slaterExponents * slaterExponents.transpose())) / (slaterExponents + slaterExponents.transpose()))**0.5
+
+    res = P_uv * (0.5 * Kuv_AB * s_uv * H_uuvv * X_electronegativities * II * Y)
+    return res
 
 
 def H_EHT(A_idx, B_idx, u, v, atoms, s_uv):
@@ -224,7 +287,7 @@ def H_EHT(A_idx, B_idx, u, v, atoms, s_uv):
     H_uu = hl_A - delta_hl_CNA * GFN2_coordination_number(A_idx, atoms)
     H_vv = hl_A - delta_hl_CNA * GFN2_coordination_number(B_idx, atoms)
 
-    X_electronegativity = 1 if A[0] == B[0] else 1 + 0.02 * (0.35**2)
+    X_electronegativity = 1 if A == B else 1 + 0.02 * (0.35**2)
     R_AB = dist(v1,v2)**2
     k_polyA = shellPoly[A][u]
     k_polyB = shellPoly[B][v]
@@ -251,6 +314,8 @@ def GFN2_coordination_number(A_idx, atoms):
 
     return acc
 
+#print(H_EHT(0, 1, 0, 0, atoms, 1))
+
 def GFN2_coordination_numbers_np(element_ids, positions):
     R_cov = atomicRadii[element_ids]
     R_cov_stack = np.broadcast_to(R_cov, (R_cov.shape[0], R_cov.shape[0])) 
@@ -262,7 +327,6 @@ def GFN2_coordination_numbers_np(element_ids, positions):
     return coordination_numbers
 
 
-
 t1 = time.time()
 x1 = 0
 for A_idx,_ in enumerate(atoms):
@@ -271,3 +335,12 @@ t2 = time.time()
 x2 = np.sum(GFN2_coordination_numbers_np(element_ids, positions))
 t3 = time.time()
 print_res(x1,x2,t1,t2,t3,"coordination numbers")
+
+
+#t1 = time.time()
+x1 = extended_huckel_energy(atoms)
+#t2 = time.time()
+x2 = np.sum(H_EHT_np(element_ids,positions))
+#t3 = time.time()
+#print_res(x1,x2,t1,t2,t3,"extended huckel energy")
+print(f'ehe: {x1}, ehe_np: {x2}')
