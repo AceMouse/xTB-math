@@ -1,5 +1,5 @@
 from math import sqrt, exp
-from gfn2 import kExpLight, kExpHeavy, repAlpha, repZeff, nShell, chemicalHardness, shellHardness, thirdOrderAtom, kshell, selfEnergy, kCN, shellPoly, slaterExponent, atomicRadii, paulingEN
+from gfn2 import kExpLight, kExpHeavy, repAlpha, repZeff, nShell, chemicalHardness, shellHardness, thirdOrderAtom, kshell, selfEnergy, kCN, shellPoly, slaterExponent, atomicRadii, paulingEN, kEN
 import numpy as np
 import time
 H = 0
@@ -7,11 +7,11 @@ He = 1
 C = 5
 
 
-element_ids = np.array([C,C,C])
-positions = np.array([[1,0,0],[0,1,0],[0,0,1]])
+#element_ids = np.array([C,C,C])
+#positions = np.array([[1,0,0],[0,1,0],[0,0,1]])
 rand = np.random.default_rng()
-#element_ids = rand.choice(repZeff.shape[0], size=1000)
-#positions = rand.random((1000,3))
+element_ids = rand.choice(repZeff.shape[0], size=1000)
+positions = rand.random((1000,3))
 atoms = list(zip(element_ids, positions))
 def print_res(x1,x2,t1,t2,t3,label):
     print(f"{label}:")
@@ -204,6 +204,23 @@ Kll_AB = np.array([
 # energy_type: The type of energy to compute for
 # s_uv: overlap of the orbitals. how do we get this?? (To get the coefficients to compute the slater orbites I think we need to compute the zeroth iteration for the wavefunction with a start guess?)
 def extended_huckel_energy(atoms):
+#    n3 = element_ids.shape[0]*3
+#    include_shell = np.zeros((n3,n3))
+#    Kuv_ABs = np.zeros((n3,n3))
+#    P_uvs = np.zeros((n3,n3))
+#    s_uvs = np.zeros((n3,n3))
+#    hl_X = np.zeros((n3,))
+#    delta_hl_CNX = np.zeros((n3,))
+#    coordination_numbers = np.zeros((n3,))
+#    H_xx = np.zeros((n3,))
+#    H_uuvv = np.zeros((n3,n3))
+#    X_electronegativities = np.zeros((n3,n3))
+#    k_polyX = np.zeros((n3,n3))
+#    R_AB2 = np.zeros((n3,n3))
+#    Rcov_ABs = np.zeros((n3,n3))
+#    IIs = np.zeros((n3,n3))
+#    Ys = np.zeros((n3,n3))
+#    res = np.zeros((n3,n3))
     acc = 0
     for i,(A,_) in enumerate(atoms):
         for j,(B,_) in enumerate(atoms):
@@ -214,7 +231,6 @@ def extended_huckel_energy(atoms):
 
                     Kuv_AB = Kll_AB[u][v] 
                     
-
                     A,v1 = atoms[i]
                     B,v2 = atoms[j]
                     hl_A = selfEnergy[A][u]
@@ -224,7 +240,7 @@ def extended_huckel_energy(atoms):
                     H_uu = hl_A - delta_hl_CNA * GFN2_coordination_number(i, atoms)
                     H_vv = hl_B - delta_hl_CNB * GFN2_coordination_number(j, atoms)
 
-                    X_electronegativity = 1 if A == B else 1 + 0.02 * (0.35**2)
+                    X_electronegativity = 1 + kEN*((paulingEN[A]-paulingEN[B])**2)
                     R_AB = dist(v1,v2)**2
                     k_polyA = shellPoly[A][u]
                     k_polyB = shellPoly[B][v]
@@ -234,6 +250,24 @@ def extended_huckel_energy(atoms):
                     Y = ((2 * sqrt(slaterExponent[A][u] * slaterExponent[B][v])) / (slaterExponent[A][u] + slaterExponent[B][v]))**0.5
                     e = P_uv * (0.5 * Kuv_AB * s_uv * (H_uu + H_vv) * X_electronegativity * II * Y)
                     acc += e
+#                    P_uvs[i*3+u][j*3+v] = P_uv
+#                    s_uvs[i*3+u][j*3+v] = s_uv
+#                    Kuv_ABs[i*3+u][j*3+v] = Kuv_AB
+#                    hl_X[i*3+u] = hl_A
+#                    delta_hl_CNX[i*3+u] = delta_hl_CNA
+#                    coordination_numbers[i*3+u] = GFN2_coordination_number(i, atoms)
+#                    H_xx[i*3+u] = H_uu
+#                    H_uuvv[i*3+u][j*3+v] = H_uu + H_vv
+#                    X_electronegativities[i*3+u][j*3+v] = X_electronegativity
+#                    k_polyX[i*3+u][j*3+v] = k_polyA
+#                    R_AB2[i*3+u][j*3+v] = R_AB
+#                    Rcov_ABs[i*3+u][j*3+v] = Rcov_AB
+#                    IIs[i*3+u][j*3+v] = II
+#                    Ys[i*3+u][j*3+v] = Y
+#                    res[i*3+u][j*3+v] = e
+#                    include_shell[i*3+u][j*3+v] = 1
+#    print(P_uvs) 
+#    print(s_uvs) 
     return acc
 
 
@@ -241,41 +275,33 @@ def H_EHT_np(element_ids, positions):
     us = np.repeat(np.array([[0,1,2]]),element_ids.shape[0],axis=0).flatten()
     include_shell = np.repeat(nShell[element_ids], 3) > us
     include_shell = np.outer(include_shell, include_shell)
-    Kuv_AB = np.tile(Kll_AB, (element_ids.shape[0], element_ids.shape[0])) * include_shell
-    P_uv = density_matrix[np.repeat(element_ids*3, 3) + us, np.repeat(element_ids*3, 3) + us]
-    s_uv = overlap_matrix[np.repeat(element_ids*3, 3) + us, np.repeat(element_ids*3, 3) + us]
+    Kuv_AB = np.tile(Kll_AB, (element_ids.shape[0], element_ids.shape[0]))
+    P_uv = np.take(density_matrix[np.repeat(element_ids*3, 3) + us], np.repeat(element_ids*3, 3) + us, axis = 1)
+    s_uv = np.take(overlap_matrix[np.repeat(element_ids*3, 3) + us], np.repeat(element_ids*3, 3) + us, axis = 1)
     hl_X = selfEnergy[element_ids].flatten()
     delta_hl_CNX = kCN[element_ids, :3].flatten()
     coordination_numbers = np.repeat(GFN2_coordination_numbers_np(element_ids, positions),3)
     H_xx = hl_X - delta_hl_CNX * coordination_numbers
     H_xxs = np.broadcast_to(H_xx, (H_xx.shape[0], H_xx.shape[0]))
     H_uuvv = H_xxs + H_xxs.transpose()
-    X_electronegativity = paulingEN[np.repeat(element_ids, 3)]
-    # NOTE: Is it correct to broadcast it here? we need the right shape
-    X_electronegativities = np.broadcast_to(X_electronegativity, (X_electronegativity.shape[0], X_electronegativity.shape[0]))
-
+    electronegativity = paulingEN[np.repeat(element_ids, 3)]
+    electronegativities = np.broadcast_to(electronegativity, (electronegativity.shape[0], electronegativity.shape[0]))
+    X_electronegativities = 1+kEN*((electronegativities - electronegativities.transpose())**2)
     k_polyX = shellPoly[element_ids, :3].flatten()
-    k_polyX = np.broadcast_to(k_polyX, (k_polyX.shape[0], k_polyX.shape[0]))
+    k_polyX = np.broadcast_to(k_polyX, (k_polyX.shape[0], k_polyX.shape[0])).transpose()
     R_AB2 = np.repeat(euclidian_dist_sqr(positions),3,axis=0)
     R_AB2 = np.repeat(R_AB2,3,axis=1)
     atomicRadiis = np.repeat(atomicRadii[element_ids], 3)
     atomicRadiis_mat = np.broadcast_to(atomicRadiis, (atomicRadiis.shape[0], atomicRadiis.shape[0]))
     Rcov_AB = atomicRadiis_mat + atomicRadiis_mat.transpose()
-
     II = 1 + k_polyX * (R_AB2 / Rcov_AB)**0.5
     II = II * II.transpose()
-    #np.fill_diagonal(II,0)
-
-    # NOTE: Some of the slater exponents are 0, so we divide by 0
-    slaterExponents = slaterExponent[element_ids, :3].flatten()
-    Y = ((2 * np.sqrt(slaterExponents * slaterExponents)) / (slaterExponents + slaterExponents))**0.5
-
-    # NOTE: Is this the correct version?
-    #slaterExponents = slaterExponent[element_ids, :3].flatten()
-    #slaterExponents = np.broadcast_to(slaterExponents, (slaterExponents.shape[0], slaterExponents.shape[0]))
-    #Y = ((2 * np.sqrt(slaterExponents * slaterExponents.transpose())) / (slaterExponents + slaterExponents.transpose()))**0.5
-
-    res = P_uv * (0.5 * Kuv_AB * s_uv * H_uuvv * X_electronegativities * II * Y)
+    slaterExponents = np.broadcast_to(slaterExponent[element_ids, :3].flatten(), (element_ids.shape[0]*3,element_ids.shape[0]*3))
+    slaterExponents_ABs = slaterExponents * slaterExponents.transpose()
+    Y = ((2 * np.sqrt(slaterExponents_ABs)) / (slaterExponents + slaterExponents.transpose() + np.logical_not(include_shell)))**0.5
+    res = P_uv * (0.5 * Kuv_AB * s_uv * H_uuvv * X_electronegativities * II * Y * include_shell)
+#    print(P_uv) 
+#    print(s_uv) 
     return res
 
 
@@ -339,10 +365,9 @@ t3 = time.time()
 print_res(x1,x2,t1,t2,t3,"coordination numbers")
 
 
-#t1 = time.time()
+t1 = time.time()
 x1 = extended_huckel_energy(atoms)
-#t2 = time.time()
+t2 = time.time()
 x2 = np.sum(H_EHT_np(element_ids,positions))
-#t3 = time.time()
-#print_res(x1,x2,t1,t2,t3,"extended huckel energy")
-print(f'ehe: {x1}, ehe_np: {x2}')
+t3 = time.time()
+print_res(x1,x2,t1,t2,t3,"extended huckel energy")
