@@ -6,28 +6,27 @@ H = 0
 He = 1
 C = 5
 
-def density_initial_guess(): #TODO: Make good initial guess
-    n = repZeff.shape[0]*3
-    return np.ones((n,n))/n
+def density_initial_guess(element_cnt): #TODO: Make good initial guess
+    return np.ones((element_cnt*3,element_cnt*3))/element_cnt*3
 
-def overlap_initial_guess():
-    n = repZeff.shape[0]*3
-    return np.eye(n)
+def overlap_initial_guess(element_cnt):
+    return np.eye(element_cnt*3)
 
-density_matrix = density_initial_guess()
-overlap_matrix = overlap_initial_guess()
-REP = False
-ISO2 = False
-ISO3 = False
-EHT = False
-CN = False
+REP = True
+ISO2 = True
+ISO3 = True
+EHT = True
+CN = True
 
 #element_ids = np.array([C,C,C])
 #positions = np.array([[1,0,0],[0,1,0],[0,0,1]])
 rand = np.random.default_rng()
-element_ids = rand.choice(repZeff.shape[0], size=1000)
-positions = rand.random((1000,3))
+element_cnt = 100
+element_ids = rand.choice(repZeff.shape[0], size=element_cnt)
+positions = rand.random((element_cnt,3))
 atoms = list(zip(element_ids, positions))
+density_matrix = density_initial_guess(element_cnt)
+overlap_matrix = overlap_initial_guess(element_cnt)
 def print_res(x1,x2,t1,t2,t3,label):
     print(f"{label}:")
     print(f"  normal  = {x1:.3f} in {t2-t1:.10f} sec")
@@ -144,7 +143,7 @@ def isotropic_electrostatic_and_XC_energy_second_order(atoms, charges):
                     kvB = shellHardness[B][v]
                     eta_ABuv = 0.5*(etaA*(1+kuA)+etaB*(1+kvB))
                     gamma_ABuv = 1./sqrt(R_AB2+eta_ABuv**(-2))
-                    e = charges[A][u]*charges[B][v]*gamma_ABuv
+                    e = charges[u][u]*charges[j][v]*gamma_ABuv
                     acc += e
 #                    eta_ABs[i*3+u,j*3+v] = eta_ABuv
 #                    gamma_ABs[i*3+u,j*3+v] = gamma_ABuv
@@ -165,7 +164,7 @@ def isotropic_electrostatic_and_XC_energy_second_order_np(element_ids, positions
     include_shell = np.repeat(nShell[element_ids], 3) > us
     include_shell = np.outer(include_shell, include_shell)
     gamma_ABs = 1./np.sqrt(R_AB2+(eta_ABs**(-2)))
-    energies = np.outer(charges[element_ids].flatten(), charges[element_ids].flatten())*gamma_ABs
+    energies = np.outer(charges.flatten(), charges.flatten())*gamma_ABs
 #    print(eta_ABs*include_shell)
 #    print(gamma_ABs*include_shell)
 #    print(energies*include_shell)
@@ -182,16 +181,16 @@ if ISO2:
 
 def isotropic_electrostatic_and_XC_energy_third_order(atoms, charges):
     acc = 0
-    for A,_ in atoms:
+    for i,(A,_) in enumerate(atoms):
         for u in range(nShell[A]):
-            acc += (charges[A][u]**3)*(2.**-u)*thirdOrderAtom[A]
+            acc += (charges[i][u]**3)*(2.**-u)*thirdOrderAtom[A]
     acc /= 3.
     return acc
 
 def isotropic_electrostatic_and_XC_energy_third_order_np(element_ids, positions, charges):
     us = np.repeat(np.array([[0,1,2]]),element_ids.shape[0],axis=0).flatten()
     include_shell = np.repeat(nShell[element_ids], 3) > us
-    energies = (charges[element_ids].flatten()**3)*(2.**(-us))*np.repeat(thirdOrderAtom[element_ids],3)
+    energies = (charges.flatten()**3)*(2.**(-us))*np.repeat(thirdOrderAtom[element_ids],3)
     return np.sum(energies*include_shell)/3.
 
 if ISO3:
@@ -231,8 +230,8 @@ def extended_huckel_energy(atoms, density_matrix, overlap_matrix):
         for j,(B,_) in enumerate(atoms):
             for u in range(nShell[A]):
                 for v in range(nShell[B]):
-                    P_uv = density_matrix[A*3+u][B*3+v]
-                    s_uv = overlap_matrix[A*3+u][B*3+v]
+                    P_uv = density_matrix[i*3+u][j*3+v]
+                    s_uv = overlap_matrix[i*3+u][j*3+v]
 
                     Kuv_AB = Kll_AB[u][v] 
                     
@@ -281,8 +280,8 @@ def extended_huckel_energy_np(element_ids, positions, density_matrix, overlap_ma
     include_shell = np.repeat(nShell[element_ids], 3) > us
     include_shell = np.outer(include_shell, include_shell)
     Kuv_AB = np.tile(Kll_AB, (element_ids.shape[0], element_ids.shape[0]))
-    P_uv = np.take(density_matrix[np.repeat(element_ids*3, 3) + us], np.repeat(element_ids*3, 3) + us, axis = 1)
-    s_uv = np.take(overlap_matrix[np.repeat(element_ids*3, 3) + us], np.repeat(element_ids*3, 3) + us, axis = 1)
+    P_uv = density_matrix#np.take(density_matrix[np.repeat(element_ids*3, 3) + us], np.repeat(element_ids*3, 3) + us, axis = 1)
+    s_uv = overlap_matrix#np.take(overlap_matrix[np.repeat(element_ids*3, 3) + us], np.repeat(element_ids*3, 3) + us, axis = 1)
     hl_X = selfEnergy[element_ids].flatten()
     delta_hl_CNX = kCN[element_ids, :3].flatten()
     coordination_numbers = np.repeat(GFN2_coordination_numbers_np(element_ids, positions),3)
