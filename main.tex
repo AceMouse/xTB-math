@@ -335,6 +335,24 @@ The SAD method is then the sum of all of these?
 
 Equation 3 in the GFN2 paper talks about "superposition of (neutral) atomic reference densities". Is this relevant?
 
+Direct SCF Approach
+\begin{equation}
+\begin{split}
+  \Delta F_{ab} = &(c_{ia}c_{jb} + c_{ja}c_{ib})\\
+  &\Delta F_{ij} + (c_{ia}c_{kb} + c_{ka}c_{ib})\\
+  &\Delta F_{ik} + (c_{ia}c_{lb} + c_{la}c_{ib})\\
+  &\Delta F_{il} + (c_{ja}c_{kb} + c_{ka}c_{jb})\\
+  &\Delta F_{jk} + (c_{ja}c_{lb} + c_{la}c_{jb})\\
+  &\Delta F_{jl} + (c_{ka}c_{lb} + c_{la}c_{kb}) \Delta F_{kl}\\
+  &= l_{ijkl}(4E_{ij}^{ab}D_{kl} + 4D_{ij}E_{kl}^{ab} - E_{ik}^{ab}D_{jl} - D_{ik}E_{jl}^{ab} - E_{il}^{ab}D_{jk} - D_{il}E_{jk}^{ab})
+\end{split}
+\end{equation}
+where
+\begin{equation}
+  E_{ij}^{ab} = c_{ia}c_{jb} + c_{ja}c_{ib}
+\end{equation}
+
+
 
 
 \end{document}
