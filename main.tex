@@ -244,7 +244,14 @@ where \(\eta_A\) is the chemical hardness taken from ref 98.
 
 \vspace{10pt}
 \noindent
-\(\sqrt{Z^A}\) is the ad hoc nuclear charge dependent factor. (How do we get Z?????)
+\(\sqrt{Z^A}\) is the ad hoc nuclear charge dependent factor.
+
+From the original xTB program we can see that \(s_{42}\) is \(0.5\), and \(Z^A\) is the atomic number of A.
+
+\begin{equation}
+  \sqrt{0.5 * (\frac{r^4}{r^2} * \sqrt{Z^A})}
+\end{equation}
+
 
 \(\braket{r4}\) and \(\braket{r2}\) are simple multipole-type expectation values derived from atomic densities which are averaged geometrically to get the pair coefficients. (What is 'r', how we get??????) (what is \(s_{42}\)???)
 
