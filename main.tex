@@ -312,4 +312,29 @@ BJ = Becke-Johnson
 \end{equation}
 
 
+
+\subsection{SAD - Superposition of Atomic Densities}
+
+The superposition of atomic densities(SAD) is an approach to obtain a good approximation of a collection of atoms, to be used as an initial guess for solving the self-consistent field(SCF) equation.
+
+As originally implemented in DISCO, the molecular electron density can be obtained by adding the densities of all the constituting atoms.
+
+
+%https://pyscf.org/user/scf.html#initial-guess
+%https://sci-hub.box/10.1002/jcc.20393
+
+This is how we get the density matrix for an isolated atom? equation 15 from: (https://sci-hub.box/10.1002/jcc.540030314)
+\begin{equation}
+  D_{ij} = \sum_a^{occ} c_{ia} c_{ja}
+\end{equation}
+
+To get the coefficients we need to solve SCF for each atom? this is supposedly cheap, but idk how to do it. (https://sci-hub.box/10.1002/jcc.20393)
+Though the math for Direct SCF Approach is given in this paper at equation 10: (https://sci-hub.box/10.1002/jcc.540030314). This is probably how.
+
+The SAD method is then the sum of all of these?
+
+Equation 3 in the GFN2 paper talks about "superposition of (neutral) atomic reference densities". Is this relevant?
+
+
+
 \end{document}
