@@ -1,0 +1,31 @@
+\section{Fock Matrix for GFN2-xTB}
+\begin{equation}
+\begin{split}
+    \mn{F^{GFN2-xTB}} =  \mn{H^{EHT}} + \mn{F^{IES+IXC}} + &\mn{F^{AES}}+\mn{F^{AXC}}+\mn{F^{D4}}, \\&\forall \mu \in A, \nu \in B
+\end{split}
+\end{equation}
+\subsection{Isotropic Electrostratic and Exchange-correlation contribution}
+\begin{equation}
+\begin{split}
+    \mn{F^{IES+IXC}} = &- \frac{1}{2}\mn{S}\sum_C\sum_{l''}(\gamma_{AC,ll''}+\gamma_{BC,l'l''})q_{C,l''}\\
+    &-\frac{1}{2}\mn{S}(q_{A,l}^2\Gamma_{A,l}+q_{B,l'}^2\Gamma_{B,l'})
+\end{split}
+\end{equation}
+$l,l',l''$ being the angular monenta of the orbitals $\mu, \nu$ and each of C's orbitals. 
+\begin{equation}
+    \Gamma_{A,l} = K^\Gamma_l\Gamma_A
+\end{equation}
+$K^\Gamma_l$ is a shell specific constant common for all elements and $\Gamma_A$ is an element specific constant. 
+\begin{align}
+    \gamma_{AB,ll'} &= \frac{1}{\sqrt{R_{AB}^2+\eta^{-2}_{AB,ll'}}}\\
+    \eta_{AB,ll'}&=\frac{1}{2}\left[\eta_A(1+k_A^l)+\eta_B(1+k_B^{l'})\right]
+\end{align}
+$q_l$ is a partial muliken charge. $\eta_A$ and $\eta_B$ are element-specific fit parameters, while $k_A^l$ and $k_B^{l'}$ are element-specific scaling factors for the individual shells ($k_A^l=0$ when $l=0$).
+\begin{align}
+    GAP_A &= \sum_{l \in A} q_l\\
+    q_l &= \sum_{l'\in B}P_{ll'}S_{ll'} = GOP_l
+\end{align}
+
+
+\subsection{Dispersion contribution}
+
