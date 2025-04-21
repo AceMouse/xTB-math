@@ -6,6 +6,21 @@ H = 0
 He = 1
 C = 5
 
+def density_initial_guess(): #TODO: Make good initial guess
+    n = repZeff.shape[0]*3
+    return np.ones((n,n))/n
+
+def overlap_initial_guess():
+    n = repZeff.shape[0]*3
+    return np.eye(n)
+
+density_matrix = density_initial_guess()
+overlap_matrix = overlap_initial_guess()
+REP = False
+ISO2 = False
+ISO3 = False
+EHT = False
+CN = False
 
 #element_ids = np.array([C,C,C])
 #positions = np.array([[1,0,0],[0,1,0],[0,0,1]])
@@ -102,13 +117,13 @@ def repulsion_energy_np(element_ids, positions):
     np.fill_diagonal(energies,0) # repulsion with it self is excluded. 
     repE = 0.5*np.sum(energies)
     return repE
-
-t1 = time.time()
-x1 = repulsion_energy(atoms)
-t2 = time.time()
-x2 = repulsion_energy_np(element_ids, positions)
-t3 = time.time()
-print_res(x1,x2,t1,t2,t3,"repulsion")
+if REP:
+    t1 = time.time()
+    x1 = repulsion_energy(atoms)
+    t2 = time.time()
+    x2 = repulsion_energy_np(element_ids, positions)
+    t3 = time.time()
+    print_res(x1,x2,t1,t2,t3,"repulsion")
 
 def get_partial_mulliken_charges(density_matrix, overlap_matrix):
     return np.sum(density_matrix*overlap_matrix, axis=-1).reshape(-1,3)
@@ -156,23 +171,14 @@ def isotropic_electrostatic_and_XC_energy_second_order_np(element_ids, positions
 #    print(energies*include_shell)
     return np.sum(energies*include_shell)*0.5
 
-def density_initial_guess(): #TODO: Make good initial guess
-    n = repZeff.shape[0]*3
-    return np.ones((n,n))/n
-
-def overlap_initial_guess():
-    n = repZeff.shape[0]*3
-    return np.eye(n)
-
-density_matrix = density_initial_guess()
-overlap_matrix = overlap_initial_guess()
-partial_mulliken_charges = get_partial_mulliken_charges(density_matrix, overlap_matrix)
-t1 = time.time()
-x1 = isotropic_electrostatic_and_XC_energy_second_order(atoms, partial_mulliken_charges)
-t2 = time.time()
-x2 = isotropic_electrostatic_and_XC_energy_second_order_np(element_ids, positions, partial_mulliken_charges)
-t3 = time.time()
-print_res(x1,x2,t1,t2,t3,"isotropic electrostatic and XC energy second order")
+if ISO2:
+    partial_mulliken_charges = get_partial_mulliken_charges(density_matrix, overlap_matrix)
+    t1 = time.time()
+    x1 = isotropic_electrostatic_and_XC_energy_second_order(atoms, partial_mulliken_charges)
+    t2 = time.time()
+    x2 = isotropic_electrostatic_and_XC_energy_second_order_np(element_ids, positions, partial_mulliken_charges)
+    t3 = time.time()
+    print_res(x1,x2,t1,t2,t3,"isotropic electrostatic and XC energy second order")
 
 def isotropic_electrostatic_and_XC_energy_third_order(atoms, charges):
     acc = 0
@@ -188,12 +194,13 @@ def isotropic_electrostatic_and_XC_energy_third_order_np(element_ids, positions,
     energies = (charges[element_ids].flatten()**3)*(2.**(-us))*np.repeat(thirdOrderAtom[element_ids],3)
     return np.sum(energies*include_shell)/3.
 
-t1 = time.time()
-x1 = isotropic_electrostatic_and_XC_energy_third_order(atoms, partial_mulliken_charges)
-t2 = time.time()
-x2 = isotropic_electrostatic_and_XC_energy_third_order_np(element_ids, positions, partial_mulliken_charges)
-t3 = time.time()
-print_res(x1*10**6,x2*10**6,t1,t2,t3,"isotropic electrostatic and XC energy third order")
+if ISO3:
+    t1 = time.time()
+    x1 = isotropic_electrostatic_and_XC_energy_third_order(atoms, partial_mulliken_charges)
+    t2 = time.time()
+    x2 = isotropic_electrostatic_and_XC_energy_third_order_np(element_ids, positions, partial_mulliken_charges)
+    t3 = time.time()
+    print_res(x1*10**6,x2*10**6,t1,t2,t3,"isotropic electrostatic and XC energy third order")
 
 Kll_AB = np.array([
     [1.85,2.04,2.00],
@@ -201,9 +208,7 @@ Kll_AB = np.array([
     [2.00,2.00,2.23]
 ])
 
-# energy_type: The type of energy to compute for
-# s_uv: overlap of the orbitals. how do we get this?? (To get the coefficients to compute the slater orbites I think we need to compute the zeroth iteration for the wavefunction with a start guess?)
-def extended_huckel_energy(atoms):
+def extended_huckel_energy(atoms, density_matrix, overlap_matrix):
 #    n3 = element_ids.shape[0]*3
 #    include_shell = np.zeros((n3,n3))
 #    Kuv_ABs = np.zeros((n3,n3))
@@ -271,7 +276,7 @@ def extended_huckel_energy(atoms):
     return acc
 
 
-def H_EHT_np(element_ids, positions):
+def extended_huckel_energy_np(element_ids, positions, density_matrix, overlap_matrix):
     us = np.repeat(np.array([[0,1,2]]),element_ids.shape[0],axis=0).flatten()
     include_shell = np.repeat(nShell[element_ids], 3) > us
     include_shell = np.outer(include_shell, include_shell)
@@ -300,30 +305,8 @@ def H_EHT_np(element_ids, positions):
     slaterExponents_ABs = slaterExponents * slaterExponents.transpose()
     Y = ((2 * np.sqrt(slaterExponents_ABs)) / (slaterExponents + slaterExponents.transpose() + np.logical_not(include_shell)))**0.5
     res = P_uv * (0.5 * Kuv_AB * s_uv * H_uuvv * X_electronegativities * II * Y * include_shell)
-#    print(P_uv) 
-#    print(s_uv) 
-    return res
+    return np.sum(res)
 
-
-def H_EHT(A_idx, B_idx, u, v, atoms, s_uv):
-    Kuv_AB = Kll_AB[u][v] 
-
-    A,v1 = atoms[A_idx]
-    B,v2 = atoms[B_idx]
-    hl_A = selfEnergy[A]
-    delta_hl_CNA = kCN[A][u]
-    H_uu = hl_A - delta_hl_CNA * GFN2_coordination_number(A_idx, atoms)
-    H_vv = hl_A - delta_hl_CNA * GFN2_coordination_number(B_idx, atoms)
-
-    X_electronegativity = 1 if A == B else 1 + 0.02 * (0.35**2)
-    R_AB = dist(v1,v2)**2
-    k_polyA = shellPoly[A][u]
-    k_polyB = shellPoly[B][v]
-    Rcov_AB = atomicRadii[A] + atomicRadii[B]
-    II = (1 + k_polyA * (R_AB / Rcov_AB)**0.5) * (1 + k_polyB * (R_AB / Rcov_AB)**0.5)
-    Y = ((2 * sqrt(slaterExponent[A][u] * slaterExponent[B][v])) / (slaterExponent[A][u] + slaterExponent[B][v]))**0.5
-
-    return 0.5 * Kuv_AB * s_uv * (H_uu + H_vv) * X_electronegativity * II * Y
 
 
 # CN'_A
@@ -342,8 +325,6 @@ def GFN2_coordination_number(A_idx, atoms):
 
     return acc
 
-#print(H_EHT(0, 1, 0, 0, atoms, 1))
-
 def GFN2_coordination_numbers_np(element_ids, positions):
     R_cov = atomicRadii[element_ids]
     R_cov_stack = np.broadcast_to(R_cov, (R_cov.shape[0], R_cov.shape[0])) 
@@ -354,20 +335,20 @@ def GFN2_coordination_numbers_np(element_ids, positions):
     coordination_numbers = np.sum(res, axis=1)
     return coordination_numbers
 
+if CN:
+    t1 = time.time()
+    x1 = 0
+    for A_idx,_ in enumerate(atoms):
+        x1 += GFN2_coordination_number(A_idx, atoms)
+    t2 = time.time()
+    x2 = np.sum(GFN2_coordination_numbers_np(element_ids, positions))
+    t3 = time.time()
+    print_res(x1,x2,t1,t2,t3,"coordination numbers")
 
-t1 = time.time()
-x1 = 0
-for A_idx,_ in enumerate(atoms):
-    x1 += GFN2_coordination_number(A_idx, atoms)
-t2 = time.time()
-x2 = np.sum(GFN2_coordination_numbers_np(element_ids, positions))
-t3 = time.time()
-print_res(x1,x2,t1,t2,t3,"coordination numbers")
-
-
-t1 = time.time()
-x1 = extended_huckel_energy(atoms)
-t2 = time.time()
-x2 = np.sum(H_EHT_np(element_ids,positions))
-t3 = time.time()
-print_res(x1,x2,t1,t2,t3,"extended huckel energy")
+if EHT:
+    t1 = time.time()
+    x1 = extended_huckel_energy(atoms, density_matrix, overlap_matrix)
+    t2 = time.time()
+    x2 = extended_huckel_energy_np(element_ids, positions, density_matrix, overlap_matrix)
+    t3 = time.time()
+    print_res(x1,x2,t1,t2,t3,"extended huckel energy")
