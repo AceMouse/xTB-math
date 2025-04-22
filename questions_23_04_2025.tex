@@ -1,0 +1,101 @@
+\documentclass{article}
+\usepackage{amsmath}
+\usepackage{braket}
+
+\makeatletter
+\newcommand{\q}[1]{\textbf{QUESTION: #1}}
+\newcommand\E{\@ifnextchar[{\@with}{\@without}}
+\def\@with[#1]#2{E_{#2}^{(#1)}}
+\def\@without#1{E_{#1}}
+\makeatother
+
+\makeatletter
+\newcommand\footnoteref[1]{\protected@xdef\@thefnmark{\ref{#1}}\@footnotemark}
+\makeatother
+
+\begin{document}
+
+\section{Gaussian functions per reference system}
+\noindent
+The Gaussian weighting for each reference system is given by:
+\begin{equation}
+  W_A^r(CN_{cov}^A, CN_{cov}^{A,r}) = \sum_{j=1}^{N_{gauss}} \frac{1}{\mathcal{N}} \exp\left[-6j \cdot (CN_{cov}^A - CN_{cov}^{A,r})^2\right]
+\end{equation}
+
+\noindent
+with
+\begin{equation}
+  \sum_{r}^{N_{A,ref}} W_A^r(CN_{cov}^A, CN_{cov}^{A,r}) = 1
+\end{equation}
+
+\vspace{10pt}
+\noindent
+\(\mathcal{N}\) is a normalization constant.
+
+\noindent
+The number of Gaussian functions per reference system \(N_{gauss}\) is mostly one, but equal to three for \(CN_{cov}^{A,r} = 0\) and reference systems with similar coordination number.
+
+\q{How do we obtain the number of gaussian functions per reference system (\(N_{gauss})\)?}
+
+\q{How or where do we get the normalization constant?}
+
+
+
+\section{SAD - Superposition of Atomic Densities}
+
+The superposition of atomic densities(SAD) is an approach to obtain a good approximation of a collection of atoms, to be used as an initial guess for solving the self-consistent field(SCF) equation.
+
+As originally implemented in DISCO, the molecular electron density can be obtained by adding the densities of all the constituting atoms.
+
+
+%https://pyscf.org/user/scf.html#initial-guess
+%https://sci-hub.box/10.1002/jcc.20393
+
+This is how we get the density matrix for an isolated atom?
+
+\begin{equation}
+  \rho_0 = \sum_A \rho_0^A
+\end{equation}
+\begin{equation}
+  D_{ij} = \sum_a^{occ} c_{ia} c_{ja}
+\end{equation}
+
+\q{For each atom \(\rho_0^A\) do we compute \(D_{ij}\)?}
+
+To get the coefficients we need to solve SCF for each atom?
+The SAD method is then the sum of all of these?
+
+\q{Are the above two lines correct, and is the SCF equation below the one we need to use?}
+
+Direct SCF Approach
+\begin{equation}
+\begin{split}
+  \Delta F_{ab} = &(c_{ia}c_{jb} + c_{ja}c_{ib})\\
+  &\Delta F_{ij} + (c_{ia}c_{kb} + c_{ka}c_{ib})\\
+  &\Delta F_{ik} + (c_{ia}c_{lb} + c_{la}c_{ib})\\
+  &\Delta F_{il} + (c_{ja}c_{kb} + c_{ka}c_{jb})\\
+  &\Delta F_{jk} + (c_{ja}c_{lb} + c_{la}c_{jb})\\
+  &\Delta F_{jl} + (c_{ka}c_{lb} + c_{la}c_{kb}) \Delta F_{kl}\\
+  &= l_{ijkl}(4E_{ij}^{ab}D_{kl} + 4D_{ij}E_{kl}^{ab} - E_{ik}^{ab}D_{jl} - D_{ik}E_{jl}^{ab} - E_{il}^{ab}D_{jk} - D_{il}E_{jk}^{ab})
+\end{split}
+\end{equation}
+where
+\begin{equation}
+  E_{ij}^{ab} = c_{ia}c_{jb} + c_{ja}c_{ib}
+\end{equation}
+
+
+
+\section{Questions for Albert}
+
+\q{Can you shed some light on where and how the xTB program computes the initial guess?}
+
+\vspace{10pt}
+\noindent
+\q{Does the xTB program compute the self-consistent field(SCF) or is that part of an external project?}
+
+\vspace{10pt}
+\noindent
+\q{How and where is the overlap matrix computed? Which terms are needed?}
+
+\end{document}
