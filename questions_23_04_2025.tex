@@ -60,12 +60,12 @@ This is how we get the density matrix for an isolated atom?
   D_{ij} = \sum_a^{occ} c_{ia} c_{ja}
 \end{equation}
 
-\q{For each atom \(\rho_0^A\) do we compute \(D_{ij}\)?}
+To get the coefficients we need to solve SCF for each atom.
+The SAD method is then the sum of all of these.
 
-To get the coefficients we need to solve SCF for each atom?
-The SAD method is then the sum of all of these?
-
-\q{Are the above two lines correct, and is the SCF equation below the one we need to use?}
+\vspace{10pt}
+\noindent
+\q{How can we get the initial guess for the Fock matrix and Coefficient matrices needed to run SCF on the individual atoms?}
 
 Direct SCF Approach
 \begin{equation}
@@ -97,5 +97,9 @@ where
 \vspace{10pt}
 \noindent
 \q{How and where is the overlap matrix computed? Which terms are needed?}
+
+\vspace{10pt}
+\noindent
+\q{How do you get your initial guess for the Fock matrix and Coefficient matrices needed to run SCF on the individual atoms?}
 
 \end{document}
