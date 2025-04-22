@@ -4,7 +4,7 @@
     \mn{F^{GFN2-xTB}} =  \mn{H^{EHT}} + \mn{F^{IES+IXC}} + &\mn{F^{AES}}+\mn{F^{AXC}}+\mn{F^{D4}}, \\&\forall \mu \in A, \nu \in B
 \end{split}
 \end{equation}
-\subsection{Isotropic Electrostratic and Exchange-correlation contribution}
+\subsection{Isotropic Electrostatic and Exchange-correlation contribution}
 \begin{equation}
 \begin{split}
     \mn{F^{IES+IXC}} = &- \frac{1}{2}\mn{S}\sum_C\sum_{l''}(\gamma_{AC,ll''}+\gamma_{BC,l'l''})q_{C,l''}\\
@@ -20,12 +20,19 @@ $K^\Gamma_l$ is a shell specific constant common for all elements and $\Gamma_A$
     \gamma_{AB,ll'} &= \frac{1}{\sqrt{R_{AB}^2+\eta^{-2}_{AB,ll'}}}\\
     \eta_{AB,ll'}&=\frac{1}{2}\left[\eta_A(1+k_A^l)+\eta_B(1+k_B^{l'})\right]
 \end{align}
-$q_l$ is a partial muliken charge. $\eta_A$ and $\eta_B$ are element-specific fit parameters, while $k_A^l$ and $k_B^{l'}$ are element-specific scaling factors for the individual shells ($k_A^l=0$ when $l=0$).
+$q_l$ is a partial Mulliken charge. $\eta_A$ and $\eta_B$ are element-specific fit parameters, while $k_A^l$ and $k_B^{l'}$ are element-specific scaling factors for the individual shells ($k_A^l=0$ when $l=0$).
 \begin{align}
-    GAP_A &= \sum_{l \in A} q_l\\
-    q_l &= \sum_{l'\in B}P_{ll'}S_{ll'} = GOP_l
+    GAP_A &= \sum_{l \in A} q_{A,l}\\
+    q_{A,l} &= \sum_{l'\in B}P_{ll'}S_{ll'} = GOP_l
 \end{align}
 
 
 \subsection{Dispersion contribution}
-
+\begin{align}
+    \mn{F^{D4}} &= -\frac{1}{2}\mn{S}(d_A+d_B), \forall \mu \in A, \nu \in B\\
+\begin{split}
+    d_A &= \sum_r^{N_{A,ref}} \frac{\partial \xi^r_A(q_A,q_{A,r})}{\partial q_A}\sum_B\sum_s^{N_{B,ref}}\sum_{n=6,8}\\
+    &\quad\quad W_A^r(CN^A_{cov},CN^{A,r}_{cov})W_B^s(CN^B_{cov},CN^{B,s}_{cov})\xi^s_B(q_B,q_{B,s})\times\\
+    &\quad\quad s_n\frac{C^{AB,ref}_n}{R_{AB}^n}f_n^{damp,BJ}(R_{AB}) 
+\end{split}
+\end{align}
