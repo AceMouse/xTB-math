@@ -17,7 +17,7 @@ $R_{AB}$ is the distance between the A and B atoms.
 \begin{align}
     \E{EHT} &= \sum_{\mu\nu}P_{\mu\nu}H^{EHT}_{\mu\nu}\\
     P_{\mu\nu} &= P^0_{\mu\nu}+ \delta P_{\mu\nu}\\
-    P^0_{\mu\nu}&=\sum_AP_A^0\\ 
+    P^0&=\sum_AP_A^0\\ 
     \delta P_{\mu\nu} &=??\quad\text{comes from the iteration, can be skipped for now}
 \end{align}
 Where $P_A^0$ is the neutral atomic reference density of A. This is known as Superposition of Atomic Densities or SAD.  
@@ -39,46 +39,6 @@ Where $P_A^0$ is the neutral atomic reference density of A. This is known as Sup
     &\quad -3(\pmb{\mu}_A^T\pmb{R}_{AB})(\pmb{\mu}_B^T\pmb{R}_{AB}) + (\pmb{\mu}_A^T\pmb{\mu}_B)R_{AB}^2] \}\\
 \end{split}
 \end{equation}
-$\pmb{\mu}_A$ is the cumulative atomic dipole moment of atom A and $\pmb{\Theta}_A$ is the corresponding traceless quadrupole moment. Traceless simply means that the sum of the diagonal elements is 0. The curly braces and brackets are used in the same way as normal parenthesis for showing order of operations. $q_A$ is the atomic charge of atom A. 
-\begin{align}
-    \Theta_A^{\alpha\beta} &= \frac{3}{2} \theta_A^{\alpha\beta} - \frac{\delta_{\alpha\beta}}{2} \left( \theta_A^{xx} + \theta_A^{yy} + \theta_A^{zz} \right)\\
-    \theta_A^{\alpha\beta} &= \sum_{l' \in A} \sum_{l} P_{l} \left( \alpha_A D_{ll'}^{\beta} + \beta_A D_{ll'}^{\alpha} - \alpha_A \beta_A S_{ll'} - Q_{ll'}^{\alpha\beta} \right)\\
-    q_A &= Z_A - GAP_A\\
-    \mu_A^{\alpha} &= \sum_{l' \in A} \sum_{l} P_{l'l} \left( \alpha_A S_{l'l} - D_{l'l}^{\alpha} \right)\\
-D_{ll'}^{\alpha} &= \braket{ \phi_{l} | \alpha_i | \phi_{l'}}\\
-Q_{ll'}^{\alpha\beta} &= \braket{ \phi_{l} | \alpha_i\beta_i | \phi_{l'}}
-\end{align}
-$\alpha$ and $\beta$ are Cartesian components labled $(x,y,z)^T$ with atom A being centered in $v_A = (x_i,y_i,y_z)^T$ where i is a form of pointer/label dereferencing. $\delta_{\alpha\beta}$ is just the delta function, i.e is is 1 if $\alpha$ and $\beta$ are the same label and 0 otherwise, this serves to include the term only for the diagonal. 
-
-\begin{equation}
-    \pmb{\Theta}_A = 
-    \begin{pmatrix}
-        \Theta_A^{xx} & \Theta_A^{xy} & \Theta_A^{xz}\\
-        \Theta_A^{yx} & \Theta_A^{yy} & \Theta_A^{yz}\\
-        \Theta_A^{zx} & \Theta_A^{zy} & \Theta_A^{zz}\\
-    \end{pmatrix}
-\end{equation}
-\begin{equation}
-    \pmb{\mu}_A = 
-    \begin{pmatrix}
-        \mu_A^{x}\\
-        \mu_A^{y}\\
-        \mu_A^{z}\\
-    \end{pmatrix}
-\end{equation}
-\begin{equation}
-    \pmb{R}_{AB} = v_A-v_B
-\end{equation}
-
-
-\begin{align}
-    f_n(R_{AB}) &= \frac{f_{damp}(a_n,R_{AB})}{R_{AB}^n}=\frac{1}{R_{AB}^n}\frac{1}{1+6\left(\frac{R_0^{AB}}{R_{AB}}\right)^{a_n}}\\
-    R_0^{AB} &= 0.5 ({R^A_0}'+ {R^B_0}')\\
-    {R^A_0}' &= \begin{cases}R^A_0 + \frac{R_{max}-R^A_0}{1+exp[-4(CN_A'-N_{val}-\Delta_{val})]} & \text{if }N_{val}\text{ is given}\\5.0 \text{ bohrs} & \text{otherwise}\end{cases}\\
-        R_{max} &= 5.0 \text{ bohrs}\\
-    \Delta_{val} &= 1.2
-\end{align}
-$R_0^A$ is a fitted value for 12 elements and 5.0 for the rest. $a_n$ are adjusted global parameters. 
 
 
 
@@ -86,7 +46,7 @@ $R_0^A$ is a fitted value for 12 elements and 5.0 for the rest. $a_n$ are adjust
 \begin{equation}
     \E{AXC} = \sum_A (f^{\mu_A}_{XC}|\pmb{\mu}_A|^2 + f^{\Theta_A}_{XC}||\pmb{\Theta}_A||^2)
 \end{equation}
-Where $f^{\mu_A}_{XC}$ and $f^{\Theta_A}_{XC}$ are fitted values. What norms are these?
+What norms are these?
 
 \newpage
 

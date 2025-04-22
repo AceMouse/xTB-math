@@ -26,7 +26,69 @@ $q_l$ is a partial Mulliken charge. $\eta_A$ and $\eta_B$ are element-specific f
     q_{A,l} &= \sum_{l'\in B}P_{ll'}S_{ll'} = GOP_l
 \end{align}
 
+\subsection{Anisotropic Electrostatic and Exchange-correlation contribution}
+\begin{align}
+    \begin{split}
+    \mn{F^{AES}}+\mn{F^{AXC}} &= \frac{1}{2}\mn{S}\left[V_S(\pmb{R}_B)+ V_S(\pmb{R}_C)\right]\\
+    &+ \frac{1}{2}\mn{\pmb{D}^T}\left[\pmb{V}_D(\pmb{R}_B)+\pmb{V}_D(\pmb{R}_C)\right]\\
+    &+ \frac{1}{2} \sum_{\alpha,\beta\in\{x,y,z\}} \mn{Q^{\alpha\beta}}\left[V_Q^{\alpha\beta}(\pmb{R}_B)+ V_Q^{\alpha\beta}(\pmb{R}_C)\right]
+    \end{split}\\
+    \mn{\pmb{D}^T} &=
+    \begin{pmatrix}
+        \mn{D^x} &
+        \mn{D^y} &
+        \mn{D^z}\\
+    \end{pmatrix}\\
+    V_S(\pmb{R}_C) &= \sum_A \left\{
+        \pmb{R}_C^T\left[
+            f_5(R_{AC})\pmb{\mu}_AR^2_{AC} - 
+            \pmb{R}_{AC}3f_5(R_{AC})(\pmb{\mu}_A^T\pmb{R}^2_{AC}) - 
+            f_3(R_{AC})q_A\pmb{R}_AC
+        \right]
+        \right\}
+\end{align}
 
+$\pmb{\mu}_A$ is the cumulative atomic dipole moment of atom A and $\pmb{\Theta}_A$ is the corresponding traceless quadrupole moment. Traceless simply means that the sum of the diagonal elements is 0. The curly braces and brackets are used in the same way as normal parenthesis for showing order of operations. $q_A$ is the atomic charge of atom A. 
+\begin{align}
+    \Theta_A^{\alpha\beta} &= \frac{3}{2} \theta_A^{\alpha\beta} - \frac{\delta_{\alpha\beta}}{2} \left( \theta_A^{xx} + \theta_A^{yy} + \theta_A^{zz} \right)\\
+    \theta_A^{\alpha\beta} &= \sum_{l' \in A} \sum_{l} P_{l} \left( \alpha_A D_{ll'}^{\beta} + \beta_A D_{ll'}^{\alpha} - \alpha_A \beta_A S_{ll'} - Q_{ll'}^{\alpha\beta} \right)\\
+    q_A &= Z_A - GAP_A\\
+    \mu_A^{\alpha} &= \sum_{l' \in A} \sum_{l} P_{l'l} \left( \alpha_A S_{l'l} - D_{l'l}^{\alpha} \right)\\
+D_{ll'}^{\alpha} &= \braket{ \phi_{l} | \alpha_i | \phi_{l'}}\\
+Q_{ll'}^{\alpha\beta} &= \braket{ \phi_{l} | \alpha_i\beta_i | \phi_{l'}}
+\end{align}
+$\alpha$ and $\beta$ are Cartesian components labled $(x,y,z)^T$ with atom A being centered in $\pmb{R}_A = (x_i,y_i,y_z)^T$ where i is a form of pointer/label dereferencing. $\delta_{\alpha\beta}$ is just the delta function, i.e is is 1 if $\alpha$ and $\beta$ are the same label and 0 otherwise, this serves to include the term only for the diagonal. 
+
+\begin{equation}
+    \pmb{\Theta}_A = 
+    \begin{pmatrix}
+        \Theta_A^{xx} & \Theta_A^{xy} & \Theta_A^{xz}\\
+        \Theta_A^{yx} & \Theta_A^{yy} & \Theta_A^{yz}\\
+        \Theta_A^{zx} & \Theta_A^{zy} & \Theta_A^{zz}\\
+    \end{pmatrix}
+\end{equation}
+\begin{equation}
+    \pmb{\mu}_A = 
+    \begin{pmatrix}
+        \mu_A^{x}\\
+        \mu_A^{y}\\
+        \mu_A^{z}\\
+    \end{pmatrix}
+\end{equation}
+\begin{equation}
+    \pmb{R}_{AB} = \pmb{R}_A-\pmb{R}_B
+\end{equation}
+
+
+\begin{align}
+    f_n(R_{AB}) &= \frac{f_{damp}(a_n,R_{AB})}{R_{AB}^n}=\frac{1}{R_{AB}^n}\frac{1}{1+6\left(\frac{R_0^{AB}}{R_{AB}}\right)^{a_n}}\\
+    R_0^{AB} &= 0.5 ({R^A_0}'+ {R^B_0}')\\
+    {R^A_0}' &= \begin{cases}R^A_0 + \frac{R_{max}-R^A_0}{1+exp[-4(CN_A'-N_{val}-\Delta_{val})]} & \text{if }N_{val}\text{ is given}\\5.0 \text{ bohrs} & \text{otherwise}\end{cases}\\
+        R_{max} &= 5.0 \text{ bohrs}\\
+    \Delta_{val} &= 1.2
+\end{align}
+$R_0^A$ is a fitted value for 12 elements and 5.0 for the rest. $a_n$ are adjusted global parameters. 
+Where $f^{\mu_A}_{XC}$ and $f^{\Theta_A}_{XC}$ are fitted values. 
 \subsection{Dispersion contribution}
 \begin{align}
     \mn{F^{D4}} &= -\frac{1}{2}\mn{S}(d_A+d_B), \forall \mu \in A, \nu \in B\\
