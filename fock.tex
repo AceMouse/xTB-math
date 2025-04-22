@@ -39,13 +39,42 @@ $q_l$ is a partial Mulliken charge. $\eta_A$ and $\eta_B$ are element-specific f
         \mn{D^y} &
         \mn{D^z}\\
     \end{pmatrix}\\
-    V_S(\pmb{R}_C) &= \sum_A \left\{
-        \pmb{R}_C^T\left[
+\end{align}
+\begin{align}
+    \begin{split}
+        V_S(\pmb{R}_C)& = \sum_A \Biggl\{
+        \pmb{R}_C^T\biggl[
             f_5(R_{AC})\pmb{\mu}_AR^2_{AC} - 
-            \pmb{R}_{AC}3f_5(R_{AC})(\pmb{\mu}_A^T\pmb{R}^2_{AC}) - 
+            \pmb{R}_{AC}3f_5(R_{AC})(\pmb{\mu}_A^T\pmb{R}^2_{AC}) \\&- 
             f_3(R_{AC})q_A\pmb{R}_AC
-        \right]
-        \right\}
+        \biggr] 
+    - f_5(R_{AC})\pmb{R}^T_{AC}\pmb{\Theta}_A\pmb{R}_{AC}
+          - f_3(R_{AC})\pmb{\mu}^T_{A}\pmb{R}_{AC}\\
+          &+q_Af_5(R_{AC})\frac{1}{2}\pmb{R}_C^2\pmb{R}_{AC}^2 
+          - \frac{3}{2}q_Af_5(R_{AC})\sum_{\alpha\beta}\alpha_{AB}\beta_{AB}\alpha_{C}\beta_{C}\Biggr\}\\
+      &+2f_{XC}^{\mu_C}\pmb R^T_C\pmb\mu_C - f_{XC}^{\Theta_C}\pmb R^T_C\biggl[3\pmb\Theta_C-\text{Tr}(\pmb\Theta_C)\pmb I\biggr]\pmb R_C
+    \end{split}
+\end{align}
+\begin{align}
+    \begin{split}
+        V_D(\pmb{R}_C)
+            &= \sum_A \Biggl[
+                \pmb{R}_{AC}3f_5(R_{AC})(\pmb{\mu}_A^T\pmb{R}_{AC}) -
+                f_5(R_{AC})\pmb{\mu}_AR^2_{AC} + 
+                f_3(R_{AC})q_A\pmb{R}_{AC}\\
+            &-q_Af_5(R_{AC})\pmb{R}_CR_{AC}^2 + 
+                3q_Af_5(R_{AC})\pmb{R}_{AC}\sum_\alpha\alpha_C\alpha_{AC}\Biggr]\\
+      &-2f_{XC}^{\mu_C}\pmb\mu_C - 2f_{XC}^{\Theta_C}\biggl[3\pmb\Theta_C-\text{Tr}(\pmb\Theta_C)\pmb I\biggr]\pmb R_C
+    \end{split}
+\end{align}
+\begin{align}
+    \begin{split}
+        V_Q^{\alpha\beta}(\pmb{R}_C)
+            &= -\sum_A q_Af_5(R_{AC})\left[          
+                \frac{3}{2}\alpha_{AC}\beta_{AC}- \frac{1}{2}R_{AB}^2 % TODO: is AB correct here!?
+                \right]\\
+        &-f_{XC}^{\Theta_C}\left[3\pmb\Theta_C^{\alpha\beta}-\delta_{\alpha\beta}\sum_\alpha\pmb\Theta_C^{\alpha\alpha}\right]
+    \end{split}
 \end{align}
 
 $\pmb{\mu}_A$ is the cumulative atomic dipole moment of atom A and $\pmb{\Theta}_A$ is the corresponding traceless quadrupole moment. Traceless simply means that the sum of the diagonal elements is 0. The curly braces and brackets are used in the same way as normal parenthesis for showing order of operations. $q_A$ is the atomic charge of atom A. 
