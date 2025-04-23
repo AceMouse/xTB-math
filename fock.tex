@@ -83,8 +83,8 @@ $\pmb{\mu}_A$ is the cumulative atomic dipole moment of atom A and $\pmb{\Theta}
     \theta_A^{\alpha\beta} &= \sum_{l' \in A} \sum_{l} P_{l} \left( \alpha_A D_{ll'}^{\beta} + \beta_A D_{ll'}^{\alpha} - \alpha_A \beta_A S_{ll'} - Q_{ll'}^{\alpha\beta} \right)\\
     q_A &= Z_A - GAP_A\\
     \mu_A^{\alpha} &= \sum_{l' \in A} \sum_{l} P_{l'l} \left( \alpha_A S_{l'l} - D_{l'l}^{\alpha} \right)\\
-D_{ll'}^{\alpha} &= \braket{ \phi_{l} | \alpha_i | \phi_{l'}}\\
-Q_{ll'}^{\alpha\beta} &= \braket{ \phi_{l} | \alpha_i\beta_i | \phi_{l'}}
+    D_{ll'}^{\alpha} &= \braket{ \phi_{l} | \alpha_i | \phi_{l'}} = \alpha_i S_{ll'}\\
+    Q_{ll'}^{\alpha\beta} &= \braket{ \phi_{l} | \alpha_i\beta_i | \phi_{l'}} = \beta_i D_{ll'}^\alpha
 \end{align}
 $\alpha$ and $\beta$ are Cartesian components labled $(x,y,z)^T$ with atom A being centered in $\pmb{R}_A = (x_i,y_i,z_i)^T$ where i is a form of pointer/label dereferencing. $\delta_{\alpha\beta}$ is just the delta function, i.e is is 1 if $\alpha$ and $\beta$ are the same label and 0 otherwise, this serves to include the term only for the diagonal. 
 
