@@ -147,6 +147,13 @@ with
 \noindent
 \(\mathcal{N}\) is a normalization constant.
 
+\begin{equation}
+  \mathcal{N} = \sum_{A,\text{ref}=1}^{N^{A,\text{ref}}} \exp\left[-6j \cdot (CN^A - CN^{A,\text{ref}})^2\right]
+\end{equation}
+
+// Write r or ref? CN with or without cov?
+
+\vspace{10pt}
 \noindent
 The number of Gaussian function per reference system \(N_{gauss}\) is mostly one, but equal to three for \(CN_{cov}^{A,r} = 0\) and reference systems with similar coordination number.
 
@@ -159,7 +166,8 @@ The number of Gaussian function per reference system \(N_{gauss}\) is mostly one
 \end{equation}
 
 \noindent
-\(w_j\) are the integration weights, which are derived from a trapeziodal partitioning between the grid points \(j(j \in [1,23])\).
+\(w_j\) are the integration weights, which are derived from a trapeziodal partitioning between the grid points \(j \in \{2, \dots, 22\}\).
+
 
 \noindent
 The isotropically averaged, dynamic dipole-dipole polarizabilites \(\overline{\alpha}\) at the \(j\)th imaginary frequency \(i\omega_j\) are obtained from the self-consistent D4 model; i.e., they are depending on the covalent coordination number and are also charge dependent.
@@ -168,6 +176,58 @@ The isotropically averaged, dynamic dipole-dipole polarizabilites \(\overline{\a
   \overline{\alpha}_A(i\omega_j, q_A, CN_{cov}^A) = \sum_{r}^{N_{A,ref}} \xi_A^r (q_A, q_{A,r}) \overline{\alpha}_{A,r}(i\omega_j, q_{A,r}, CN_{cov}^{A,r}) W_A^r(CN_{cov}^A, CN_{cov}^{A,r})
 \end{equation}
 
+%\begin{equation}
+%  \overline{\alpha}_{A,r}(i\omega_j, q_{A,r}, CN_{cov}^{A,r}) = \sum_{A,\text{ref}=1}^{N^{A,\text{ref}}} \alpha^{A,\text{ref}} (i\omega, z^A) W_A^{A,\text{ref}}
+%\end{equation}
+\begin{equation}
+  \overline{\alpha}_{A,r}(i\omega_j, q_{A,r}, CN_{cov}^{A,r}) = \sum_{A,\text{ref}=1}^{N^{A,\text{ref}}} \alpha^{A,\text{ref}} (i\omega, z^A) W_A^r
+\end{equation}
+
+%\begin{equation} \label{eq:44}
+%  W_A^{A,\text{ref}}(CN^A, CN^{A,\text{ref}}) = \frac{\sum_{j=1}^{N^s} exp\left(-\beta_2 \times j(CN^A - CN^{A,\text{ref}})^2\right)}{\sum_{A,\text{ref}=1}^{N^{A,\text{ref}}} \sum_{j=1}^{N^s} \exp\left(-\beta_2 \times j(CN^A - CN^{A,\text{ref}})^2\right)}
+%\end{equation}
+%
+%\noindent
+%The parameter \(\beta_2 = 6\) is adjusted manually to guarantee a smooth weighting function. // Is \(\beta_2\) just 6?
+%
+%\noindent
+%\(N^s\) is determined at runtime for every reference system.
+
+%\noindent
+%Differences between CN values of reference systems are used to indicate when another more compact Gaussian is necessary.
+%
+%\noindent
+%Reference systems with a sufficiently large CN difference can easily be distinguished from each other within the Gaussian weighting procedure in equation \ref{eq:44} for \(N^s\) = 1.
+%
+%\noindent
+%This might not be true for smaller CN differences.
+%The set of Gaussian functions is enlarged by increasing \(N^s\) in order to add less overlapping functions, which makes the reference systems distinguishable within the Gaussian weighting procedure in equation \ref{eq:44}.
+
+\noindent
+The charge-dependent atomic dynamic polarizability for a single reference system of atom A is given by the product of \(\alpha^{A,\text{ref}}(i\omega)\) and its scaling function as:
+
+%\begin{equation} \label{eq:44}
+%  \alpha^{A,\text{ref}}(i\omega, z^A) = \alpha^{A,\text{ref}}(i\omega) \zeta(z^A, z^{A,\text{ref}})
+%\end{equation}
+\begin{equation}
+  \alpha^{A,\text{ref}}(i\omega, q_A) = \alpha^{A,\text{ref}}(i\omega) \xi_A^r(q_A, q_{A,r})
+\end{equation}
+
+
+%\begin{equation} \label{eq:46}
+%  \alpha^{A,\text{ref}}(i\omega) = \frac{1}{m} \left[\alpha^{AmXn}(i\omega) - \frac{n}{l} \alpha^{X_l}(i\omega) \zeta(z^X, z^{X,\text{ref}})\right]
+%\end{equation}
+\begin{equation} \label{eq:46}
+  \alpha^{A,\text{ref}}(i\omega) = \frac{1}{m} \left[\alpha^{AmXn}(i\omega) - \frac{n}{l} \alpha^{X_l}(i\omega) \xi_A^r(q_X, q_{X,r})\right]
+\end{equation}
+
+// The effective nuclear charges \(z^{X,\text{ref}}\) entering equation \ref{eq:46} are constant values determined once for the respective reference system. (Find out how to get them)
+
+%\noindent
+%An example of the notation for a CN difference within a reference system is \(\Delta CN_{23}\), which indicates the CN difference between reference system A,ref2 and A,ref3.
+
+
+\vspace{10pt}
 \noindent
 The charge-dependency is included via the empirical scaling function \(\xi_A^r\).
 \begin{equation}
