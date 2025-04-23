@@ -2,8 +2,9 @@
 \usepackage{amsmath}
 \usepackage{braket}
 
-\makeatletter
 \newcommand{\q}[1]{\textbf{QUESTION: #1}}
+\newcommand{\A}[1]{\textbf{ANSWER: #1}}
+\makeatletter
 \newcommand\E{\@ifnextchar[{\@with}{\@without}}
 \def\@with[#1]#2{E_{#2}^{(#1)}}
 \def\@without#1{E_{#1}}
@@ -100,7 +101,7 @@ where
 
 \vspace{10pt}
 \noindent
-\q{How and where is the overlap matrix computed? Which terms are needed?}
+\q{How and where is the overlap matrix computed? Do you do the integrations yourself?}
 
 \vspace{10pt}
 \noindent
@@ -115,6 +116,8 @@ where
 \q{How do we get the atomic charges? Is it the mulliken charges?}
 
 
+\A{yas, check equation 24 in main}
+
 \vspace{10pt}
 \noindent
 \q{How do we get the covalent coordination number \(CN_\text{cov}^A\) and \(CN_\text{cov}^{A,r}\) for an atom A?}
@@ -124,12 +127,37 @@ where
 \q{What is \(N_{A,\text{ref}}\)? The number of reference... orbitals? for an atom A?}
 
 
-\vspace{10pt}
+\newpage
 \noindent
 \(\theta_{ABC}\) is the angle between the two edges going from B to the other two atoms.
 
 \noindent
 \q{Is this definition correct? I assume we have the coordinates for each atom in (x,y,z)?}
 
+\A{%partial answer to the assumption only
+    We do have the positions of each atom in terms of (x,y,z)}
+
+\vspace{10pt}
+\noindent
+\q{In the Anisotropic Exchange-correlation energy term $E_{AES} = \sum_A(f_{XC}^{\mu_A}|\pmb\mu_A|^2 + f_{XC}^{\Theta_A}||\pmb\Theta_A||^2)$ Which norms are computed? $|\cdot |^2$ is presumably the Euclidean norm, how about the matrix norm?}
+
+\vspace{10pt}
+\noindent
+\q{If $\alpha$ is a cartesian component say the label $x$, is $\alpha_i$ then the value associated with that label? (see eq. 27b,c in the GFN2 paper)}
+
+\vspace{10pt}
+\noindent
+\q{For calculating $V_Q^{\alpha\beta}$ in eq. 44 in the GFN2 paper, which B are we using in the $R_{AB}^2$ term? (should it be a C?)}\\
+\q{$\alpha_{AC}^2$ is the cartesian component $\alpha$ in the $R_{AC}$ vector, correct? (see eq. 44 in the GFN2 paper)}
+\begin{align*}
+    \begin{split}
+        V_Q^{\alpha\beta}(\pmb{R}_C)
+            &= -\sum_A q_Af_5(R_{AC})\left[          
+                \frac{3}{2}\alpha_{AC}\beta_{AC}- \frac{1}{2}R_{AB}^2 % TODO: is AB correct here!?
+                \right]\\
+        &-f_{XC}^{\Theta_C}\left[3\pmb\Theta_C^{\alpha\beta}-\delta_{\alpha\beta}\sum_\alpha\pmb\Theta_C^{\alpha\alpha}\right]
+    \end{split}
+\end{align*}
+\q{Is the dispersion constant $s_{42} = 0.5$? (it seems this way in the code, but is not mentioned anywhere.)}
 
 \end{document}
