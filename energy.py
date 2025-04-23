@@ -274,6 +274,14 @@ def extended_huckel_energy(atoms, density_matrix, overlap_matrix):
 #    print(s_uvs) 
     return acc
 
+def huckel_matrix_np(element_ids):
+    hl_X = selfEnergy[element_ids].flatten()
+    delta_hl_CNX = kCN[element_ids, :3].flatten()
+    coordination_numbers = np.repeat(GFN2_coordination_numbers_np(element_ids, positions),3)
+    H_xx = hl_X - delta_hl_CNX * coordination_numbers
+    H_xxs = np.broadcast_to(H_xx, (H_xx.shape[0], H_xx.shape[0]))
+    H_uuvv = H_xxs + H_xxs.transpose()
+    return H_uuvv
 
 def extended_huckel_energy_np(element_ids, positions, density_matrix, overlap_matrix):
     us = np.repeat(np.array([[0,1,2]]),element_ids.shape[0],axis=0).flatten()
@@ -282,12 +290,7 @@ def extended_huckel_energy_np(element_ids, positions, density_matrix, overlap_ma
     Kuv_AB = np.tile(Kll_AB, (element_ids.shape[0], element_ids.shape[0]))
     P_uv = density_matrix#np.take(density_matrix[np.repeat(element_ids*3, 3) + us], np.repeat(element_ids*3, 3) + us, axis = 1)
     s_uv = overlap_matrix#np.take(overlap_matrix[np.repeat(element_ids*3, 3) + us], np.repeat(element_ids*3, 3) + us, axis = 1)
-    hl_X = selfEnergy[element_ids].flatten()
-    delta_hl_CNX = kCN[element_ids, :3].flatten()
-    coordination_numbers = np.repeat(GFN2_coordination_numbers_np(element_ids, positions),3)
-    H_xx = hl_X - delta_hl_CNX * coordination_numbers
-    H_xxs = np.broadcast_to(H_xx, (H_xx.shape[0], H_xx.shape[0]))
-    H_uuvv = H_xxs + H_xxs.transpose()
+    H_EHT = huckel_matrix_np(element_ids)
     electronegativity = paulingEN[np.repeat(element_ids, 3)]
     electronegativities = np.broadcast_to(electronegativity, (electronegativity.shape[0], electronegativity.shape[0]))
     X_electronegativities = 1+kEN*((electronegativities - electronegativities.transpose())**2)
@@ -303,7 +306,7 @@ def extended_huckel_energy_np(element_ids, positions, density_matrix, overlap_ma
     slaterExponents = np.broadcast_to(slaterExponent[element_ids, :3].flatten(), (element_ids.shape[0]*3,element_ids.shape[0]*3))
     slaterExponents_ABs = slaterExponents * slaterExponents.transpose()
     Y = ((2 * np.sqrt(slaterExponents_ABs)) / (slaterExponents + slaterExponents.transpose() + np.logical_not(include_shell)))**0.5
-    res = P_uv * (0.5 * Kuv_AB * s_uv * H_uuvv * X_electronegativities * II * Y * include_shell)
+    res = P_uv * (0.5 * Kuv_AB * s_uv * H_EHT * X_electronegativities * II * Y * include_shell)
     return np.sum(res)
 
 
