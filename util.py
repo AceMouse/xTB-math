@@ -67,3 +67,9 @@ def print_res1(x1,t1,t2,label):
 
 def get_partial_mulliken_charges(density_matrix, overlap_matrix):
     return np.sum(density_matrix*overlap_matrix, axis=-1).reshape(-1,3)
+
+def get_atomic_charges(density_matrix, overlap_matrix, element_ids):
+    GAPs = np.sum(get_partial_mulliken_charges(density_matrix, overlap_matrix),axis=-1)
+    Zs = element_ids + 1
+    return Zs - GAPs 
+
