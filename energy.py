@@ -287,7 +287,7 @@ if EHT:
 # H0: Core hamiltonian
 # H0_noovlp: Core Hamiltonian without overlap contribution
 # trans: what is this?
-def build_SDQH0(nat, nao, caoshell, saoshell, trans, sint, dpint, qpint, H0, H0_noovlp): # TODO: We need these arg values
+def build_SDQH0(hData, nat, nao, caoshell, saoshell, trans, sint, dpint, qpint, H0, H0_noovlp): # TODO: We need these arg values
     at = np.zeros(nat, dtype=np.int32)
     # Cartesian coordinates
     xyz = np.zeros((3, nat), dtype=np.float64)
@@ -341,7 +341,7 @@ def build_SDQH0(nat, nao, caoshell, saoshell, trans, sint, dpint, qpint, H0, H0_
                     zi = slaterExponent[izp][ish]
                     zj = slaterExponent[jzp][jsh]
                     zetaij = (2 * sqrt(zi*zj)/(zi+zj))**wExp
-                    # TODO: Call h0scal
+                    km = h0scal(hData, il, jl, izp, jzp, (valenceShell[izp, ish] != 0), (valenceShell[jzp, jsh] != 0)) # TODO: Where do we get valenceShell?
 
                     hav = 0.5 * km * (hii + hjj) * zetaij
 
@@ -441,3 +441,27 @@ def lin(i1, i2):
     idum1 = max(i1,i2)
     idum2 = min(i1,i2)
     return idum2 + idum1 * (idum1-1)/2
+
+
+def h0scal(hData, il, jl, izp, jzp, valaoi, valaoj):
+    km = 0.0
+
+    # Valence
+    if (valaoi and valaoj):
+        electronegativity_izp = hData.electronegativity(izp) # NOTE: Should this be the same as X_electronegativity?
+        electronegativity_jzp = hData.electronegativity(jzp)
+        den = (electronegativity_izp - electronegativity_jzp)**2
+        enpoly = (1.0 + hData.enScale[il, jl] * den * (1.0 + hData.enScale4 * den)) # NOTE: What is enScale and enScale4?
+        km = hData.kScale[il, jl] * enpoly * hData.pairParam[jzp, izp] # NOTE: what is kScale and pairParam?
+        return
+
+    # "DZ" functions (on H for GFN or 3S for EA calc on all atoms)
+    if (not valaoi and not valaoj):
+        km = hData.kDiff # NOTE: what is kDiff
+        return
+    if (not valaoi and valaoj):
+        km = 0.5 * (hData.kScale[jl, jl] + hData.kDiff)
+        return
+    if (not valaoj and valaoi):
+        km = 0.5 * (hData.kScale[il, il] + hData.kDiff)
+    return km
