@@ -286,17 +286,29 @@ if EHT:
 # nao: Number of spherical AOs (SAOs)
 # H0: Core hamiltonian
 # H0_noovlp: Core Hamiltonian without overlap contribution
-def build_SDQH0(nat, nao, hamiltonian_data, caoshell, saoshell, H0, H0_noovlp): # TODO: We need these arg values
+# trans: what is this?
+def build_SDQH0(nat, nao, caoshell, saoshell, trans, sint, dpint, qpint, H0, H0_noovlp): # TODO: We need these arg values
     at = np.zeros(nat, dtype=np.int32)
     # Cartesian coordinates
-    xyz = np.zeros((nat, 3), dtype=np.float64)
+    xyz = np.zeros((3, nat), dtype=np.float64)
     # Map shell of atom to index in CAO space (lowest Cart. component is taken)
     # caoshell: atom number -> basis function
 
-    il, jl = 0
-    hii, hjj, zi, zj, km = 0.0
+    H0[:] = 0.0
+    H0_noovlp[:] = 0.0
+    sint = np.zeros((nao, nao), dtype=np.float64)
+    dpint = np.zeros((3, nao, nao), dtype=np.float64)
+    qpint = np.zeros((6, nao, nao), dtype=np.float64)
+
+    il = 0
+    jl = 0
+    hii = 0.0
+    hjj = 0.0
+    zi = 0.0
+    zj = 0.0
+    km = 0.0
     ss = np.zeros((6, 6), dtype=np.float64)
-    dd = np.zeros((6, 6, 3), dtype=np.float64)
+    dd = np.zeros((3, 6, 6), dtype=np.float64)
     qq = np.zeros((6, 6, 6), dtype=np.float64)
     tmp = np.zeros((6, 6), dtype=np.float64)
 
@@ -326,8 +338,8 @@ def build_SDQH0(nat, nao, hamiltonian_data, caoshell, saoshell, H0, H0_noovlp): 
                     hjj = selfEnergy[jat, jsh]
 
                     # we scale the two shells depending on their exponent
-                    zi = slaterExponents[izp, ish]
-                    zj = slaterExponents[jzp, jsh]
+                    zi = slaterExponent[izp][ish]
+                    zj = slaterExponent[jzp][jsh]
                     zetaij = (2 * sqrt(zi*zj)/(zi+zj))**wExp
                     # TODO: Call h0scal
 
