@@ -1,5 +1,5 @@
 from math import sqrt, exp
-from gfn2 import kExpLight, kExpHeavy, repAlpha, repZeff, nShell, chemicalHardness, shellHardness, thirdOrderAtom, kshell, selfEnergy, kCN, shellPoly, slaterExponent, atomicRadii, paulingEN, kEN
+from gfn2 import kExpLight, kExpHeavy, repAlpha, repZeff, nShell, chemicalHardness, shellHardness, thirdOrderAtom, kshell, selfEnergy, kCN, shellPoly, slaterExponent, atomicRadii, paulingEN, kEN, angShell, llao, llao2, itt, wExp
 import numpy as np
 import time
 from fock import huckel_matrix_np, GFN2_coordination_numbers_np
@@ -280,3 +280,152 @@ if EHT:
     x2 = extended_huckel_energy_np(element_ids, positions, density_matrix, overlap_matrix)
     t3 = time.time()
     print_res2(x1,x2,t1,t2,t3,"extended huckel energy")
+
+
+# nat: Number of atoms
+# nao: Number of spherical AOs (SAOs)
+# H0: Core hamiltonian
+# H0_noovlp: Core Hamiltonian without overlap contribution
+def build_SDQH0(nat, nao, hamiltonian_data, caoshell, saoshell, H0, H0_noovlp): # TODO: We need these arg values
+    at = np.zeros(nat, dtype=np.int32)
+    # Cartesian coordinates
+    xyz = np.zeros((nat, 3), dtype=np.float64)
+    # Map shell of atom to index in CAO space (lowest Cart. component is taken)
+    # caoshell: atom number -> basis function
+
+    il, jl = 0
+    hii, hjj, zi, zj, km = 0.0
+    ss = np.zeros((6, 6), dtype=np.float64)
+    dd = np.zeros((6, 6, 3), dtype=np.float64)
+    qq = np.zeros((6, 6, 6), dtype=np.float64)
+    tmp = np.zeros((6, 6), dtype=np.float64)
+
+    ra = [3]
+    for iat in range(nat):
+        for jat in range(nat):
+            if (jat >= iat):
+                continue
+            ra = xyz[0:3, iat].copy() # NOTE: Is copy needed?
+            izp = at[iat]
+            jzp = at[jat]
+            for ish in range(nShell[izp]):
+                ishtyp = angShell[izp, ish]
+                icao = caoshell[iat, ish]
+                naoi = llao[ishtyp]
+                iptyp = itt[ishtyp]
+                for jsh in range(nShell[jzp]):
+                    jshtyp = angShell[jzp, jsh]
+                    jcao = caoshell[jat, jsh]
+                    naoj = llao[jshtyp]
+                    jptyp = itt[jshtyp]
+
+                    il = ishtyp
+                    jl = jshtyp
+                    # diagonals are the same for all H0 elements
+                    hii = selfEnergy[iat, ish]
+                    hjj = selfEnergy[jat, jsh]
+
+                    # we scale the two shells depending on their exponent
+                    zi = slaterExponents[izp, ish]
+                    zj = slaterExponents[jzp, jsh]
+                    zetaij = (2 * sqrt(zi*zj)/(zi+zj))**wExp
+                    # TODO: Call h0scal
+
+                    hav = 0.5 * km * (hii + hjj) * zetaij
+
+                    for itr in range(trans.shape[1]): # NOTE: Is the indexing here correct?
+                        rb = xyz[jat, 0:3] + trans[itr, :]
+                        rab2 = np.sum((rb - ra)**2)
+
+                        # distance dependent polynomial
+                        k_polyA = shellPoly[izp][il]
+                        k_polyB = shellPoly[jzp][jl]
+                        R_AB = dist(ra,rb)**2
+                        Rcov_AB = atomicRadii[izp] + atomicRadii[jzp]
+                        shpoly = (1.0 + 0.01 * k_polyA * (R_AB / Rcov_AB)**0.5) * (1.0 + 0.01 * k_polyB * (R_AB / Rcov_AB)**0.5)
+
+                        ss[:] = 0.0
+                        dd[:] = 0.0
+                        qq[:] = 0.0
+                        # NOTE: Call get_multiints
+
+                        # transform from CAO to SAO
+                        # NOTE: Call dtrf2
+                        for k in range(0,3):
+                            tmp[0:6, 0:6] = dd[0:6, 0:6, k]
+                            # NOTE: Call dtrf2 again
+                            dd[0:6, 0:6, k] = tmp[0:6, 0:6]
+                        for k in range(0,6):
+                            tmp[0:6, 0:6] = qq[0:6, 0:6, k]
+                            # NOTE: Call dtrf2 again
+                            qq[0:6, 0:6, k] = tmp[0:6, 0:6]
+                        for ii in range(0, llao2[ishtyp]):
+                            iao = ii + saoshell[iat, ish]
+                            for jj in range(0, llao2[jshtyp]):
+                                jao = jj + saoshell[jat, jsh]
+                                ij = lin(iao, jao)
+                                H0[ij] = H0[ij] + hav * shpoly * ss[ii, jj]
+                                H0_noovlp[ij] = H0_noovlp[ij] + hav * shpoly
+                                sint[iao, jao] = sint[iao, jao] + ss[ii, jj]
+                                dpint[iao, jao, :] = dpint[iao, jao, :] + dd[ii, jj, :]
+                                qpint[iao, jao, :] = qpint[iao, jao, :] + dd[ii, jj, :]
+
+    for iao in range(0, nao): # NOTE: Do we need to swap the loops when translating from Fortran as well?
+        for jao in range(0, iao-1):
+            sint[jao, iao] = sint[iao, jao]
+            dpint[jao, iao, :] = dpint[iao, jao, :]
+            qpint[jao, iao, :] = qpint[iao, jao, :]
+
+    for iat in range(0, nat):
+        ra = xyz[iat, :]
+        izp = at[iat]
+        for ish in range(0, nShell[izp]):
+            ishtyp = angShell[izp, ish]
+            for iao in range(0, llao2[ishtyp]):
+                i = iao + saoshell[iat, ish]
+                ii = i * (1 + i)/2
+                sint[i,i] = 1.0 + sint[i,i]
+                H0[ii] = H0[ii] + selfEnergy[iat, ish]
+                H0_noovlp[ii] = H0_noovlp[ii] + selfEnergy[iat, ish]
+
+            icao = caoshell[iat, ish]
+            naoi = llao[ishtyp]
+            iptyp = itt[ishtyp]
+            for jsh in range(0, ish):
+                jshtyp = angShell[izp, jsh]
+                jcao = caoshell[iat, jsh]
+                naoj = llao[jshtyp]
+                jptyp = itt[jshtyp]
+                ss[:] = 0.0
+                dd[:] = 0.0
+                qq[:] = 0.0
+                # TODO: call get_multiints
+
+                # transform from CAO to SAO
+                for k in range(0, 3):
+                    tmp[1:6, 1:6] = dd[1:6, 1:6, k]
+                    # TODO: call dtrf2
+                    dd[1:6, 1:6, k] = tmp[1:6, 1:6]
+                for k in range(0, 6):
+                    tmp[1:6, 1:6] = qq[1:6, 1:6, k]
+                    # TODO: call dtrf2 again
+                    qq[1:6, 1:6, k] = tmp[1:6, 1:6]
+                for ii in range(0, llao2[ishtyp]):
+                    iao = ii + saoshell[iat, ish]
+                    for jj in range(0, llao2[jshtyp]):
+                        jao = jj + saoshell[iat, jsh]
+                        if (jao > iao and ish == jsh):
+                            continue
+                        dpint[jao, iao, 0:3] = dpint[jao, iao, 0:3] + dd[ii, jj, 0:3]
+                        if (iao != jao):
+                            dpint[iao, jao, 0:3] = dpint[iao, jao, 0:3] + dd[ii, jj, 0:3]
+                        qpint[jao, iao, 0:6] = dpint[jao, iao, 0:6] + qq[ii, jj, 0:6]
+                        if (jao != iao):
+                            qpint[iao, jao, 0:6] = dpint[iao, jao, 0:6] + qq[ii, jj, 0:6]
+
+
+
+def lin(i1, i2):
+    idum1 = max(i1,i2)
+    idum2 = min(i1,i2)
+    return idum2 + idum1 * (idum1-1)/2
