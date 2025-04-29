@@ -1,3 +1,4 @@
+from math import sqrt
 #Maximum number of elements supported by GFN2-xTB
 import numpy as np
 kshell = np.array([1.85, 2.23, 2.23, 2.23],dtype=np.float64) #K^Gamma_l
@@ -759,21 +760,47 @@ lz = [
 
 trafo = np.array([ # copied from scf.f, simplified
   # --- dS
-  sqrt(1.0_wp/5.0_wp),
-  sqrt(1.0_wp/5.0_wp),
-  sqrt(1.0_wp/5.0_wp),
-  0.0_wp,0.0_wp,0.0_wp,
+  sqrt(1.0/5.0),
+  sqrt(1.0/5.0),
+  sqrt(1.0/5.0),
+  0.0,0.0,0.0,
   # --- dx²-y²
-  0.5_wp*sqrt(3.0_wp),
-  -0.5_wp*sqrt(3.0_wp),
-  0.0_wp,0.0_wp,0.0_wp,0.0_wp,
+  0.5*sqrt(3.0),
+  -0.5*sqrt(3.0),
+  0.0,0.0,0.0,0.0,
   # --- dz²
-  0.5_wp,0.5_wp,-1.0_wp,
-  0.0_wp,0.0_wp, 0.0_wp,
+  0.5,0.5,-1.0,
+  0.0,0.0, 0.0,
   # --- rest
-  0.0_wp,0.0_wp,0.0_wp,1.0_wp,0.0_wp,0.0_wp,
-  0.0_wp,0.0_wp,0.0_wp,0.0_wp,1.0_wp,0.0_wp,
-  0.0_wp,0.0_wp,0.0_wp,0.0_wp,0.0_wp,1.0_wp
+  0.0,0.0,0.0,1.0,0.0,0.0,
+  0.0,0.0,0.0,0.0,1.0,0.0,
+  0.0,0.0,0.0,0.0,0.0,1.0
 ], dtype=np.float64).reshape(6,6)
 
 wExp = 0.5
+
+kScale = np.array([
+  [1.85, 2.04, 2.  , 2.04],
+  [2.04, 2.23, 2.  , 2.23],
+  [2.  , 2.  , 2.23, 2.23],
+  [2.04, 2.23, 2.23, 2.23]
+], dtype=np.float64)
+
+pairParam = np.full((maxElem, maxElem), 1.0, dtype=np.float64)
+
+enshell = [2.0, 2.0, 2.0, 2.0]
+
+enScale = np.array([
+  [0.02, 0.02, 0.02, 0.02],
+  [0.02, 0.02, 0.02, 0.02],
+  [0.02, 0.02, 0.02, 0.02],
+  [0.02, 0.02, 0.02, 0.02]
+], dtype=np.float64)
+
+enScale4 = 0.0
+
+electronegativity = paulingEN[:maxElem]
+
+# Values from param_gfn2-xtb.txt
+kdiff = 2.0
+ksd = 2.0

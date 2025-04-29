@@ -1,5 +1,5 @@
-from math import sqrt, exp
-from gfn2 import kExpLight, kExpHeavy, repAlpha, repZeff, nShell, chemicalHardness, shellHardness, thirdOrderAtom, kshell, selfEnergy, kCN, shellPoly, slaterExponent, atomicRadii, paulingEN, kEN, angShell, llao, llao2, itt, wExp
+from math import sqrt, exp, pi
+from gfn2 import kExpLight, kExpHeavy, repAlpha, repZeff, nShell, chemicalHardness, shellHardness, thirdOrderAtom, selfEnergy, kCN, shellPoly, slaterExponent, atomicRadii, paulingEN, kEN, angShell, llao, llao2, itt, wExp, kdiff, kScale, pairParam, enScale, enScale4, electronegativity, maxElem
 import numpy as np
 import time
 from fock import huckel_matrix_np, GFN2_coordination_numbers_np
@@ -286,8 +286,8 @@ if EHT:
 # nao: Number of spherical AOs (SAOs)
 # H0: Core hamiltonian
 # H0_noovlp: Core Hamiltonian without overlap contribution
-# trans: what is this?
-def build_SDQH0(hData, nat, nao, caoshell, saoshell, trans, sint, dpint, qpint, H0, H0_noovlp): # TODO: We need these arg values
+# What are the rest of the args?
+def build_SDQH0(nat, nao, caoshell, saoshell, trans, sint, dpint, qpint, H0, H0_noovlp, nprim, primcount, alp, cont, intcut): # TODO: We need to find these arg values
     at = np.zeros(nat, dtype=np.int32)
     # Cartesian coordinates
     xyz = np.zeros((3, nat), dtype=np.float64)
@@ -299,6 +299,7 @@ def build_SDQH0(hData, nat, nao, caoshell, saoshell, trans, sint, dpint, qpint, 
     sint = np.zeros((nao, nao), dtype=np.float64)
     dpint = np.zeros((3, nao, nao), dtype=np.float64)
     qpint = np.zeros((6, nao, nao), dtype=np.float64)
+    point = np.zeros(3)
 
     il = 0
     jl = 0
@@ -341,7 +342,8 @@ def build_SDQH0(hData, nat, nao, caoshell, saoshell, trans, sint, dpint, qpint, 
                     zi = slaterExponent[izp][ish]
                     zj = slaterExponent[jzp][jsh]
                     zetaij = (2 * sqrt(zi*zj)/(zi+zj))**wExp
-                    km = h0scal(hData, il, jl, izp, jzp, (valenceShell[izp, ish] != 0), (valenceShell[jzp, jsh] != 0)) # TODO: Where do we get valenceShell?
+                    valenceShell = generateValenceShellData(nShell, angShell)
+                    km = h0scal(il, jl, izp, jzp, (valenceShell[izp, ish] != 0), (valenceShell[jzp, jsh] != 0))
 
                     hav = 0.5 * km * (hii + hjj) * zetaij
 
@@ -359,7 +361,7 @@ def build_SDQH0(hData, nat, nao, caoshell, saoshell, trans, sint, dpint, qpint, 
                         ss[:] = 0.0
                         dd[:] = 0.0
                         qq[:] = 0.0
-                        # NOTE: Call get_multiints
+                        get_multiints(icao,jcao,naoi,naoj,ishtyp,jshtyp,ra,rb,point,intcut,nprim,primcount,alp,cont)
 
                         # transform from CAO to SAO
                         # NOTE: Call dtrf2
@@ -411,7 +413,7 @@ def build_SDQH0(hData, nat, nao, caoshell, saoshell, trans, sint, dpint, qpint, 
                 ss[:] = 0.0
                 dd[:] = 0.0
                 qq[:] = 0.0
-                # TODO: call get_multiints
+                get_multiints(icao,jcao,naoi,naoj,ishtyp,jshtyp,ra,ra,point,intcut,nprim,primcount,alp,cont)
 
                 # transform from CAO to SAO
                 for k in range(0, 3):
@@ -443,25 +445,288 @@ def lin(i1, i2):
     return idum2 + idum1 * (idum1-1)/2
 
 
-def h0scal(hData, il, jl, izp, jzp, valaoi, valaoj):
+def h0scal(il, jl, izp, jzp, valaoi, valaoj):
     km = 0.0
 
     # Valence
     if (valaoi and valaoj):
-        electronegativity_izp = hData.electronegativity(izp) # NOTE: Should this be the same as X_electronegativity?
-        electronegativity_jzp = hData.electronegativity(jzp)
+        electronegativity_izp = electronegativity[izp]
+        electronegativity_jzp = electronegativity[jzp]
         den = (electronegativity_izp - electronegativity_jzp)**2
-        enpoly = (1.0 + hData.enScale[il, jl] * den * (1.0 + hData.enScale4 * den)) # NOTE: What is enScale and enScale4?
-        km = hData.kScale[il, jl] * enpoly * hData.pairParam[jzp, izp] # NOTE: what is kScale and pairParam?
-        return
+        enpoly = (1.0 + enScale[il, jl] * den * (1.0 + enScale4 * den))
+        km = kScale[il, jl] * enpoly * pairParam[jzp, izp]
+        return km
 
     # "DZ" functions (on H for GFN or 3S for EA calc on all atoms)
     if (not valaoi and not valaoj):
-        km = hData.kDiff # NOTE: what is kDiff
-        return
+        km = kdiff
+        return km
     if (not valaoi and valaoj):
-        km = 0.5 * (hData.kScale[jl, jl] + hData.kDiff)
-        return
+        km = 0.5 * (kScale[jl, jl] + kdiff)
+        return km
     if (not valaoj and valaoi):
-        km = 0.5 * (hData.kScale[il, il] + hData.kDiff)
+        km = 0.5 * (kScale[il, il] + kdiff)
     return km
+
+
+def generateValenceShellData(nShell, angShell):
+    mShell = np.max(nShell)
+    valenceShell = np.zeros((mShell, maxElem), dtype=int)
+    for iZp in range(nShell.shape[0]):
+        valShell = np.full(4, True, dtype=bool)
+        for iSh in range(nShell[iZp]):
+            lAng = angShell[iZp, iSh]
+            if (valShell[lAng]):
+                valShell[lAng] = False
+                valenceShell[iZp, iSh] = 1
+    return valenceShell
+
+#integer,private,parameter :: lx(84) = (/ &
+#  & 0, &
+#  & 1,0,0, &
+#  & 2,0,0,1,1,0, &
+#  & 3,0,0,2,2,1,0,1,0,1, &
+#  & 4,0,0,3,3,1,0,1,0,2,2,0,2,1,1, &
+#  & 5,0,0,3,3,2,2,0,0,4,4,1,0,0,1,1,3,1,2,2,1, &
+#  & 6,0,0,3,3,0,5,5,1,0,0,1,4,4,2,0,2,0,3,3,1,2,2,1,4,1,1,2/)
+#integer,private,parameter :: ly(84) = (/ &
+#  & 0, &
+#  & 0,1,0, &
+#  & 0,2,0,1,0,1, &
+#  & 0,3,0,1,0,2,2,0,1,1, &
+#  & 0,4,0,1,0,3,3,0,1,2,0,2,1,2,1, &
+#  & 0,5,0,2,0,3,0,3,2,1,0,4,4,1,0,1,1,3,2,1,2, &
+#  & 0,6,0,3,0,3,1,0,0,1,5,5,2,0,0,2,4,4,2,1,3,1,3,2,1,4,1,2/)
+#integer,private,parameter :: lz(84) = (/ &
+#  & 0, &
+#  & 0,0,1, &
+#  & 0,0,2,0,1,1, &
+#  & 0,0,3,0,1,0,1,2,2,1, &
+#  & 0,0,4,0,1,0,1,3,3,0,2,2,1,1,2, &
+#  & 0,0,5,0,2,0,3,2,3,0,1,0,1,4,4,3,1,1,1,2,2, &
+#  & 0,0,6,0,3,3,0,1,5,5,1,0,0,2,4,4,0,2,1,2,2,3,1,3,1,1,4,2/)
+#integer, private, parameter :: lxyz(3, 84) = reshape(&
+#  & [lx, ly, lz], shape(lxyz), order=[2, 1])
+
+def get_multiints(icao,jcao,naoi,naoj,ishtyp,jshtyp,ri,rj,point,intcut,nprim,primcount,alp,cont):
+    ss = np.zeros((6, 6), dtype=np.float64)
+    dd = np.zeros((3, 6, 6), dtype=np.float64)
+    qq = np.zeros((6, 6, 6), dtype=np.float64)
+    iptyp = itt[ishtyp]
+    jptyp = itt[jshtyp]
+
+    rij = ri - rj
+    rij2 = rij[0]**2 + rij[1]**2 + rij[2]**2
+
+    max_r2 = 2000.0
+    sqrtpi = sqrt(pi)
+    t = np.zeros(9)
+
+    if (rij2 > max_r2):
+        return ss, dd, qq
+
+    # we go through the primitives (because the screening is the same for all of them)
+    for ip in range(nprim[icao+1]): # NOTE: should this still be icao+1?
+        iprim = ip + primcount[icao+1]
+        # exponent the same for each l component
+        alpi = alp[iprim]
+        for jp in range(nprim[jcao+1]):
+            jprim = jp + primcount[jcao+1]
+            # exponent the same for each l component
+            alpj = alp[jprim]
+            ab = 1.0 / (alpi + alpj)
+            est = alpi * alpj * rij2 * ab
+            if (est > intcut):
+                continue
+            kab = exp(-est) * (sqrtpi * sqrt(ab))**3
+            rp = (alpi*ri + alpj*rj) * ab
+            for k in range(ishtyp + jshtyp + 2):
+                t[k] = olapp(k, alpi+alpj)
+
+            #--------------- compute gradient ----------
+            # now compute integrals  for different components of i(e.g., px,py,pz)
+            for mli in range(naoi):
+                iprim = ip + primcount[icao + mli]
+                # coefficients NOT the same (contain CAO2SAO lin. comb. coefficients)
+                ci = cont[iprim]
+                for mlj in range(naoj):
+                    jprim = jp + primcount[jcao + mlj]
+                    cc = kab * cont[jprim] * ci
+                    saw = np.zeros(10)
+                    # TODO: call multipole_3d
+                    multipole_3d(ri,rj,point,rp,alpi,alpj,lxyz[iptyp+mli,:],lxyz[jptyp+mlj,:],t,saw)
+                    ss[mli,mlj] = ss[mli,mlj] + saw[0] * cc
+                    dd[mli,mlj,:] = dd[mli,mlj,:] + saw[2:5] * cc
+                    qq[mli,mlj,:] = qq[mli,mlj,:] + saw[5:11] * cc
+
+    return ss,dd,qq
+
+
+# calculates a partial overlap in one cartesian direction
+def olapp(l, gama):
+    if (l % 2 != 0):
+        return 0.0
+
+    dftr = [1.0, 1.0, 3.0, 15.0, 105.0, 945.0, 10395.0, 135135.0]
+
+    lh = l/2
+    gm = 0.5 / gama
+    return gm**lh*dftr[lh]
+
+maxl = 6
+maxl2 = maxl*2
+
+def multipole_3d(ri, rj, rc, rp, ai, aj, li, lj, s1d, s3d):
+    val = np.zeros((3,3))
+
+    for k in range(3):
+        vv = np.zeros(maxl2)
+        vi = np.zeros(maxl)
+        vj = np.zeros(maxl)
+        vi[li[k]] = 1.0
+        vj[lj[k]] = 1.0
+        rpc = rp[k] - rc[k]
+
+        horizontal_shift(rp[k] - ri[k], li[k], vi)
+        horizontal_shift(rp[k] - ri[k], li[k], vj)
+        form_product(vi, vj, li[k], lj[k], vv)
+        for l in range(li[k] + lj[k]):
+            val[1,k] = val[1,k] + s1d[l] * vv[l]
+            val[2,k] = val[2,k] + (s1d[l+1] + rpc*s1d[l]) * vv[l]
+            val[3,k] = val[3,k] + (s1d[l+2] + 2*rpc*s1d[l+1] + rpc*rpc*s1d[l]) * vv[l]
+
+    s3d[0] = val[1,1] * val[1,2] * val[1,3]
+    s3d[1] = val[2,1] * val[1,2] * val[1,3]
+    s3d[2] = val[1,1] * val[2,2] * val[1,3]
+    s3d[3] = val[1,1] * val[1,2] * val[2,3]
+    s3d[4] = val[3,1] * val[1,2] * val[1,3]
+    s3d[5] = val[1,1] * val[3,2] * val[1,3]
+    s3d[6] = val[1,1] * val[1,2] * val[3,3]
+    s3d[7] = val[2,1] * val[2,2] * val[1,3]
+    s3d[8] = val[2,1] * val[1,2] * val[2,3]
+    s3d[9] = val[1,1] * val[2,2] * val[2,3]
+
+def horizontal_shift(ae, l, cfs):
+    match l:
+        #case 0: # s
+        #    pass
+        case 1: # p
+            cfs[0] = cfs[0] + ae * cfs[1]
+        case 2: # d
+            cfs[0] = cfs[0] + ae * ae * cfs[2]
+            cfs[1] = cfs[1] + 2 * ae * cfs[2]
+        case 3: # f
+            cfs[0] = cfs[0] + ae * ae * ae * cfs[3]
+            cfs[1] = cfs[1] + 3 * ae * ae * cfs[3]
+            cfs[2] = cfs[2] + 3 * ae * cfs[3]
+        case 4: # g
+            cfs[0] = cfs[0] + ae * ae * ae * ae * cfs[4]
+            cfs[1] = cfs[1] + 4 * ae * ae * ae * cfs[4]
+            cfs[2] = cfs[2] + 6 * ae * ae * cfs[4]
+            cfs[3] = cfs[3] + 4 * ae * cfs[4]
+
+def form_product(a, b, la, lb, d):
+    if (la > 4 or lb > 4):
+        # <s|g> = <s|*(|s>+|p>+|d>+|f>+|g>)
+        #       = <s> + <p> + <d> + <f> + <g>
+        d[0] = a[0] * b[0]
+        d[1] = a[0] * b[1] + a[1] * b[0]
+        d[2] = a[0] * b[2] + a[2] * b[0]
+        d[3] = a[0] * b[3] + a[3] * b[0]
+        d[4] = a[0] * b[4] + a[4] * b[0]
+        if (la == 0 or lb == 0):
+            return
+        
+        # <p|g> = (<s|+<p|)*(|s>+|p>+|d>+|f>+|g>)
+        #       = <s> + <p> + <d> + <f> + <g> + <h>
+        d[2] = d[2]+a[1]*b[1]
+        d[3] = d[3]+a[1]*b[2]+a[2]*b[1]
+        d[4] = d[4]+a[1]*b[3]+a[3]*b[1]
+        d[5] = a[1]*b[4]+a[4]*b[1]
+        if(la <= 1 or lb <= 1):
+            return
+
+        # <d|g> = (<s|+<p|+<d|)*(|s>+|p>+|d>+|f>+|g>)
+        #       = <s> + <p> + <d> + <f> + <g> + <h> + <i>
+        d[4] = d[4]+a[2]*b[2]
+        d[5] = d[4]+a[2]*b[3]+a[3]*b[2]
+        d[6] = a[2]*b[4]+a[4]*b[2]
+        if(la <= 2 or lb <= 2):
+            return
+
+        # <f|g> = (<s|+<p|+<d|+<f|)*(|s>+|p>+|d>+|f>+|g>)
+        #       = <s> + <p> + <d> + <f> + <g> + <h> + <i> + <k>
+        d[6] = d[6]+a[3]*b[3]
+        d[7] = a[3]*b[4]+a[4]*b[3]
+        if(la <= 3 or lb <= 3):
+            return
+
+        # <g|g> = (<s|+<p|+<d|+<f|+<g|)*(|s>+|p>+|d>+|f>+|g>)
+        #       = <s> + <p> + <d> + <f> + <g> + <h> + <i> + <k> + <l>
+        d[8] = a[4]*b[4]
+        return
+
+
+    if (la >= 3 or lb >= 3):
+        # <s|f> = <s|*(|s>+|p>+|d>+|f>)
+        #       = <s> + <p> + <d> + <f>
+        d[0] = a[0]*b[0]
+        d[1] = a[0]*b[1]+a[1]*b[0]
+        d[2] = a[0]*b[2]+a[2]*b[0]
+        d[3] = a[0]*b[3]+a[3]*b[0]
+        if (la == 0 or lb == 0):
+            return
+        # <p|f> = (<s|+<p|)*(|s>+|p>+|d>+|f>)
+        #       = <s> + <p> + <d> + <f> + <g>
+        d[2] = d[2]+a[1]*b[1]
+        d[3] = d[3]+a[1]*b[2]+a[2]*b[1]
+        d[4] = a[1]*b[3]+a[3]*b[1]
+        if (la <= 1 or lb <= 1):
+            return
+        # <d|f>  =  (<s|+<p|+<d|)*(|s>+|p>+|d>+|f>)
+        #        =  <s> + <p> + <d> + <f> + <g> + <h>
+        d[4] = d[4]+a[2]*b[2]
+        d[5] = a[2]*b[3]+a[3]*b[2]
+        if(la <= 2 or lb <= 2):
+            return
+        # <f|f>  =  (<s|+<p|+<d|+<f|)*(|s>+|p>+|d>+|f>)
+        #        =  <s> + <p> + <d> + <f> + <g> + <h> + <i>
+        d[6] = a[3]*b[3]
+        return
+
+    if (la >= 2 or lb >= 2):
+        # <s|d> = <s|*(|s>+|p>+|d>)
+        #       = <s> + <p> + <d>
+        d[0] = a[0]*b[0]
+        d[1] = a[0]*b[1]+a[1]*b[0]
+        d[2] = a[0]*b[2]+a[2]*b[0]
+        if(la == 0 or lb == 0):
+            return
+
+        # <p|d> = (<s|+<p|)*(|s>+|p>+|d>)
+        #       = <s> + <p> + <d> + <f>
+        d[2] = d[2]+a[1]*b[1]
+        d[3] = a[1]*b[2]+a[2]*b[1]
+        if(la <= 1 or lb <= 1):
+            return
+
+        # <d|d> = (<s|+<p|+<d|)*(|s>+|p>+|d>)
+        #       = <s> + <p> + <d> + <f> + <g>
+        d[4] = a[2]*b[2]
+        return
+
+
+    # <s|s> = <s>
+    d[0] = a[0]*b[0]
+    if (la == 0 and lb == 0):
+        return
+
+    # <s|p> = <s|*(|s>+|p>)
+    #       = <s> + <p>
+    d[1] = a[0]*b[1]+a[1]*b[0]
+    if (la == 0 or lb == 0):
+        return
+
+    # <p|p> = (<s|+<p|)*(|s>+|p>)
+    #       = <s> + <p> + <d>
+    d[2] = a[1]*b[1]
