@@ -259,11 +259,47 @@ if EHT:
     t3 = time.time()
     print_res2(x1,x2,t1,t2,t3,"extended huckel energy")
 
+def dim_basis(element_ids):
+    n = element_ids.shape[0]
+    nao = 0
+    nbf = 0
+    nshell = 0
+    for i in range(0, n):
+        k = 0
+        ati = element_ids[i]
+        for j in range(0, nShell[ati]):
+            l = angShell[ati,j]
+            k = k + 1
+            nshell = nshell + 1
+            match l:
+                case 0: # s
+                    nbf = nbf + 1
+                    nao = nao + 1
+                case 1: # p
+                    nbf = nbf + 3
+                    nao = nao + 3
+                case 2: # d
+                    nbf = nbf + 6
+                    nao = nao + 5
+                case 3: # f
+                    nbf = nbf + 10
+                    nao = nao + 7
+                case 4: # g
+                    nbf = nbf + 15
+                    nao = nao + 9
+    if k == 0:
+         print(f'no basis found for atom {i} Z = {ati}')
+         quit(1)
+    return nshell, nao, nbf
 
+# nShell:  
 # nat: Number of atoms
 # nao: Number of spherical AOs (SAOs)
 # H0: Core hamiltonian
 # H0_noovlp: Core Hamiltonian without overlap contribution
+# trans = np.zeros((1,3)) is always a vector of 3 zeros since we don't have a 3d infinite periodic boundary condition, i.e. we don't try to simulate an infinite grid of our molecule.  
+# intcut = max(20.0, 25.0-10.0*log10(acc)) where acc is the accuracy, a number between 1e-4 and 1e+3 (higher than 3.16 results in intcut = 20.0 though). acc is set with -a (--acc) and defaults to 1.0 resulting in intcut=25.0
+# 
 # What are the rest of the args?
 def build_SDQH0(nat, nao, caoshell, saoshell, trans, sint, dpint, qpint, H0, H0_noovlp, nprim, primcount, alp, cont, intcut): # TODO: We need to find these arg values
     at = np.zeros(nat, dtype=np.int32)
