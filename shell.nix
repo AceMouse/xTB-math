@@ -4,8 +4,9 @@ in pkgs.mkShell {
   packages = [
     pkgs.pyright
     pkgs.texlab
-    (pkgs.python3.withPackages (python-pkgs: [
-      python-pkgs.numpy
+    (pkgs.python3.withPackages (python-pkgs: with python-pkgs; [
+      numpy
+      scipy
     ]))
   ];
 }

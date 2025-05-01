@@ -1,6 +1,7 @@
 from math import sqrt, exp, pi
-from gfn2 import kExpLight, kExpHeavy, repAlpha, repZeff, nShell, chemicalHardness, shellHardness, thirdOrderAtom, selfEnergy, kCN, shellPoly, slaterExponent, atomicRadii, paulingEN, kEN, angShell, llao, llao2, itt, wExp, kdiff, kScale, pairParam, enScale, enScale4, electronegativity, maxElem
+from gfn2 import kExpLight, kExpHeavy, repAlpha, repZeff, nShell, chemicalHardness, shellHardness, thirdOrderAtom, selfEnergy, kCN, shellPoly, slaterExponent, atomicRadii, paulingEN, kEN, angShell, llao, llao2, itt, wExp, kdiff, kScale, pairParam, enScale, enScale4, electronegativity, maxElem, trafo
 import numpy as np
+import scipy
 import time
 from fock import huckel_matrix_np, GFN2_coordination_numbers_np
 from util import euclidian_dist, dist, print_res2, density_initial_guess, overlap_initial_guess, get_partial_mulliken_charges
@@ -137,6 +138,7 @@ def isotropic_electrostatic_and_XC_energy_third_order_np(element_ids, positions,
     return np.sum(energies*include_shell)/3.
 
 if ISO3:
+    partial_mulliken_charges = get_partial_mulliken_charges(density_matrix, overlap_matrix)
     t1 = time.time()
     x1 = isotropic_electrostatic_and_XC_energy_third_order(atoms, partial_mulliken_charges)
     t2 = time.time()
@@ -339,12 +341,10 @@ def build_SDQH0(nat, nao, caoshell, saoshell, trans, sint, dpint, qpint, H0, H0_
                 ishtyp = angShell[izp, ish]
                 icao = caoshell[iat, ish]
                 naoi = llao[ishtyp]
-                iptyp = itt[ishtyp]
                 for jsh in range(nShell[jzp]):
                     jshtyp = angShell[jzp, jsh]
                     jcao = caoshell[jat, jsh]
                     naoj = llao[jshtyp]
-                    jptyp = itt[jshtyp]
 
                     il = ishtyp
                     jl = jshtyp
@@ -378,14 +378,14 @@ def build_SDQH0(nat, nao, caoshell, saoshell, trans, sint, dpint, qpint, H0, H0_
                         get_multiints(icao,jcao,naoi,naoj,ishtyp,jshtyp,ra,rb,point,intcut,nprim,primcount,alp,cont)
 
                         # transform from CAO to SAO
-                        # NOTE: Call dtrf2
+                        dtrf2(ss, ishtyp, jshtyp)
                         for k in range(0,3):
                             tmp[0:6, 0:6] = dd[0:6, 0:6, k]
-                            # NOTE: Call dtrf2 again
+                            dtrf2(tmp, ishtyp, jshtyp)
                             dd[0:6, 0:6, k] = tmp[0:6, 0:6]
                         for k in range(0,6):
                             tmp[0:6, 0:6] = qq[0:6, 0:6, k]
-                            # NOTE: Call dtrf2 again
+                            dtrf2(tmp, ishtyp, jshtyp)
                             qq[0:6, 0:6, k] = tmp[0:6, 0:6]
                         for ii in range(0, llao2[ishtyp]):
                             iao = ii + saoshell[iat, ish]
@@ -398,12 +398,13 @@ def build_SDQH0(nat, nao, caoshell, saoshell, trans, sint, dpint, qpint, H0, H0_
                                 dpint[iao, jao, :] = dpint[iao, jao, :] + dd[ii, jj, :]
                                 qpint[iao, jao, :] = qpint[iao, jao, :] + dd[ii, jj, :]
 
-    for iao in range(0, nao): # NOTE: Do we need to swap the loops when translating from Fortran as well?
+    for iao in range(0, nao):
         for jao in range(0, iao-1):
             sint[jao, iao] = sint[iao, jao]
             dpint[jao, iao, :] = dpint[iao, jao, :]
             qpint[jao, iao, :] = qpint[iao, jao, :]
 
+    # diagonal elements  
     for iat in range(0, nat):
         ra = xyz[iat, :]
         izp = at[iat]
@@ -418,12 +419,10 @@ def build_SDQH0(nat, nao, caoshell, saoshell, trans, sint, dpint, qpint, H0, H0_
 
             icao = caoshell[iat, ish]
             naoi = llao[ishtyp]
-            iptyp = itt[ishtyp]
             for jsh in range(0, ish):
                 jshtyp = angShell[izp, jsh]
                 jcao = caoshell[iat, jsh]
                 naoj = llao[jshtyp]
-                jptyp = itt[jshtyp]
                 ss[:] = 0.0
                 dd[:] = 0.0
                 qq[:] = 0.0
@@ -432,11 +431,11 @@ def build_SDQH0(nat, nao, caoshell, saoshell, trans, sint, dpint, qpint, H0, H0_
                 # transform from CAO to SAO
                 for k in range(0, 3):
                     tmp[1:6, 1:6] = dd[1:6, 1:6, k]
-                    # TODO: call dtrf2
+                    dtrf2(tmp, ishtyp, jshtyp)
                     dd[1:6, 1:6, k] = tmp[1:6, 1:6]
                 for k in range(0, 6):
                     tmp[1:6, 1:6] = qq[1:6, 1:6, k]
-                    # TODO: call dtrf2 again
+                    dtrf2(tmp, ishtyp, jshtyp)
                     qq[1:6, 1:6, k] = tmp[1:6, 1:6]
                 for ii in range(0, llao2[ishtyp]):
                     iao = ii + saoshell[iat, ish]
@@ -495,32 +494,34 @@ def generateValenceShellData(nShell, angShell):
                 valenceShell[iZp, iSh] = 1
     return valenceShell
 
-#integer,private,parameter :: lx(84) = (/ &
-#  & 0, &
-#  & 1,0,0, &
-#  & 2,0,0,1,1,0, &
-#  & 3,0,0,2,2,1,0,1,0,1, &
-#  & 4,0,0,3,3,1,0,1,0,2,2,0,2,1,1, &
-#  & 5,0,0,3,3,2,2,0,0,4,4,1,0,0,1,1,3,1,2,2,1, &
-#  & 6,0,0,3,3,0,5,5,1,0,0,1,4,4,2,0,2,0,3,3,1,2,2,1,4,1,1,2/)
-#integer,private,parameter :: ly(84) = (/ &
-#  & 0, &
-#  & 0,1,0, &
-#  & 0,2,0,1,0,1, &
-#  & 0,3,0,1,0,2,2,0,1,1, &
-#  & 0,4,0,1,0,3,3,0,1,2,0,2,1,2,1, &
-#  & 0,5,0,2,0,3,0,3,2,1,0,4,4,1,0,1,1,3,2,1,2, &
-#  & 0,6,0,3,0,3,1,0,0,1,5,5,2,0,0,2,4,4,2,1,3,1,3,2,1,4,1,2/)
-#integer,private,parameter :: lz(84) = (/ &
-#  & 0, &
-#  & 0,0,1, &
-#  & 0,0,2,0,1,1, &
-#  & 0,0,3,0,1,0,1,2,2,1, &
-#  & 0,0,4,0,1,0,1,3,3,0,2,2,1,1,2, &
-#  & 0,0,5,0,2,0,3,2,3,0,1,0,1,4,4,3,1,1,1,2,2, &
-#  & 0,0,6,0,3,3,0,1,5,5,1,0,0,2,4,4,0,2,1,2,2,3,1,3,1,1,4,2/)
-#integer, private, parameter :: lxyz(3, 84) = reshape(&
-#  & [lx, ly, lz], shape(lxyz), order=[2, 1])
+lx = np.array([
+  0,
+  1,0,0,
+  2,0,0,1,1,0,
+  3,0,0,2,2,1,0,1,0,1,
+  4,0,0,3,3,1,0,1,0,2,2,0,2,1,1,
+  5,0,0,3,3,2,2,0,0,4,4,1,0,0,1,1,3,1,2,2,1,
+  6,0,0,3,3,0,5,5,1,0,0,1,4,4,2,0,2,0,3,3,1,2,2,1,4,1,1,2
+])
+ly = [
+  0,
+  0,1,0,
+  0,2,0,1,0,1,
+  0,3,0,1,0,2,2,0,1,1,
+  0,4,0,1,0,3,3,0,1,2,0,2,1,2,1,
+  0,5,0,2,0,3,0,3,2,1,0,4,4,1,0,1,1,3,2,1,2,
+  0,6,0,3,0,3,1,0,0,1,5,5,2,0,0,2,4,4,2,1,3,1,3,2,1,4,1,2
+]
+lz = [
+  0,
+  0,0,1,
+  0,0,2,0,1,1,
+  0,0,3,0,1,0,1,2,2,1,
+  0,0,4,0,1,0,1,3,3,0,2,2,1,1,2,
+  0,0,5,0,2,0,3,2,3,0,1,0,1,4,4,3,1,1,1,2,2,
+  0,0,6,0,3,3,0,1,5,5,1,0,0,2,4,4,0,2,1,2,2,3,1,3,1,1,4,2
+]
+lxyz = np.vstack([lx, ly, lz]).T
 
 def get_multiints(icao,jcao,naoi,naoj,ishtyp,jshtyp,ri,rj,point,intcut,nprim,primcount,alp,cont):
     ss = np.zeros((6, 6), dtype=np.float64)
@@ -567,8 +568,7 @@ def get_multiints(icao,jcao,naoi,naoj,ishtyp,jshtyp,ri,rj,point,intcut,nprim,pri
                     jprim = jp + primcount[jcao + mlj]
                     cc = kab * cont[jprim] * ci
                     saw = np.zeros(10)
-                    # TODO: call multipole_3d
-                    multipole_3d(ri,rj,point,rp,alpi,alpj,lxyz[iptyp+mli,:],lxyz[jptyp+mlj,:],t,saw)
+                    multipole_3d(ri,rj,point,rp,lxyz[iptyp+mli,:],lxyz[jptyp+mlj,:],t,saw)
                     ss[mli,mlj] = ss[mli,mlj] + saw[0] * cc
                     dd[mli,mlj,:] = dd[mli,mlj,:] + saw[2:5] * cc
                     qq[mli,mlj,:] = qq[mli,mlj,:] + saw[5:11] * cc
@@ -590,7 +590,7 @@ def olapp(l, gama):
 maxl = 6
 maxl2 = maxl*2
 
-def multipole_3d(ri, rj, rc, rp, ai, aj, li, lj, s1d, s3d):
+def multipole_3d(ri, rj, rc, rp, li, lj, s1d, s3d):
     val = np.zeros((3,3))
 
     for k in range(3):
@@ -602,7 +602,7 @@ def multipole_3d(ri, rj, rc, rp, ai, aj, li, lj, s1d, s3d):
         rpc = rp[k] - rc[k]
 
         horizontal_shift(rp[k] - ri[k], li[k], vi)
-        horizontal_shift(rp[k] - ri[k], li[k], vj)
+        horizontal_shift(rp[k] - rj[k], lj[k], vj)
         form_product(vi, vj, li[k], lj[k], vv)
         for l in range(li[k] + lj[k]):
             val[1,k] = val[1,k] + s1d[l] * vv[l]
@@ -744,3 +744,62 @@ def form_product(a, b, la, lb, d):
     # <p|p> = (<s|+<p|)*(|s>+|p>)
     #       = <s> + <p> + <d>
     d[2] = a[1]*b[1]
+
+
+def dtrf2(s,li,lj):
+    # transformation not needed for pure s/p overlap -> do nothing
+    if (li < 2 and lj < 2):
+        return
+
+    s2 = np.zeros((6,6))
+
+    # At this point li >= 2 or lj >= 2, so one of them is a d-shell
+    # assuming its on jat ... a wild guess
+    match li:
+        case 0: # s-d
+            for jj in range(6):
+                sspher = 0
+                for m in range(6):
+                    sspher = sspher + trafo[jj,m] * s[0,m]
+                s2[0,jj] = sspher
+            s[0,0:5] = s2[0,1:6]
+            return
+        case 1: # p-d
+            for ii in range(3):
+                for jj in range(6):
+                    sspher = 0
+                    for m in range(6):
+                        sspher = sspher + trafo[jj,m] * s[ii,m]
+                    s2[ii,jj] = sspher
+                s[ii,0:5] = s2[ii, 1:6]
+            return
+
+    # wasn't there, then try iat ...
+    match lj:
+        case 0: # d-s
+            for jj in range(6):
+                sspher = 0
+                for m in range(6):
+                    sspher = sspher + trafo[jj,m] * s[m,0]
+                s2[jj,0] = sspher
+            s[0:5, 0] = s2[1:6, 0]
+            return
+        case 1: # d-p
+            for ii in range(3):
+                for jj in range(6):
+                    sspher = 0
+                    for m in range(6):
+                        sspher = sspher + trafo[jj,m] * s[m,ii]
+                    s2[jj,ii] = sspher
+                s[0:5,ii] = s2[1:6,ii]
+            return
+
+    # if not returned up to here -> d-d
+    # CB: transposing s in first dgemm is important for integrals other than S
+    dum = np.zeros((6,6))
+    dum = mctc_dgemm(trafo, s, dum, transa='T')
+    s2 = mctc_dgemm(dum, trafo, s2, transb='N')
+    s[0:5,0:5] = s2[1:6,1:6]
+
+def mctc_dgemm(amat, bmat, cmat, transa='n', transb='n', alpha=1.0, beta=0.0):
+    return scipy.linalg.blas.dgemm(alpha, amat, bmat, beta, cmat, transa, transb)
