@@ -2,16 +2,40 @@ from gfn2 import kExpLight, kExpHeavy, repAlpha, repZeff, nShell, chemicalHardne
 import numpy as np
 import time
 from math import sqrt, exp
-from util import euclidian_dist, dist, print_res1, density_initial_guess, overlap_initial_guess, get_partial_mulliken_charges, get_atomic_charges
+from util import euclidian_dist, euclidian_dist_sqr, dist, print_res1, density_initial_guess, overlap_initial_guess, get_partial_mulliken_charges, get_atomic_charges
 
-def huckel_matrix_np(element_ids, positions):
+def huckel_matrix_np(element_ids, positions, overlap_matrix):
+    Kll_AB = np.array([
+        [1.85,2.04,2.00],
+        [2.04,2.23,2.00],
+        [2.00,2.00,2.23]
+    ])
+    us = np.repeat(np.array([[0,1,2]]),element_ids.shape[0],axis=0).flatten() #[0,1,2]*n shell idx for every shell u flattened. 
+    include_shell = np.repeat(nShell[element_ids], 3) > us # include_shell[i*3+u] = true if that shell is part of the basis set. 
+    include_shell = np.outer(include_shell, include_shell) # include_shell[i*3+u][j*3+v] = true if both shells are part of the basis set.
+    Kuv_AB = np.tile(Kll_AB, (element_ids.shape[0], element_ids.shape[0]))
     hl_X = selfEnergy[element_ids].flatten()
     delta_hl_CNX = kCN[element_ids, :3].flatten()
     coordination_numbers = np.repeat(GFN2_coordination_numbers_np(element_ids, positions),3)
     H_xx = hl_X - delta_hl_CNX * coordination_numbers
     H_xxs = np.broadcast_to(H_xx, (H_xx.shape[0], H_xx.shape[0]))
     H_uuvv = H_xxs + H_xxs.transpose()
-    return H_uuvv
+    electronegativity = paulingEN[np.repeat(element_ids, 3)]
+    electronegativities = np.broadcast_to(electronegativity, (electronegativity.shape[0], electronegativity.shape[0]))
+    X_electronegativities = 1+kEN*((electronegativities - electronegativities.transpose())**2)
+    k_polyX = shellPoly[element_ids, :3].flatten()
+    k_polyX = np.broadcast_to(k_polyX, (k_polyX.shape[0], k_polyX.shape[0])).transpose()
+    R_AB2 = np.repeat(euclidian_dist_sqr(positions),3,axis=0)
+    R_AB2 = np.repeat(R_AB2,3,axis=1)
+    atomicRadiis = np.repeat(atomicRadii[element_ids], 3)
+    atomicRadiis_mat = np.broadcast_to(atomicRadiis, (atomicRadiis.shape[0], atomicRadiis.shape[0]))
+    Rcov_AB = atomicRadiis_mat + atomicRadiis_mat.transpose()
+    Pi_u = 1 + k_polyX * (R_AB2 / Rcov_AB)**0.5
+    Pi_uv = Pi_u * Pi_u.transpose()
+    slaterExponents = np.broadcast_to(slaterExponent[element_ids, :3].flatten(), (element_ids.shape[0]*3,element_ids.shape[0]*3))
+    slaterExponents_ABs = slaterExponents * slaterExponents.transpose()
+    Y = ((2 * np.sqrt(slaterExponents_ABs)) / (slaterExponents + slaterExponents.transpose() + np.logical_not(include_shell)))**0.5
+    return 0.5 * Kuv_AB * overlap_matrix * H_uuvv * X_electronegativities * Pi_uv * Y * include_shell
 
 
 def GFN2_coordination_numbers_np(element_ids, positions):
@@ -165,7 +189,7 @@ if __name__ == "__main__":
     #element_ids = np.array([C,C,C])
     #positions = np.array([[1,0,0],[0,1,0],[0,0,1]])
     rand = np.random.default_rng()
-    element_cnt = 3
+    element_cnt = 10
     element_ids = rand.choice(repZeff.shape[0], size=element_cnt)
     positions = rand.random((element_cnt,3))
     atoms = list(zip(element_ids, positions))

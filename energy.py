@@ -219,29 +219,7 @@ def extended_huckel_energy(atoms, density_matrix, overlap_matrix):
 
 
 def extended_huckel_energy_np(element_ids, positions, density_matrix, overlap_matrix):
-    us = np.repeat(np.array([[0,1,2]]),element_ids.shape[0],axis=0).flatten()
-    include_shell = np.repeat(nShell[element_ids], 3) > us
-    include_shell = np.outer(include_shell, include_shell)
-    Kuv_AB = np.tile(Kll_AB, (element_ids.shape[0], element_ids.shape[0]))
-    P_uv = density_matrix#np.take(density_matrix[np.repeat(element_ids*3, 3) + us], np.repeat(element_ids*3, 3) + us, axis = 1)
-    s_uv = overlap_matrix#np.take(overlap_matrix[np.repeat(element_ids*3, 3) + us], np.repeat(element_ids*3, 3) + us, axis = 1)
-    H_EHT = huckel_matrix_np(element_ids, positions)
-    electronegativity = paulingEN[np.repeat(element_ids, 3)]
-    electronegativities = np.broadcast_to(electronegativity, (electronegativity.shape[0], electronegativity.shape[0]))
-    X_electronegativities = 1+kEN*((electronegativities - electronegativities.transpose())**2)
-    k_polyX = shellPoly[element_ids, :3].flatten()
-    k_polyX = np.broadcast_to(k_polyX, (k_polyX.shape[0], k_polyX.shape[0])).transpose()
-    R_AB2 = np.repeat(euclidian_dist_sqr(positions),3,axis=0)
-    R_AB2 = np.repeat(R_AB2,3,axis=1)
-    atomicRadiis = np.repeat(atomicRadii[element_ids], 3)
-    atomicRadiis_mat = np.broadcast_to(atomicRadiis, (atomicRadiis.shape[0], atomicRadiis.shape[0]))
-    Rcov_AB = atomicRadiis_mat + atomicRadiis_mat.transpose()
-    II = 1 + k_polyX * (R_AB2 / Rcov_AB)**0.5
-    II = II * II.transpose()
-    slaterExponents = np.broadcast_to(slaterExponent[element_ids, :3].flatten(), (element_ids.shape[0]*3,element_ids.shape[0]*3))
-    slaterExponents_ABs = slaterExponents * slaterExponents.transpose()
-    Y = ((2 * np.sqrt(slaterExponents_ABs)) / (slaterExponents + slaterExponents.transpose() + np.logical_not(include_shell)))**0.5
-    res = P_uv * (0.5 * Kuv_AB * s_uv * H_EHT * X_electronegativities * II * Y * include_shell)
+    res = density_matrix * huckel_matrix_np(element_ids, positions, overlap_matrix)
     return np.sum(res)
 
 
