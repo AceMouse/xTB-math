@@ -311,15 +311,17 @@ def dim_basis(element_ids):
 def build_SDQH0(nat, nao, caoshell, saoshell, trans, sint, dpint, qpint, H0, H0_noovlp, nprim, primcount, alp, cont, intcut): # TODO: We need to find these arg values
     at = np.zeros(nat, dtype=np.int32)
     # Cartesian coordinates
-    xyz = np.zeros((3, nat), dtype=np.float64)
+    xyz = np.zeros((3, nat), dtype=np.float64) # positions for each atom (x,y,z)
     # Map shell of atom to index in CAO space (lowest Cart. component is taken)
     # caoshell: atom number -> basis function
 
+    # one dimensional array as the hamiltoninan is symmetric and we choose to index into it using a pairing function lin(i,j) = idx
     H0[:] = 0.0
     H0_noovlp[:] = 0.0
-    sint = np.zeros((nao, nao), dtype=np.float64)
-    dpint = np.zeros((3, nao, nao), dtype=np.float64)
-    qpint = np.zeros((6, nao, nao), dtype=np.float64)
+
+    sint = np.zeros((nao, nao), dtype=np.float64)     # overlap matrix S
+    dpint = np.zeros((3, nao, nao), dtype=np.float64) # Dipol moment matrix D
+    qpint = np.zeros((6, nao, nao), dtype=np.float64) # Quadropole moment matrix Q
     point = np.zeros(3)
 
     il = 0
@@ -329,12 +331,13 @@ def build_SDQH0(nat, nao, caoshell, saoshell, trans, sint, dpint, qpint, H0, H0_
     zi = 0.0
     zj = 0.0
     km = 0.0
-    ss = np.zeros((6, 6), dtype=np.float64)
+    ss = np.zeros((6, 6), dtype=np.float64)   # 
     dd = np.zeros((3, 6, 6), dtype=np.float64)
     qq = np.zeros((6, 6, 6), dtype=np.float64)
     tmp = np.zeros((6, 6), dtype=np.float64)
 
-    ra = [3]
+    ra = [3] 
+    #compute the upper triangle of S, D, Q and H0
     for iat in range(nat):
         for jat in range(nat):
             if (jat >= iat):
@@ -354,28 +357,29 @@ def build_SDQH0(nat, nao, caoshell, saoshell, trans, sint, dpint, qpint, H0, H0_
                     il = ishtyp
                     jl = jshtyp
                     # diagonals are the same for all H0 elements
-                    hii = selfEnergy[iat, ish]
+                    # H_\kappa\kappa = k_A^l - \delta h_{CN'_A}^l * CN'_A equation used to transform the original selfEnergy array into this. Under equation (1)
+                    hii = selfEnergy[iat, ish] 
                     hjj = selfEnergy[jat, jsh]
 
                     # we scale the two shells depending on their exponent
                     zi = slaterExponent[izp][ish]
                     zj = slaterExponent[jzp][jsh]
-                    zetaij = (2 * sqrt(zi*zj)/(zi+zj))**wExp
-                    valenceShell = generateValenceShellData(nShell, angShell)
-                    km = h0scal(il, jl, izp, jzp, (valenceShell[izp, ish] != 0), (valenceShell[jzp, jsh] != 0))
+                    zetaij = (2 * sqrt(zi*zj)/(zi+zj))**wExp # Y term equation (7) in main.pdf
+                    valenceShell = generateValenceShellData(nShell, angShell) 
+                    km = h0scal(il, jl, izp, jzp, (valenceShell[izp, ish] != 0), (valenceShell[jzp, jsh] != 0)) # X term, see equation (3-5) and K term. 
 
-                    hav = 0.5 * km * (hii + hjj) * zetaij
+                    hav = 0.5 * km * (hii + hjj) * zetaij # equation (1)
 
                     for itr in range(trans.shape[1]): # NOTE: Is the indexing here correct?
                         rb = xyz[jat, 0:3] + trans[itr, :]
                         rab2 = np.sum((rb - ra)**2)
 
                         # distance dependent polynomial
+                        # equation (6)
                         k_polyA = shellPoly[izp][il]
                         k_polyB = shellPoly[jzp][jl]
-                        R_AB = dist(ra,rb)**2
                         Rcov_AB = atomicRadii[izp] + atomicRadii[jzp]
-                        shpoly = (1.0 + 0.01 * k_polyA * (R_AB / Rcov_AB)**0.5) * (1.0 + 0.01 * k_polyB * (R_AB / Rcov_AB)**0.5)
+                        shpoly = (1.0 + 0.01 * k_polyA * (rab2 / Rcov_AB)**0.5) * (1.0 + 0.01 * k_polyB * (rab2 / Rcov_AB)**0.5)
 
                         ss[:] = 0.0
                         dd[:] = 0.0
@@ -397,19 +401,20 @@ def build_SDQH0(nat, nao, caoshell, saoshell, trans, sint, dpint, qpint, H0, H0_
                             for jj in range(0, llao2[jshtyp]):
                                 jao = jj + saoshell[jat, jsh]
                                 ij = lin(iao, jao)
-                                H0[ij] = H0[ij] + hav * shpoly * ss[ii, jj]
+                                H0[ij] = H0[ij] + hav * shpoly * ss[ii, jj] # add in remaining Pi and S terms. 
                                 H0_noovlp[ij] = H0_noovlp[ij] + hav * shpoly
                                 sint[iao, jao] = sint[iao, jao] + ss[ii, jj]
                                 dpint[iao, jao, :] = dpint[iao, jao, :] + dd[ii, jj, :]
                                 qpint[iao, jao, :] = qpint[iao, jao, :] + dd[ii, jj, :]
 
+    # mirror the upper triangle to the lower of S, D and Q. H0 does not need it as we used the pairing function to index it. 
     for iao in range(0, nao):
         for jao in range(0, iao-1):
             sint[jao, iao] = sint[iao, jao]
             dpint[jao, iao, :] = dpint[iao, jao, :]
             qpint[jao, iao, :] = qpint[iao, jao, :]
 
-    # diagonal elements  
+    # compute the diagonal elements of S, D, Q, and H0
     for iat in range(0, nat):
         ra = xyz[iat, :]
         izp = at[iat]
@@ -417,7 +422,7 @@ def build_SDQH0(nat, nao, caoshell, saoshell, trans, sint, dpint, qpint, H0, H0_
             ishtyp = angShell[izp, ish]
             for iao in range(0, llao2[ishtyp]):
                 i = iao + saoshell[iat, ish]
-                ii = i * (1 + i)/2
+                ii = i * (1 + i)/2  # compute the pairing function. 
                 sint[i,i] = 1.0 + sint[i,i]
                 H0[ii] = H0[ii] + selfEnergy[iat, ish]
                 H0_noovlp[ii] = H0_noovlp[ii] + selfEnergy[iat, ish]
@@ -428,10 +433,7 @@ def build_SDQH0(nat, nao, caoshell, saoshell, trans, sint, dpint, qpint, H0, H0_
                 jshtyp = angShell[izp, jsh]
                 jcao = caoshell[iat, jsh]
                 naoj = llao[jshtyp]
-                ss[:] = 0.0
-                dd[:] = 0.0
-                qq[:] = 0.0
-                get_multiints(icao,jcao,naoi,naoj,ishtyp,jshtyp,ra,ra,point,intcut,nprim,primcount,alp,cont)
+                ss, dd, qq = get_multiints(icao,jcao,naoi,naoj,ishtyp,jshtyp,ra,ra,point,intcut,nprim,primcount,alp,cont) # compute the integrals
 
                 # transform from CAO to SAO
                 for k in range(0, 3):
@@ -456,7 +458,7 @@ def build_SDQH0(nat, nao, caoshell, saoshell, trans, sint, dpint, qpint, H0, H0_
                             qpint[iao, jao, 0:6] = dpint[iao, jao, 0:6] + qq[ii, jj, 0:6]
 
 
-
+# a symmetric version (Cantor) paring function assigning a unique number to each unordered pair of numbers. i.e lin(a,b) = lin(x,y) iff. a = x, b = y or a = y, b = x.
 def lin(i1, i2):
     idum1 = max(i1,i2)
     idum2 = min(i1,i2)
@@ -499,6 +501,7 @@ def generateValenceShellData(nShell, angShell):
                 valenceShell[iZp, iSh] = 1
     return valenceShell
 
+# Cartesian components of the angular momentum vector.
 lx = np.array([
   0,
   1,0,0,
