@@ -331,7 +331,7 @@ def build_SDQH0(nat, nao, caoshell, saoshell, trans, sint, dpint, qpint, H0, H0_
     zi = 0.0
     zj = 0.0
     km = 0.0
-    ss = np.zeros((6, 6), dtype=np.float64)   # 
+    ss = np.zeros((6, 6), dtype=np.float64)    
     dd = np.zeros((3, 6, 6), dtype=np.float64)
     qq = np.zeros((6, 6, 6), dtype=np.float64)
     tmp = np.zeros((6, 6), dtype=np.float64)
@@ -381,10 +381,7 @@ def build_SDQH0(nat, nao, caoshell, saoshell, trans, sint, dpint, qpint, H0, H0_
                         Rcov_AB = atomicRadii[izp] + atomicRadii[jzp]
                         shpoly = (1.0 + 0.01 * k_polyA * (rab2 / Rcov_AB)**0.5) * (1.0 + 0.01 * k_polyB * (rab2 / Rcov_AB)**0.5)
 
-                        ss[:] = 0.0
-                        dd[:] = 0.0
-                        qq[:] = 0.0
-                        get_multiints(icao,jcao,naoi,naoj,ishtyp,jshtyp,ra,rb,point,intcut,nprim,primcount,alp,cont)
+                        ss, dd, qq = get_multiints(icao,jcao,naoi,naoj,ishtyp,jshtyp,ra,rb,point,intcut,nprim,primcount,alp,cont)
 
                         # transform from CAO to SAO
                         dtrf2(ss, ishtyp, jshtyp)
@@ -497,7 +494,9 @@ def generateValenceShellData(nShell, angShell):
         for iSh in range(nShell[iZp]):
             lAng = angShell[iZp, iSh]
             if (valShell[lAng]):
-                valShell[lAng] = False
+                valShell[lAng] = F i
+D
+´ ≠ÖÖÖÖÖÖÖÖÖÖ ÆÖÖÖÖÖÖÖÖÖÖ∑ ∑μ α alse
                 valenceShell[iZp, iSh] = 1
     return valenceShell
 
@@ -547,6 +546,8 @@ def get_multiints(icao,jcao,naoi,naoj,ishtyp,jshtyp,ri,rj,point,intcut,nprim,pri
 
     if (rij2 > max_r2):
         return ss, dd, qq
+    # nprim[icao+1] is the number of primitive functions we expand icao into
+    # primcount[icao+1] is the offset into alp for getting the STO exponents and coefficients associated with icao 
 
     # we go through the primitives (because the screening is the same for all of them)
     for ip in range(nprim[icao+1]): # NOTE: should this still be icao+1?
@@ -558,6 +559,7 @@ def get_multiints(icao,jcao,naoi,naoj,ishtyp,jshtyp,ri,rj,point,intcut,nprim,pri
             # exponent the same for each l component
             alpj = alp[jprim]
             ab = 1.0 / (alpi + alpj)
+            # 
             est = alpi * alpj * rij2 * ab
             if (est > intcut):
                 continue
@@ -574,12 +576,13 @@ def get_multiints(icao,jcao,naoi,naoj,ishtyp,jshtyp,ri,rj,point,intcut,nprim,pri
                 ci = cont[iprim]
                 for mlj in range(naoj):
                     jprim = jp + primcount[jcao + mlj]
-                    cc = kab * cont[jprim] * ci
+                    cj = cont[jprim]
+                    cc = kab * cj * ci
                     saw = np.zeros(10)
                     multipole_3d(ri,rj,point,rp,lxyz[iptyp+mli,:],lxyz[jptyp+mlj,:],t,saw)
                     ss[mli,mlj] = ss[mli,mlj] + saw[0] * cc
-                    dd[mli,mlj,:] = dd[mli,mlj,:] + saw[2:5] * cc
-                    qq[mli,mlj,:] = qq[mli,mlj,:] + saw[5:11] * cc
+                    dd[mli,mlj,:] = dd[mli,mlj,:] + saw[1:4] * cc
+                    qq[mli,mlj,:] = qq[mli,mlj,:] + saw[4:10] * cc
 
     return ss,dd,qq
 
@@ -616,17 +619,17 @@ def multipole_3d(ri, rj, rc, rp, li, lj, s1d, s3d):
             val[1,k] = val[1,k] + s1d[l] * vv[l]
             val[2,k] = val[2,k] + (s1d[l+1] + rpc*s1d[l]) * vv[l]
             val[3,k] = val[3,k] + (s1d[l+2] + 2*rpc*s1d[l+1] + rpc*rpc*s1d[l]) * vv[l]
-
-    s3d[0] = val[1,1] * val[1,2] * val[1,3]
-    s3d[1] = val[2,1] * val[1,2] * val[1,3]
-    s3d[2] = val[1,1] * val[2,2] * val[1,3]
-    s3d[3] = val[1,1] * val[1,2] * val[2,3]
-    s3d[4] = val[3,1] * val[1,2] * val[1,3]
-    s3d[5] = val[1,1] * val[3,2] * val[1,3]
-    s3d[6] = val[1,1] * val[1,2] * val[3,3]
-    s3d[7] = val[2,1] * val[2,2] * val[1,3]
-    s3d[8] = val[2,1] * val[1,2] * val[2,3]
-    s3d[9] = val[1,1] * val[2,2] * val[2,3]
+    # val[ potens, coordinat ], val[1,1] = x^0. s3d[2] = x^0*y^1*z^0
+    s3d[0] = val[1,1] * val[1,2] * val[1,3] # 1
+    s3d[1] = val[2,1] * val[1,2] * val[1,3] # x
+    s3d[2] = val[1,1] * val[2,2] * val[1,3] # y
+    s3d[3] = val[1,1] * val[1,2] * val[2,3] # z
+    s3d[4] = val[3,1] * val[1,2] * val[1,3] # x^2
+    s3d[5] = val[1,1] * val[3,2] * val[1,3] # y^2
+    s3d[6] = val[1,1] * val[1,2] * val[3,3] # z^2
+    s3d[7] = val[2,1] * val[2,2] * val[1,3] # xy
+    s3d[8] = val[2,1] * val[1,2] * val[2,3] # xz
+    s3d[9] = val[1,1] * val[2,2] * val[2,3] # yz
 
 def horizontal_shift(ae, l, cfs):
     match l:
