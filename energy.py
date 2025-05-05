@@ -4,7 +4,7 @@ import numpy as np
 import scipy
 import time
 from fock import huckel_matrix_np, GFN2_coordination_numbers_np
-from util import euclidian_dist, dist, print_res2, density_initial_guess, overlap_initial_guess, get_partial_mulliken_charges
+from util import euclidian_dist, euclidian_dist_sqr, dist, print_res2, density_initial_guess, overlap_initial_guess, get_partial_mulliken_charges
 H = 0
 He = 1
 C = 5
@@ -13,8 +13,9 @@ C = 5
 REP = True
 ISO2 = True
 ISO3 = True
-EHT = True
+EHT = bool(0)
 CN = True
+DIM = True
 
 #element_ids = np.array([C,C,C])
 #positions = np.array([[1,0,0],[0,1,0],[0,0,1]])
@@ -27,12 +28,6 @@ density_matrix = density_initial_guess(element_cnt)
 overlap_matrix = overlap_initial_guess(element_cnt)
     
 
-def euclidian_dist_sqr(positions):
-    pos_sqr = np.broadcast_to(np.sum(positions**2, axis=-1), (positions.shape[0], positions.shape[0])) 
-    pos_pairs = np.matmul(positions, positions.transpose())
-    dist_sqr = pos_sqr-2*pos_pairs+pos_sqr.transpose()
-    dist_sqr = dist_sqr * (dist_sqr > 0) # remove sligthly negative values so the sqrt works fine. 
-    return dist_sqr
 
 
 
@@ -293,10 +288,30 @@ def dim_basis(element_ids):
                 case 4: # g-type GTO
                     nbf = nbf + 15 # Cartesian components to describe 15 g-functions or possibly 9 g-functions and 5 d-functions 
                     nao = nao + 9  # spherical components to describe 9 spherical g-functions
-    if k == 0:
-         print(f'no basis found for atom {i} Z = {ati}')
-         quit(1)
+        if k == 0:
+             print(f'no basis found for atom {i} Z = {ati}')
+             quit(1)
     return nshell, nao, nbf #total number of shells, number of spherical atomic orbitals, number of basis functions. 
+
+def dim_basis_np(element_ids):
+    n = element_ids.shape[0]
+    shells = nShell[element_ids]
+    nshell = np.sum(shells)
+    max_shells = np.max(shells)
+    js = np.broadcast_to(np.arange(max_shells), (n,max_shells))
+    include_shell = js < np.reshape(np.repeat(shells, max_shells), (n, max_shells))
+    ls = angShell[np.reshape(np.repeat(element_ids, max_shells), (n, max_shells)), js]
+    nbf = np.sum((ls+1)*(ls+2)*include_shell)/2 # triangular numbers of Cartesian components needed to describe basis functions. 
+    nao = np.sum(ls*include_shell)*2 + nshell # odd numbers of spherical components needed to describe basis functions as spherical harmonic functions. 
+    return nshell, nao, nbf #total number of shells, number of spherical atomic orbitals, number of basis functions. 
+
+if DIM:
+    t1 = time.time()
+    x1 = np.sum(dim_basis(element_ids))
+    t2 = time.time()
+    x2 = np.sum(dim_basis_np(element_ids))
+    t3 = time.time()
+    print_res2(x1,x2,t1,t2,t3,"Sum of dim basis output")
 
 # nShell[len(element_ids)]: Number of shells for each element
 # nat: Number of atoms
@@ -494,9 +509,7 @@ def generateValenceShellData(nShell, angShell):
         for iSh in range(nShell[iZp]):
             lAng = angShell[iZp, iSh]
             if (valShell[lAng]):
-                valShell[lAng] = F i
-D
-´ ≠ÖÖÖÖÖÖÖÖÖÖ ÆÖÖÖÖÖÖÖÖÖÖ∑ ∑μ α alse
+                valShell[lAng] = False
                 valenceShell[iZp, iSh] = 1
     return valenceShell
 

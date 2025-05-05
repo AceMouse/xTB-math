@@ -7,6 +7,12 @@ def dist(v1, v2): #euclidean distance.
     d = sqrt(d)
     return d
 
+def euclidian_dist_sqr(positions):
+    pos_sqr = np.broadcast_to(np.sum(positions**2, axis=-1), (positions.shape[0], positions.shape[0])) 
+    pos_pairs = np.matmul(positions, positions.transpose())
+    dist_sqr = pos_sqr-2*pos_pairs+pos_sqr.transpose()
+    dist_sqr = dist_sqr * (dist_sqr > 0) # remove sligthly negative values so the sqrt works fine. 
+    return dist_sqr
 def euclidian_dist(positions): 
     # res_1,2 = sqrt(sum((v1-v2)^2)) = sqrt(sum(v1^2)-2*v1.v2+sum(v2^2))
     '''
