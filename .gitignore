@@ -4,3 +4,5 @@
 *.log
 *_log.pdf
 *_log.ps
+__pycache__/
+.direnv/
