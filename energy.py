@@ -25,9 +25,6 @@ positions = rand.random((element_cnt,3))
 atoms = list(zip(element_ids, positions))
 density_matrix = density_initial_guess(element_cnt)
 overlap_matrix = overlap_initial_guess(element_cnt)
-    
-
-
 
 
 def repulsion_energy(atoms):
@@ -488,7 +485,7 @@ lxyz = np.vstack([lx, ly, lz]).T
 
 def get_multiints(icao,jcao,naoi,naoj,ishtyp,jshtyp,ri,rj,point,intcut,nprim,primcount,alp,cont):
     ss = np.zeros((6, 6), dtype=np.float64)
-    dd = np.zeros((3, 6, 6), dtype=np.float64)
+    dd = np.zeros((6, 6, 3), dtype=np.float64)
     qq = np.zeros((6, 6, 6), dtype=np.float64)
     iptyp = itt[ishtyp]
     jptyp = itt[jshtyp]
@@ -506,12 +503,12 @@ def get_multiints(icao,jcao,naoi,naoj,ishtyp,jshtyp,ri,rj,point,intcut,nprim,pri
     # primcount[icao+1] is the offset into alp for getting the STO exponents and coefficients associated with icao 
 
     # we go through the primitives (because the screening is the same for all of them)
-    for ip in range(nprim[icao+1]): # NOTE: should this still be icao+1?
-        iprim = ip + primcount[icao+1]
+    for ip in range(nprim[icao]): # NOTE: should this still be icao+1?
+        iprim = ip + primcount[icao]
         # exponent the same for each l component
         alpi = alp[iprim]
-        for jp in range(nprim[jcao+1]):
-            jprim = jp + primcount[jcao+1]
+        for jp in range(nprim[jcao]):
+            jprim = jp + primcount[jcao]
             # exponent the same for each l component
             alpj = alp[jprim]
             ab = 1.0 / (alpi + alpj)
@@ -521,7 +518,7 @@ def get_multiints(icao,jcao,naoi,naoj,ishtyp,jshtyp,ri,rj,point,intcut,nprim,pri
                 continue
             kab = exp(-est) * (sqrtpi * sqrt(ab))**3
             rp = (alpi*ri + alpj*rj) * ab
-            for k in range(ishtyp + jshtyp + 2):
+            for k in range(ishtyp + jshtyp + 3):
                 t[k] = olapp(k, alpi+alpj)
 
             #--------------- compute gradient ----------
@@ -537,8 +534,8 @@ def get_multiints(icao,jcao,naoi,naoj,ishtyp,jshtyp,ri,rj,point,intcut,nprim,pri
                     saw = np.zeros(10)
                     multipole_3d(ri,rj,point,rp,lxyz[iptyp+mli,:],lxyz[jptyp+mlj,:],t,saw)
                     ss[mli,mlj] = ss[mli,mlj] + saw[0] * cc
-                    dd[mli,mlj,:] = dd[mli,mlj,:] + saw[1:4] * cc
-                    qq[mli,mlj,:] = qq[mli,mlj,:] + saw[4:10] * cc
+                    dd[mli,mlj,:] = dd[mli,mlj,:] + saw[1:4]*cc
+                    qq[mli,mlj,:] = qq[mli,mlj,:] + saw[4:10]*cc
 
     return ss,dd,qq
 
@@ -550,7 +547,7 @@ def olapp(l, gama):
 
     dftr = [1.0, 1.0, 3.0, 15.0, 105.0, 945.0, 10395.0, 135135.0]
 
-    lh = l/2
+    lh = l//2
     gm = 0.5 / gama
     return gm**lh*dftr[lh]
 
@@ -572,20 +569,20 @@ def multipole_3d(ri, rj, rc, rp, li, lj, s1d, s3d):
         horizontal_shift(rp[k] - rj[k], lj[k], vj)
         form_product(vi, vj, li[k], lj[k], vv)
         for l in range(li[k] + lj[k]):
-            val[1,k] = val[1,k] + s1d[l] * vv[l]
-            val[2,k] = val[2,k] + (s1d[l+1] + rpc*s1d[l]) * vv[l]
-            val[3,k] = val[3,k] + (s1d[l+2] + 2*rpc*s1d[l+1] + rpc*rpc*s1d[l]) * vv[l]
-    # val[ potens, coordinat ], val[1,1] = x^0. s3d[2] = x^0*y^1*z^0
-    s3d[0] = val[1,1] * val[1,2] * val[1,3] # 1
-    s3d[1] = val[2,1] * val[1,2] * val[1,3] # x
-    s3d[2] = val[1,1] * val[2,2] * val[1,3] # y
-    s3d[3] = val[1,1] * val[1,2] * val[2,3] # z
-    s3d[4] = val[3,1] * val[1,2] * val[1,3] # x^2
-    s3d[5] = val[1,1] * val[3,2] * val[1,3] # y^2
-    s3d[6] = val[1,1] * val[1,2] * val[3,3] # z^2
-    s3d[7] = val[2,1] * val[2,2] * val[1,3] # xy
-    s3d[8] = val[2,1] * val[1,2] * val[2,3] # xz
-    s3d[9] = val[1,1] * val[2,2] * val[2,3] # yz
+            val[0,k] = val[0,k] + s1d[l] * vv[l]
+            val[1,k] = val[1,k] + (s1d[l+1] + rpc*s1d[l]) * vv[l]
+            val[2,k] = val[2,k] + (s1d[l+2] + 2*rpc*s1d[l+1] + rpc*rpc*s1d[l]) * vv[l]
+
+    s3d[0] = val[0,0] * val[0,1] * val[0,2]
+    s3d[1] = val[1,0] * val[0,1] * val[0,2]
+    s3d[2] = val[0,0] * val[1,1] * val[0,2]
+    s3d[3] = val[0,0] * val[0,1] * val[1,2]
+    s3d[4] = val[2,0] * val[0,1] * val[0,2]
+    s3d[5] = val[0,0] * val[2,1] * val[0,2]
+    s3d[6] = val[0,0] * val[0,1] * val[2,2]
+    s3d[7] = val[1,0] * val[1,1] * val[0,2]
+    s3d[8] = val[1,0] * val[0,1] * val[1,2]
+    s3d[9] = val[0,0] * val[1,1] * val[1,2]
 
 def horizontal_shift(ae, l, cfs):
     match l:
