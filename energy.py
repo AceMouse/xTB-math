@@ -20,7 +20,7 @@ DIM = True
 #element_ids = np.array([C,C,C])
 #positions = np.array([[1,0,0],[0,1,0],[0,0,1]])
 rand = np.random.default_rng()
-element_cnt = 100
+element_cnt = 1000
 element_ids = rand.choice(repZeff.shape[0], size=element_cnt)
 positions = rand.random((element_cnt,3))
 atoms = list(zip(element_ids, positions))
@@ -301,8 +301,8 @@ def dim_basis_np(element_ids):
     js = np.broadcast_to(np.arange(max_shells), (n,max_shells))
     include_shell = js < np.reshape(np.repeat(shells, max_shells), (n, max_shells))
     ls = angShell[np.reshape(np.repeat(element_ids, max_shells), (n, max_shells)), js]
-    nbf = np.sum((ls+1)*(ls+2)*include_shell)/2 # triangular numbers of Cartesian components needed to describe basis functions. 
-    nao = np.sum(ls*include_shell)*2 + nshell # odd numbers of spherical components needed to describe basis functions as spherical harmonic functions. 
+    nbf = np.sum((ls+1)*(ls+2)*include_shell)/2 # triangular numbers of Cartesian components needed to describe basis functions. (1,3,6,10,15)
+    nao = np.sum(ls*include_shell)*2 + nshell # odd numbers of spherical components needed to describe basis functions as spherical harmonic functions. (1,3,5,7,9) 
     return nshell, nao, nbf #total number of shells, number of spherical atomic orbitals, number of basis functions. 
 
 if DIM:
