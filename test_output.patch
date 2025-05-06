@@ -1,0 +1,160 @@
+diff --git a/src/intgrad.f90 b/src/intgrad.f90
+index 44f8f7e..e3f6d02 100644
+--- a/src/intgrad.f90
++++ b/src/intgrad.f90
+@@ -872,8 +872,39 @@ pure subroutine get_grad_overlap(icao,jcao,naoi,naoj,ishtyp,jshtyp,ri,rj,point,i
+    enddo  ! ip : loop over i prims
+ end subroutine get_grad_overlap
+ 
+-
+-pure subroutine get_multiints(icao,jcao,naoi,naoj,ishtyp,jshtyp,ri,rj,point, &
++subroutine random_uuid(uuid)
++    character(len=*), intent(out) :: uuid
++    character(len=16) :: hexchars
++    integer :: i, n
++    real :: r(1)
++    character(len=1) :: c
++
++    hexchars = '0123456789abcdef'
++    uuid = ''
++    do i = 1, 36
++        if (i == 9 .or. i == 14 .or. i == 19 .or. i == 24) then
++            uuid(i:i) = '-'
++        else
++            call random_number(r)
++            n = 1 + int(r(1) * 16.0)
++            uuid(i:i) = hexchars(n:n)
++        end if
++    end do
++end subroutine
++
++subroutine create_directory(dir_name)
++   character(len=*), intent(in) :: dir_name
++   character(len=255) :: command
++
++   ! Construct the command to create the directory
++   write(command, '("mkdir -p ", A)') trim(adjustl(dir_name))
++
++   ! Execute the command
++   call system(command)
++end subroutine create_directory
++
++! pure
++subroutine get_multiints(icao,jcao,naoi,naoj,ishtyp,jshtyp,ri,rj,point, &
+       &                           intcut,nprim,primcount,alp,cont,ss,dd,qq)
+    integer, intent(in)  :: icao
+    integer, intent(in)  :: jcao
+@@ -894,13 +925,52 @@ pure subroutine get_multiints(icao,jcao,naoi,naoj,ishtyp,jshtyp,ri,rj,point, &
+    real(wp),intent(in)  :: alp(:)
+    real(wp),intent(in)  :: cont(:)
+ 
+-   integer  :: ip,iprim,mli,jp,jprim,mlj,k,iptyp,jptyp
++   integer  :: ip,iprim,mli,jp,jprim,mlj,k,iptyp,jptyp,i,j
+    real(wp) :: rij(3),rp(3),rij2,alpi,alpj,ci,cj,cc,kab,t(0:8)
+    real(wp) :: ab,est,saw(10),sawg(3,10)
+ 
+    real(wp),parameter :: max_r2 = 2000.0_wp
+    real(wp),parameter :: sqrtpi = sqrt(pi)
+ 
++   character(len=36) :: uuid
++   character(len=100) :: filename, dir
++   character(len=200) :: path
++
++   ! Print all arguments
++   ! write(*, '(A, I0)') 'icao = ', icao
++   ! write(*, '(A, I0)') 'jcao = ', jcao
++   ! write(*, '(A, I0)') 'naoi = ', naoi
++   ! write(*, '(A, I0)') 'naoj = ', naoj
++   ! write(*, '(A, I0)') 'ishtyp = ', ishtyp
++   ! write(*, '(A, I0)') 'jshtyp = ', jshtyp
++   ! write(*, '(A, 3F12.6)') 'ri = ', ri
++   ! write(*, '(A, 3F12.6)') 'rj = ', rj
++   ! write(*, '(A, 3F12.6)') 'point = ', point
++   ! write(*, '(A, F12.6)') 'intcut = ', intcut
++   ! write(*, '(A, *(I0, 1X))') 'nprim = ', nprim
++   ! write(*, '(A, *(I0, 1X))') 'primcount = ', primcount
++   ! write(*, '(A, *(F12.6, 1X))') 'alp = ', alp
++   ! write(*, '(A, *(F12.6, 1X))') 'cont = ', cont
++
++   call random_seed()
++   call random_uuid(uuid)
++   write(filename, '(A,A)') 'args_', uuid
++   dir = 'calls/get_multiints/'
++   write(path, '(A,A,A)') trim(dir), trim(filename), ".bin"
++
++   call create_directory(trim(dir))
++
++   open(unit=10, file=trim(path), form='unformatted', access='stream')
++   write(10) icao, jcao, naoi, naoj, ishtyp, jshtyp
++   write(10) ri
++   write(10) rj
++   write(10) point
++   write(10) intcut
++   write(10) size(nprim), nprim
++   write(10) size(primcount), primcount
++   write(10) size(alp), alp
++   write(10) size(cont), cont
++
+    ss = 0.0_wp
+    dd = 0.0_wp
+    qq = 0.0_wp
+@@ -910,7 +980,14 @@ pure subroutine get_multiints(icao,jcao,naoi,naoj,ishtyp,jshtyp,ri,rj,point, &
+    rij = ri - rj
+    rij2 = rij(1)**2 + rij(2)**2 + rij(3)**2
+ 
+-   if(rij2.gt.max_r2) return
++   if(rij2.gt.max_r2) then
++     write(10) size(ss, 1), size(ss, 2), ss
++     write(10) size(dd, 1), size(dd, 2), size(dd, 3), dd
++     write(10) size(qq, 1), size(qq, 2), size(qq, 3), qq
++
++     close(10)
++     return
++   endif
+ 
+    ! we go through the primitives (because the screening is the same for all of them)
+    do ip = 1,nprim(icao+1)
+@@ -948,6 +1025,43 @@ pure subroutine get_multiints(icao,jcao,naoi,naoj,ishtyp,jshtyp,ri,rj,point, &
+          enddo  ! mli : Cartesian component of i prims
+       enddo ! jp : loop over j prims
+    enddo  ! ip : loop over i prims
++
++   ! Print ss (2D array, intent(out), so print shape and initial values if needed)
++   ! write(*, '(A, I0, A, I0)') 'ss (shape: ', size(ss, 1), ' x ', size(ss, 2), ')'
++   ! do i = 1, size(ss, 1)
++   !    write(*, '(A, I0, A, *(F12.6, 1X))') 'ss(', i, ',:) = ', ss(i, :)
++   ! end do
++
++   ! Print dd (3D array, intent(out))
++   ! write(*, '(A, I0, A, I0, A, I0)') 'dd (shape: ', size(dd, 1), ' x ', size(dd, 2), ' x ', size(dd, 3), ')'
++   ! do i = 1, size(dd, 1)
++   !    do j = 1, size(dd, 2)
++   !       write(*, '(A, I0, A, I0, A, *(F12.6, 1X))') 'dd(', i, ',', j, ',:) = ', dd(i, j, :)
++   !    end do
++   ! end do
++
++   ! Print qq (3D array, intent(out))
++   ! write(*, '(A, I0, A, I0, A, I0)') 'qq (shape: ', size(qq, 1), ' x ', size(qq, 2), ' x ', size(qq, 3), ')'
++   ! do i = 1, size(qq, 1)
++   !    do j = 1, size(qq, 2)
++   !       write(*, '(A, I0, A, I0, A, *(F12.6, 1X))') 'qq(', i, ',', j, ',:) = ', qq(i, j, :)
++   !    end do
++   ! end do
++
++   print *, "ss shape:", size(ss, 1), size(ss, 2)
++   print *, "ss values:", ss
++
++   print *, "dd shape:", size(dd, 1), size(dd, 2), size(dd, 3)
++   print *, "dd values:", dd
++
++   print *, "qq shape:", size(qq, 1), size(qq, 2), size(qq, 3)
++   print *, "qq values:", qq
++
++   write(10) size(ss, 1), size(ss, 2), ss
++   write(10) size(dd, 1), size(dd, 2), size(dd, 3), dd
++   write(10) size(qq, 1), size(qq, 2), size(qq, 3), qq
++
++   close(10)
+ end subroutine get_multiints
+ 
+ 
