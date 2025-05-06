@@ -7,12 +7,6 @@ def dist(v1, v2): #euclidean distance.
     d = sqrt(d)
     return d
 
-def euclidian_dist_sqr(positions):
-    pos_sqr = np.broadcast_to(np.sum(positions**2, axis=-1), (positions.shape[0], positions.shape[0])) 
-    pos_pairs = np.matmul(positions, positions.transpose())
-    dist_sqr = pos_sqr-2*pos_pairs+pos_sqr.transpose()
-    dist_sqr = dist_sqr * (dist_sqr > 0) # remove sligthly negative values so the sqrt works fine. 
-    return dist_sqr
 def euclidian_dist(positions): 
     # res_1,2 = sqrt(sum((v1-v2)^2)) = sqrt(sum(v1^2)-2*v1.v2+sum(v2^2))
     '''
@@ -54,6 +48,13 @@ def euclidian_dist(positions):
     dists = np.sqrt(dist_sqr)
     return dists
 
+def euclidian_dist_sqr(positions):
+    pos_sqr = np.broadcast_to(np.sum(positions**2, axis=-1), (positions.shape[0], positions.shape[0]))
+    pos_pairs = np.matmul(positions, positions.transpose())
+    dist_sqr = pos_sqr-2*pos_pairs+pos_sqr.transpose()
+    dist_sqr = dist_sqr * (dist_sqr > 0) # remove sligthly negative values so the sqrt works fine.
+    return dist_sqr
+
 def density_initial_guess(element_cnt): #TODO: Make good initial guess
     return np.ones((element_cnt*3,element_cnt*3))/element_cnt*3
 
@@ -78,4 +79,3 @@ def get_atomic_charges(density_matrix, overlap_matrix, element_ids):
     GAPs = np.sum(get_partial_mulliken_charges(density_matrix, overlap_matrix),axis=-1)
     Zs = element_ids + 1
     return Zs - GAPs 
-
