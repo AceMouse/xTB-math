@@ -6,26 +6,19 @@
   };
 
   outputs = inputs @ { self, nixpkgs, ... }: {
-    #checks."x86_64-linux"."compare-implementations" = let
-    #  pkgs = nixpkgs.legacyPackages."x86_64-linux";
-    #in pkgs.stdenvNoCC.mkDerivation {
-    #  name = "compare-implementations";
-    #  srcs = [./. inputs.xtb];
+    checks."x86_64-linux" = let
+      pkgs = nixpkgs.legacyPackages."x86_64-linux";
+    in {
+      "compare-implementations" = pkgs.runCommand {
+        src = ./.;
 
-    #  patchPhase = ''
-    #    runHook prePatch
-
-    #    git -C "''${srcs[1]}" apply 
-
-    #    runHook postPatch
-    #  '';
-    #} ''
-    #  for src in $srcs;
-    #  do
-    #    ls $src
-    #  done
-    #  mkdir "$out"
-    #'';
+        nativeBuildInputs = with pkgs; [
+          self.packages."x86_64-linux".xtb
+        ];
+      } ''
+        
+      '';
+    };
 
     packages."x86_64-linux" = let
       pkgs = nixpkgs.legacyPackages."x86_64-linux";
@@ -39,32 +32,12 @@
       pkgs = nixpkgs.legacyPackages."x86_64-linux";
     in pkgs.mkShell {
       packages = with pkgs; [
-        #pkgs.pyright
-        #pkgs.texlab
-        #(pkgs.python3.withPackages (python-pkgs: with python-pkgs; [
-        #  numpy
-        #  scipy
-        #]))
-        meson
-        ninja
-        gfortran
-        pkg-config
-        cmake
-        lapack
-        python3
-        blas
-        asciidoctor
-        tblite
-        go
-        toml-f
-        test-drive
-        simple-dftd3
-        mstore
-        multicharge
-        dftd4
-        json-fortran
-        mctc-lib
-        #self.packages.x86_64-linux.cpx
+        pkgs.pyright
+        pkgs.texlab
+        (pkgs.python3.withPackages (python-pkgs: with python-pkgs; [
+          numpy
+          scipy
+        ]))
       ];
     };
   };

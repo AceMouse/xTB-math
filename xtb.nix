@@ -22,7 +22,6 @@
   mctc-lib,
   cpx,
   numsa,
-  openblas
 }:
 stdenv.mkDerivation {
   name = "xtb";
@@ -35,6 +34,7 @@ stdenv.mkDerivation {
   };
 
   dontPatch = true;
+  #doCheck = true;
   dontFixup = true;
 
   nativeBuildInputs = [
@@ -59,14 +59,13 @@ stdenv.mkDerivation {
     mctc-lib
     cpx
     numsa
-    openblas
   ];
 
   configurePhase = ''
     runHook preConfigure
 
     export FC=${gfortran}/bin/gfortran
-    meson setup build --buildtype=release -Dlapack=openblas
+    meson setup build --buildtype=release
     meson configure build --prefix=$out
 
     runHook postConfigure
