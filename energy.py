@@ -10,11 +10,11 @@ He = 1
 C = 5
 
 
-REP = True
-ISO2 = True
-ISO3 = True
-EHT = bool(0)
-CN = True
+REP = False
+ISO2 = False
+ISO3 = False
+EHT = False
+CN = False
 
 #element_ids = np.array([C,C,C])
 #positions = np.array([[1,0,0],[0,1,0],[0,0,1]])
