@@ -1,5 +1,5 @@
 diff --git a/src/intgrad.f90 b/src/intgrad.f90
-index 44f8f7e..e3f6d02 100644
+index 44f8f7e..ca8dc63 100644
 --- a/src/intgrad.f90
 +++ b/src/intgrad.f90
 @@ -872,8 +872,39 @@ pure subroutine get_grad_overlap(icao,jcao,naoi,naoj,ishtyp,jshtyp,ri,rj,point,i
@@ -44,7 +44,7 @@ index 44f8f7e..e3f6d02 100644
        &                           intcut,nprim,primcount,alp,cont,ss,dd,qq)
     integer, intent(in)  :: icao
     integer, intent(in)  :: jcao
-@@ -894,13 +925,52 @@ pure subroutine get_multiints(icao,jcao,naoi,naoj,ishtyp,jshtyp,ri,rj,point, &
+@@ -894,13 +925,36 @@ pure subroutine get_multiints(icao,jcao,naoi,naoj,ishtyp,jshtyp,ri,rj,point, &
     real(wp),intent(in)  :: alp(:)
     real(wp),intent(in)  :: cont(:)
  
@@ -59,22 +59,6 @@ index 44f8f7e..e3f6d02 100644
 +   character(len=36) :: uuid
 +   character(len=100) :: filename, dir
 +   character(len=200) :: path
-+
-+   ! Print all arguments
-+   ! write(*, '(A, I0)') 'icao = ', icao
-+   ! write(*, '(A, I0)') 'jcao = ', jcao
-+   ! write(*, '(A, I0)') 'naoi = ', naoi
-+   ! write(*, '(A, I0)') 'naoj = ', naoj
-+   ! write(*, '(A, I0)') 'ishtyp = ', ishtyp
-+   ! write(*, '(A, I0)') 'jshtyp = ', jshtyp
-+   ! write(*, '(A, 3F12.6)') 'ri = ', ri
-+   ! write(*, '(A, 3F12.6)') 'rj = ', rj
-+   ! write(*, '(A, 3F12.6)') 'point = ', point
-+   ! write(*, '(A, F12.6)') 'intcut = ', intcut
-+   ! write(*, '(A, *(I0, 1X))') 'nprim = ', nprim
-+   ! write(*, '(A, *(I0, 1X))') 'primcount = ', primcount
-+   ! write(*, '(A, *(F12.6, 1X))') 'alp = ', alp
-+   ! write(*, '(A, *(F12.6, 1X))') 'cont = ', cont
 +
 +   call random_seed()
 +   call random_uuid(uuid)
@@ -98,7 +82,7 @@ index 44f8f7e..e3f6d02 100644
     ss = 0.0_wp
     dd = 0.0_wp
     qq = 0.0_wp
-@@ -910,7 +980,14 @@ pure subroutine get_multiints(icao,jcao,naoi,naoj,ishtyp,jshtyp,ri,rj,point, &
+@@ -910,7 +964,14 @@ pure subroutine get_multiints(icao,jcao,naoi,naoj,ishtyp,jshtyp,ri,rj,point, &
     rij = ri - rj
     rij2 = rij(1)**2 + rij(2)**2 + rij(3)**2
  
@@ -114,41 +98,10 @@ index 44f8f7e..e3f6d02 100644
  
     ! we go through the primitives (because the screening is the same for all of them)
     do ip = 1,nprim(icao+1)
-@@ -948,6 +1025,43 @@ pure subroutine get_multiints(icao,jcao,naoi,naoj,ishtyp,jshtyp,ri,rj,point, &
+@@ -948,6 +1009,12 @@ pure subroutine get_multiints(icao,jcao,naoi,naoj,ishtyp,jshtyp,ri,rj,point, &
           enddo  ! mli : Cartesian component of i prims
        enddo ! jp : loop over j prims
     enddo  ! ip : loop over i prims
-+
-+   ! Print ss (2D array, intent(out), so print shape and initial values if needed)
-+   ! write(*, '(A, I0, A, I0)') 'ss (shape: ', size(ss, 1), ' x ', size(ss, 2), ')'
-+   ! do i = 1, size(ss, 1)
-+   !    write(*, '(A, I0, A, *(F12.6, 1X))') 'ss(', i, ',:) = ', ss(i, :)
-+   ! end do
-+
-+   ! Print dd (3D array, intent(out))
-+   ! write(*, '(A, I0, A, I0, A, I0)') 'dd (shape: ', size(dd, 1), ' x ', size(dd, 2), ' x ', size(dd, 3), ')'
-+   ! do i = 1, size(dd, 1)
-+   !    do j = 1, size(dd, 2)
-+   !       write(*, '(A, I0, A, I0, A, *(F12.6, 1X))') 'dd(', i, ',', j, ',:) = ', dd(i, j, :)
-+   !    end do
-+   ! end do
-+
-+   ! Print qq (3D array, intent(out))
-+   ! write(*, '(A, I0, A, I0, A, I0)') 'qq (shape: ', size(qq, 1), ' x ', size(qq, 2), ' x ', size(qq, 3), ')'
-+   ! do i = 1, size(qq, 1)
-+   !    do j = 1, size(qq, 2)
-+   !       write(*, '(A, I0, A, I0, A, *(F12.6, 1X))') 'qq(', i, ',', j, ',:) = ', qq(i, j, :)
-+   !    end do
-+   ! end do
-+
-+   print *, "ss shape:", size(ss, 1), size(ss, 2)
-+   print *, "ss values:", ss
-+
-+   print *, "dd shape:", size(dd, 1), size(dd, 2), size(dd, 3)
-+   print *, "dd values:", dd
-+
-+   print *, "qq shape:", size(qq, 1), size(qq, 2), size(qq, 3)
-+   print *, "qq values:", qq
 +
 +   write(10) size(ss, 1), size(ss, 2), ss
 +   write(10) size(dd, 1), size(dd, 2), size(dd, 3), dd

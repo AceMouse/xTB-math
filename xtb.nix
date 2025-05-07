@@ -33,8 +33,6 @@ stdenv.mkDerivation {
     sha256 = "sha256-lla3oNtXYOKhTcNxfYHqZbcqirZyUBJH+OZL37b8Ux4=";
   };
 
-  dontPatch = true;
-  #doCheck = true;
   dontFixup = true;
 
   nativeBuildInputs = [

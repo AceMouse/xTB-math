@@ -5,18 +5,24 @@
     xtb.flake = false;
   };
 
-  outputs = inputs @ { self, nixpkgs, ... }: {
+  outputs = { self, nixpkgs, ... }: {
     checks."x86_64-linux" = let
       pkgs = nixpkgs.legacyPackages."x86_64-linux";
     in {
-      "compare-implementations" = pkgs.runCommand {
-        src = ./.;
-
+      "cmp-impls" = pkgs.runCommand "cmp-impls" {
         nativeBuildInputs = with pkgs; [
-          self.packages."x86_64-linux".xtb
+          (self.packages."x86_64-linux".xtb.overrideAttrs (finalAttrs: previousAttrs: {
+            patches = [./test_output.patch];
+          }))
+          (pkgs.python3.withPackages (python-pkgs: with python-pkgs; [
+            numpy
+            scipy
+          ]))
         ];
       } ''
-        
+        xtb ${./caffeine.xyz}
+        mv calls $out
+        PYTHONPATH=${./.} python ${./cmp_impls.py} $out/get_multiints/
       '';
     };
 
