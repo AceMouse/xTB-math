@@ -1,7 +1,8 @@
-from gfn2 import angShell, nShell, repZeff
+from gfn2 import angShell, nShell, repZeff, valenceShell, slaterExponent, selfEnergy,principalQantumNumber, numberOfPrimitives
 import numpy as np
 import time
 
+from slater import slaterToGauss
 from util import euclidian_dist, euclidian_dist_sqr, dist, print_res2, density_initial_guess, overlap_initial_guess, get_partial_mulliken_charges
 
 DIM = True
@@ -64,8 +65,891 @@ def dim_basis_np(element_ids):
 
 if DIM:
     t1 = time.time()
-    x1 = np.sum(dim_basis(element_ids))
+    x1 = np.sum(dim_basis(element_ids)) 
     t2 = time.time()
     x2 = np.sum(dim_basis_np(element_ids))
     t3 = time.time()
     print_res2(x1,x2,t1,t2,t3,"Sum of dim basis output")
+
+#subroutine atovlp(l,npri,nprj,alpa,alpb,conta,contb,ss)
+#   integer l,npri,nprj
+#   real(wp) alpa(*),alpb(*)
+#   real(wp) conta(*),contb(*)
+#   real(wp) ss
+#
+#   integer ii,jj
+#   real(wp) ab,s00,sss,ab05
+#
+#   SS=0.0_wp
+#   do ii=1,npri
+#      do jj=1,nprj
+#         ab =1./(alpa(ii)+alpb(jj))
+#         s00=(pi*ab)**1.50_wp
+#         if(l.eq.0)then
+#            sss=s00
+#         endif
+#         if(l.eq.1)then
+#            ab05=ab*0.5_wp
+#            sss=s00*ab05
+#         endif
+#         SS=SS+SSS*conta(ii)*contb(jj)
+#      enddo
+#   enddo
+#
+#end subroutine atovlp
+
+def atovlp(l, npri,nprj, alpa, alpb, conta, contb):
+    ss = 0.0
+    for ii in range(0,npri):
+        for jj in range(0,nprj):
+            ab = 1./(alpa[ii]+alpb[jj])
+            s00 = (np.Pi*ab)**1.5
+            if l == 0:
+                sss = s00
+            if l == 1:
+                ab05 = ab*0.5
+                sss = s00*ab05
+            ss = ss+sss*conta[ii]*contb[jj]
+    return ss
+
+#subroutine set_d_function(basis,iat,ish,iao,ibf,ipr,npq,l,nprim,zeta,level,valao)
+#   type(TBasisset), intent(inout) :: basis
+#   integer, intent(in)    :: iat
+#   integer, intent(in)    :: ish
+#   integer, intent(inout) :: ibf
+#   integer, intent(inout) :: iao
+#   integer, intent(inout) :: ipr
+#   integer, intent(in)    :: npq
+#   integer, intent(in)    :: l
+#   integer, intent(in)    :: nprim
+#   integer, intent(in)    :: valao
+#   real(wp),intent(in)    :: zeta
+#   real(wp),intent(in)    :: level
+#   integer  :: j,p
+#   real(wp) :: alp(10),cont(10)
+#   real(wp) :: trafo(5:10) = &
+#      & [1.0_wp, 1.0_wp, 1.0_wp, sqrt(3.0_wp), sqrt(3.0_wp), sqrt(3.0_wp)]
+#   integer :: info
+#
+#   call slaterToGauss(nprim, npq, l, zeta, alp, cont, .true., info)
+#   basis%minalp(ish) = minval(alp(:nprim))
+#
+#   do j = 5, 10
+#
+#      ibf = ibf+1
+#      basis%primcount(ibf) = ipr
+#      basis%valao    (ibf) = valao
+#      basis%aoat     (ibf) = iat
+#      basis%lao      (ibf) = j
+#      basis%nprim    (ibf) = nprim
+#      basis%hdiag    (ibf) = level
+#
+#      do p=1,nprim
+#         ipr = ipr+1
+#         basis%alp (ipr)=alp (p)
+#         basis%cont(ipr)=cont(p)*trafo(j)
+#      enddo
+#
+#      if (j .eq. 5) cycle
+#
+#      iao = iao+1
+#      basis%valao2(iao) = valao
+#      basis%aoat2 (iao) = iat
+#      basis%lao2  (iao) = j-1
+#      basis%hdiag2(iao) = level
+#      basis%aoexp (iao) = zeta
+#      basis%ao2sh (iao) = ish
+#
+#   enddo
+#end subroutine set_d_function
+def set_d_functoin(basis,iat,ish,iao,ibf,ipr,npq,l,nprim,zeta,level,valao):
+
+#
+#subroutine set_f_function(basis,iat,ish,iao,ibf,ipr,npq,l,nprim,zeta,level,valao)
+#   type(TBasisset), intent(inout) :: basis
+#   integer, intent(in)    :: iat
+#   integer, intent(in)    :: ish
+#   integer, intent(inout) :: ibf
+#   integer, intent(inout) :: iao
+#   integer, intent(inout) :: ipr
+#   integer, intent(in)    :: npq
+#   integer, intent(in)    :: l
+#   integer, intent(in)    :: nprim
+#   integer, intent(in)    :: valao
+#   real(wp),intent(in)    :: zeta
+#   real(wp),intent(in)    :: level
+#   integer  :: j,p
+#   real(wp) :: alp(10),cont(10)
+#   real(wp) :: trafo(11:20) = &
+#      & [1.0_wp, 1.0_wp, 1.0_wp, sqrt(5.0_wp), sqrt(5.0_wp), &
+#      &  sqrt(5.0_wp), sqrt(5.0_wp), sqrt(5.0_wp), sqrt(5.0_wp), sqrt(15.0_wp)]
+#   integer :: info
+#
+#   call slaterToGauss(nprim, npq, l, zeta, alp, cont, .true., info)
+#   basis%minalp(ish) = minval(alp(:nprim))
+#
+#   do j = 11, 20
+#
+#      ibf = ibf+1
+#      basis%primcount(ibf) = ipr
+#      basis%valao    (ibf) = valao
+#      basis%aoat     (ibf) = iat
+#      basis%lao      (ibf) = j
+#      basis%nprim    (ibf) = nprim
+#      basis%hdiag    (ibf) = level
+#
+#      do p=1,nprim
+#         ipr = ipr+1
+#         basis%alp (ipr)=alp (p)
+#         basis%cont(ipr)=cont(p)*trafo(j)
+#      enddo
+#
+#      if (j.ge.11 .and. j.le.13) cycle
+#
+#      iao = iao+1
+#      basis%valao2(iao) = valao
+#      basis%aoat2 (iao) = iat
+#      basis%lao2  (iao) = j-3
+#      basis%hdiag2(iao) = level
+#      basis%aoexp (iao) = zeta
+#      basis%ao2sh (iao) = ish
+#
+#   enddo
+#end subroutine set_f_function
+#subroutine newBasisset(xtbData,n,at,basis,ok)
+def new_basis_set(element_ids):
+#   type(TxTBData), intent(in) :: xtbData
+#   type(TBasisset),intent(inout) :: basis
+#   integer, intent(in)  :: n
+#   integer, intent(in)  :: at(n)
+#   logical, intent(out) :: ok
+#
+#   integer  :: elem,valao
+#   integer  :: i,j,m,l,iat,ati,ish,ibf,iao,ipr,p,nprim,thisprimR,idum,npq,npqR,pqn
+#   real(wp) :: a(10),c(10),zeta,k1,k2,split1,pp,zqfR,zcnfR,qi,level
+#   real(wp) :: aR(10),cR(10),ss
+#   real(wp) :: as(10),cs(10)
+#   integer :: info
+    a = np.zeros(10)
+    c = np.zeros(10)
+    aR = np.zeros(10)
+    cR = np.zeros(10)
+    aS = np.zeros(10)
+    cS = np.zeros(10)
+
+#   call xbasis0(xtbData,n,at,basis)
+    n = element_ids.shape[0]
+    nshell, nao, nbf = dim_basis(element_ids)
+    basis_shells = np.zeros(nshell,2)
+    basis_sh2ao = np.zeros(nshell,2)
+    basis_sh2bf = np.zeros(nshell,2)
+    basis_minalp = np.zeros(nshell)
+    basis_level = np.zeros(nshell)
+    basis_zeta = np.zeros(nshell)
+    basis_valsh = np.zeros(nshell)
+    basis_hdiag = np.zeros(nbf)
+    basis_alp = np.zeros(9*nbf)
+    basis_cont = np.zeros(9*nbf)
+    basis_hdiag2 = np.zeros(nao)
+    basis_aoexp = np.zeros(nao)
+    basis_ash = np.zeros(nao)
+    basis_lsh = np.zeros(nao)
+    basis_ao2sh = np.zeros(nao)
+    basis_nprim = np.zeros(nao)
+    basis_primcount = np.zeros(nao)
+    basis_caoshell = np.zeros(n,5)
+    basis_saoshell = np.zeros(n,5)
+    basis_fila = np.zeros(n,2)
+    basis_fila2 = np.zeros(n,2)
+    basis_lao = np.zeros(nbf)
+    basis_aoat = np.zeros(nbf)
+    basis_valao = np.zeros(nbf)
+    basis_lao2 = np.zeros(nao)
+    basis_aoat2 = np.zeros(nao)
+    basis_valao2 = np.zeros(nao)
+#
+#   basis%hdiag(1:basis%nbf)=1.d+42
+    basis_hdiag[:] = 1e42
+#
+#   ibf=0
+#   iao=0
+#   ipr=0
+#   ish=0
+#   ok=.true.
+    ibf=0
+    iao=0
+    ipr=0
+    ish=0
+    ok=True
+#
+#   atoms: do iat=1,n
+    for iat in range(0,n):
+#      ati = at(iat)
+        ati = element_ids[iat]
+#      basis%shells(1,iat)=ish+1
+        basis_shells[iat,0] = ish+1 
+#      basis%fila  (1,iat)=ibf+1
+        basis_fila[iat,0] = ibf+1
+#      basis%fila2 (1,iat)=iao+1
+        basis_fila2[iat,0] = iao+1
+#      shells: do m=1,xtbData%nShell(ati)
+        for m in range(nShell[ati]):
+#         ish = ish+1
+            ish += 1
+#         ! principle QN
+#         npq=xtbData%hamiltonian%principalQuantumNumber(m,ati)
+            npq = principalQantumNumber[ati,m]
+#         l=xtbData%hamiltonian%angShell(m,ati)
+            l = angShell[ati,m]
+#
+#         level = xtbData%hamiltonian%selfEnergy(m,ati)
+            level = selfEnergy[ati,m]
+#         zeta  = xtbData%hamiltonian%slaterExponent(m,ati)
+            zeta = slaterExponent[ati,m]
+#         valao = xtbData%hamiltonian%valenceShell(m,ati)
+            valao = valenceShell[ati,m]
+#         if (valao /= 0) then
+            if (valao != 0) :
+#            nprim = xtbData%hamiltonian%numberOfPrimitives(m,ati)
+                nprim = numberOfPrimitives[ati,m]
+#         else
+            else:
+#            thisprimR = xtbData%hamiltonian%numberOfPrimitives(m,ati)
+                thisprimR = numberOfPrimitives[ati,m]
+#         end if
+#
+#         basis%lsh(ish) = l
+#         basis%ash(ish) = iat
+#         basis%sh2bf(1,ish) = ibf
+#         basis%sh2ao(1,ish) = iao
+#         basis%caoshell(m,iat)=ibf
+#         basis%saoshell(m,iat)=iao
+            basis_lsh[ish] = l
+            basis_ash[ish] = iat
+            basis_sh2bf[ish,0] = ibf
+            basis_sh2ao[ish,0] = iao
+            basis_caoshell[iat,m] = ibf
+            basis_saoshell[iat,m] = iao
+#
+#         ! add new shellwise information, for easier reference
+#         basis%level(ish) = level
+#         basis%zeta (ish) = zeta
+#         basis%valsh(ish) = valao
+            basis_level[ish] = level
+            basis_zeta[ish] = zeta
+            basis_valsh[ish] = valao
+#
+#         ! H-He
+#         if(l.eq.0.and.ati.le.2.and.valao/=0)then
+#            ! s
+#            call slaterToGauss(nprim, npq, l, zeta, a, c, .true., info)
+#            basis%minalp(ish) = minval(a(:nprim))
+#
+#            ibf =ibf+1
+#            basis%primcount(ibf) = ipr
+#            basis%valao    (ibf) = valao
+#            basis%aoat     (ibf) = iat
+#            basis%lao      (ibf) = 1
+#            basis%nprim    (ibf) = nprim
+#            basis%hdiag    (ibf) = level
+#
+#            do p=1,nprim
+#               ipr=ipr+1
+#               basis%alp (ipr)=a(p)
+#               basis%cont(ipr)=c(p)
+#            enddo
+#
+#            iao = iao+1
+#            basis%valao2(iao) = valao
+#            basis%aoat2 (iao) = iat
+#            basis%lao2  (iao) = 1
+#            basis%hdiag2(iao) = level
+#            basis%aoexp (iao) = zeta
+#            basis%ao2sh (iao) = ish
+#         endif
+            if ( l == 0 and ati <= 2 and valao != 0):
+                a, c, info = slaterToGauss(nprim, npq, l, zeta, True)
+                basis_minalp[ish] = np.min(a[:nprim])
+
+                basis_primcount[ibf] = ipr
+                basis_valao[ibf] = valao
+                basis_aoat[ibf] = iat
+                basis_lao[ibf] = 1
+                basis_nprim[ibf] = nprim
+                basis_hdiag[ibf] = level
+                ibf += 1
+
+                for p in range(0,nprim):
+                    basis_alp[ipr] = a[p]
+                    basis_cont[ipr] = c[p]
+                    ipr += 1
+
+                basis_valao2[iao] = valao
+                basis_aoat2[iao] = iat
+                basis_lao2[iao] = 1
+                basis_hdiag2[iao] = level
+                basis_aoexp[iao] = zeta
+                basis_ao2sh[iao] = ish
+                iao += 1
+#
+#         if(l.eq.0.and.ati.le.2.and.valao==0)then
+#            ! diff s
+#            call slaterToGauss(thisprimR, npq, l, zeta, aR, cR, .true., info)
+#            call atovlp(0,nprim,thisprimR,a,aR,c,cR,ss)
+#            basis%minalp(ish) = min(minval(a(:nprim)),minval(aR(:thisprimR)))
+#
+#            ibf =ibf+1
+#            basis%primcount(ibf) = ipr
+#            basis%valao    (ibf) = valao
+#            basis%aoat     (ibf) = iat
+#            basis%lao      (ibf) = 1
+#            basis%nprim    (ibf) = thisprimR+nprim
+#            basis%hdiag    (ibf) = level
+#
+#            idum=ipr+1
+#            do p=1,thisprimR
+#               ipr=ipr+1
+#               basis%alp (ipr)=aR(p)
+#               basis%cont(ipr)=cR(p)
+#            enddo
+#            do p=1,nprim
+#               ipr=ipr+1
+#               basis%alp (ipr)=a(p)
+#               basis%cont(ipr)=-ss*c(p)
+#            enddo
+#            call atovlp(0,basis%nprim(ibf),basis%nprim(ibf), &
+#               &        basis%alp(idum),basis%alp(idum), &
+#               &        basis%cont(idum),basis%cont(idum),ss)
+#            do p=1,basis%nprim(ibf)
+#               basis%cont(idum-1+p)=basis%cont(idum-1+p)/sqrt(ss)
+#            enddo
+#
+#            iao = iao+1
+#            basis%valao2(iao) = valao
+#            basis%aoat2 (iao) = iat
+#            basis%lao2  (iao) = 1
+#            basis%hdiag2(iao) = level
+#            basis%aoexp (iao) = zeta
+#            basis%ao2sh (iao) = ish
+#         endif
+            if ( l == 0 and ati <= 2 and valao == 0):
+                aR, cR, info = slaterToGauss(thisprimR, npq, zeta, True)
+                ss = atovlp(0,nprim,thisprimR,a,aR,c,cR)
+                basis_minalp[ish] = min(np.min(a[:nprim]),np.min(aR[:thisprimR]))
+
+                basis_primcount[ibf] = ipr
+                basis_valao[ibf] = valao
+                basis_aoat[ibf] = iat
+                basis_lao[ibf] = 1
+                basis_nprim[ibf] = thisprimR+nprim
+                basis_hdiag[ibf] = level
+                ibf += 1
+
+                idum=ipr
+                for p in range(0,thisprimR):
+                    basis_alp[ipr] = aR[p]
+                    basis_cont[ipr] = cR[p]
+                    ipr+=1
+
+                for p in range(0,nprim):
+                    basis_alp[ipr] = a[p]
+                    basis_cont[ipr] = -ss*c[p]
+                    ipr += 1
+
+                ss = atovlp(0,basis_nprim[ibf],basis_nprim[ibf],basis_alp[idum],basis_alp[idum],basis_cont[idum],basis_cont[idum])
+                idum+=1
+                
+                for p in range(0,basis_nprim[ibf]):
+                    basis_cont[idum-1+p]=basis_cont[idum-1+p]/np.sqrt(ss)
+
+                basis_valao2[iao] = valao
+                basis_aoat2[iao] = iat
+                basis_lao2[iao] = 1
+                basis_hdiag2[iao] = level
+                basis_aoexp[iao] = zeta
+                basis_ao2sh[iao] = ish
+                iao += 1
+#
+#         ! p polarization
+#         if(l.eq.1.and.ati.le.2)then
+#            call slaterToGauss(nprim, npq, l, zeta, a, c, .true., info)
+#            basis%minalp(ish) = minval(a(:nprim))
+#            do j=2,4
+#               ibf=ibf+1
+#               basis%primcount(ibf) = ipr
+#               basis%aoat     (ibf) = iat
+#               basis%lao      (ibf) = j
+#               basis%valao    (ibf) = -valao
+#               basis%nprim    (ibf) = nprim
+#               basis%hdiag    (ibf) = level
+#
+#               do p=1,nprim
+#                  ipr=ipr+1
+#                  basis%alp (ipr)=a(p)
+#                  basis%cont(ipr)=c(p)
+#               enddo
+#
+#               iao = iao+1
+#               basis%valao2(iao) = -valao
+#               basis%aoat2 (iao) = iat
+#               basis%lao2  (iao) = j
+#               basis%hdiag2(iao) = level
+#               basis%aoexp (iao) = zeta
+#               basis%ao2sh (iao) = ish
+#            enddo
+#         endif
+            if ( l == 1 and ati <= 2):
+                a, c, info = slaterToGauss(nprim, npq, l, zeta, True)
+                basis_minalp[ish] = np.min(a[:nprim])
+                for j in range(2,5):
+                    basis_primcount[ibf] = ipr
+                    basis_valao[ibf] = -valao
+                    basis_aoat[ibf] = iat
+                    basis_lao[ibf] = j
+                    basis_nprim[ibf] = nprim
+                    basis_hdiag[ibf] = level
+                    ibf += 1
+
+                    for p in range(0,nprim):
+                        basis_alp[ipr] = a[p]
+                        basis_cont[ipr] = c[p]
+                        ipr += 1
+
+                    basis_valao2[iao] = -valao
+                    basis_aoat2[iao] = iat
+                    basis_lao2[iao] = j
+                    basis_hdiag2[iao] = level
+                    basis_aoexp[iao] = zeta
+                    basis_ao2sh[iao] = ish
+                    iao += 1
+#
+#         ! general sp
+#         if(l.eq.0.and.ati.gt.2 .and. valao/=0)then
+#            ! s
+#            call slaterToGauss(nprim, npq, l, zeta, as, cs, .true., info)
+#            basis%minalp(ish) = minval(as(:nprim))
+#
+#            ibf=ibf+1
+#            basis%primcount(ibf) = ipr
+#            basis%valao    (ibf) = valao
+#            basis%aoat     (ibf) = iat
+#            basis%lao      (ibf) = 1
+#            basis%nprim    (ibf) = nprim
+#            basis%hdiag    (ibf) = level
+#
+#            do p=1,nprim
+#               ipr=ipr+1
+#               basis%alp (ipr)=as(p)
+#               basis%cont(ipr)=cs(p)
+#            enddo
+#
+#            iao = iao+1
+#            basis%valao2(iao) = valao
+#            basis%aoat2 (iao) = iat
+#            basis%lao2  (iao) = 1
+#            basis%hdiag2(iao) = level
+#            basis%aoexp (iao) = zeta
+#            basis%ao2sh (iao) = ish
+#         endif
+            if ( l == 0 and ati > 2 and valao != 0):
+                aS, cS, info = slaterToGauss(nprim, npq, l, zeta, True)
+                basis_minalp[ish] = np.min(aS[:nprim])
+
+                basis_primcount[ibf] = ipr
+                basis_valao[ibf] = valao
+                basis_aoat[ibf] = iat
+                basis_lao[ibf] = 1
+                basis_nprim[ibf] = nprim
+                basis_hdiag[ibf] = level
+                ibf += 1
+
+                for p in range(0,nprim):
+                    basis_alp[ipr] = aS[p]
+                    basis_cont[ipr] = cS[p]
+                    ipr += 1
+
+                basis_valao2[iao] = valao
+                basis_aoat2[iao] = iat
+                basis_lao2[iao] = 1
+                basis_hdiag2[iao] = level
+                basis_aoexp[iao] = zeta
+                basis_ao2sh[iao] = ish
+                iao += 1
+#         ! p
+#         if(l.eq.1.and.ati.gt.2)then
+#            call slaterToGauss(nprim, npq, l, zeta, a, c, .true., info)
+#            basis%minalp(ish) = minval(a(:nprim))
+#            do j=2,4
+#               ibf=ibf+1
+#               basis%primcount(ibf) = ipr
+#               basis%valao    (ibf) = valao
+#               basis%aoat     (ibf) = iat
+#               basis%lao      (ibf) = j
+#               basis%nprim    (ibf) = nprim
+#               basis%hdiag    (ibf) = level
+#
+#               do p=1,nprim
+#                  ipr=ipr+1
+#                  basis%alp (ipr)=a(p)
+#                  basis%cont(ipr)=c(p)
+#               enddo
+#
+#               iao = iao+1
+#               basis%valao2(iao) = valao
+#               basis%aoat2 (iao) = iat
+#               basis%lao2  (iao) = j
+#               basis%hdiag2(iao) = level
+#               basis%aoexp (iao) = zeta
+#               basis%ao2sh (iao) = ish
+#            enddo
+#         endif
+            if ( l == 1 and ati > 2):
+                a, c, info = slaterToGauss(nprim, npq, l, zeta, True)
+                basis_minalp[ish] = np.min(a[:nprim])
+                for j in range(2,5):
+                    basis_primcount[ibf] = ipr
+                    basis_valao[ibf] = valao
+                    basis_aoat[ibf] = iat
+                    basis_lao[ibf] = j
+                    basis_nprim[ibf] = nprim
+                    basis_hdiag[ibf] = level
+                    ibf += 1
+
+                    for p in range(0,nprim):
+                        basis_alp[ipr] = a[p]
+                        basis_cont[ipr] = c[p]
+                        ipr += 1
+
+                    basis_valao2[iao] = valao
+                    basis_aoat2[iao] = iat
+                    basis_lao2[iao] = j
+                    basis_hdiag2[iao] = level
+                    basis_aoexp[iao] = zeta
+                    basis_ao2sh[iao] = ish
+                    iao += 1
+#
+#         ! DZ s
+#         if(l.eq.0 .and. ati > 2 .and. valao==0)then
+#            call slaterToGauss(thisprimR, npq, l, zeta, aR, cR, .true., info)
+#            call atovlp(0,nprim,thisprimR,as,aR,cs,cR,ss)
+#            basis%minalp(ish) = min(minval(as(:nprim)),minval(aR(:thisprimR)))
+#
+#            ibf=ibf+1
+#            basis%primcount(ibf) = ipr
+#            basis%valao    (ibf) = valao
+#            basis%aoat     (ibf) = iat
+#            basis%lao      (ibf) = 1
+#            basis%nprim    (ibf) = thisprimR+nprim
+#            basis%hdiag    (ibf) = level
+#
+#            idum=ipr+1
+#            do p=1,thisprimR
+#               ipr=ipr+1
+#               basis%alp (ipr)=aR(p)
+#               basis%cont(ipr)=cR(p)
+#            enddo
+#            do p=1,nprim
+#               ipr=ipr+1
+#               basis%alp (ipr)=as(p)
+#               basis%cont(ipr)=-ss*cs(p)
+#            enddo
+#            call atovlp(0,basis%nprim(ibf),basis%nprim(ibf), &
+#               &        basis%alp(idum),basis%alp(idum), &
+#               &        basis%cont(idum),basis%cont(idum),ss)
+#            do p=1,basis%nprim(ibf)
+#               basis%cont(idum-1+p)=basis%cont(idum-1+p)/sqrt(ss)
+#            enddo
+#
+#            iao = iao+1
+#            basis%valao2(iao) = valao
+#            basis%aoat2 (iao) = iat
+#            basis%lao2  (iao) = 1
+#            basis%hdiag2(iao) = level
+#            basis%aoexp (iao) = zeta
+#            basis%ao2sh (iao) = ish
+#         endif
+            if ( l == 0 and ati > 2 and valao == 0):
+                aR, cR, info = slaterToGauss(thisprimR, npq, zeta, True)
+                ss = atovlp(0,nprim,thisprimR,aS,aR,cS,cR)
+                basis_minalp[ish] = min(np.min(aS[:nprim]),np.min(aR[:thisprimR]))
+
+                basis_primcount[ibf] = ipr
+                basis_valao[ibf] = valao
+                basis_aoat[ibf] = iat
+                basis_lao[ibf] = 1
+                basis_nprim[ibf] = thisprimR+nprim
+                basis_hdiag[ibf] = level
+                ibf += 1
+
+                idum = ipr
+                for p in range(0,thisprimR):
+                    basis_alp[ipr] = aR[p]
+                    basis_cont[ipr] = cR[p]
+                    ipr+=1
+
+                for p in range(0,nprim):
+                    basis_alp[ipr] = aS[p]
+                    basis_cont[ipr] = -ss*cS[p]
+                    ipr += 1
+
+                ss = atovlp(0, basis_nprim[ibf], basis_nprim[ibf], basis_alp[idum], basis_alp[idum], basis_cont[idum], basis_cont[idum])
+                idum += 1
+                
+                for p in range(0,basis_nprim[ibf]):
+                    basis_cont[idum-1+p]=basis_cont[idum-1+p]/np.sqrt(ss)
+
+                basis_valao2[iao] = valao
+                basis_aoat2[iao] = iat
+                basis_lao2[iao] = 1
+                basis_hdiag2[iao] = level
+                basis_aoexp[iao] = zeta
+                basis_ao2sh[iao] = ish
+                iao += 1
+#
+#         ! d
+#         if(l.eq.2)then
+            if l == 2:
+#            call set_d_function(basis,iat,ish,iao,ibf,ipr, &
+#               &                npq,l,nprim,zeta,level,valao)
+#            MODIFICATIION: inset this function directly to not pass ton of arrays.
+#   integer  :: j,p
+#   real(wp) :: alp(10),cont(10)
+#   real(wp) :: trafo(5:10) = &
+#      & [1.0_wp, 1.0_wp, 1.0_wp, sqrt(3.0_wp), sqrt(3.0_wp), sqrt(3.0_wp)]
+                trafo = np.array([0,0,0,0,0, # 5 empty spaces
+                                  1,1,1,np.sqrt(3.),np.sqrt(3.),np.sqrt(3.)],dtype=np.float64)
+#   integer :: info
+#
+#   call slaterToGauss(nprim, npq, l, zeta, alp, cont, .true., info)
+                alp, cont, info = slaterToGauss(nprim, npq, l, zeta, True)
+#   basis%minalp(ish) = minval(alp(:nprim))
+                basis_minalp[ish] = np.min(alp[:nprim])
+#
+#   do j = 5, 10
+                for j in range(5,11):
+                    basis_primcount[ibf] = ipr
+                    basis_valao[ibf] = valao
+                    basis_aoat[ibf] = iat
+                    basis_lao[ibf] = j
+                    basis_nprim[ibf] = nprim
+                    basis_hdiag[ibf] = level
+                    ibf += 1
+
+                    for p in range(0,nprim):
+                        basis_alp[ipr]=alp [p]
+                        basis_cont[ipr]=cont[p]*trafo[j]
+                        ipr += 1
+                    
+                    if j == 5: 
+                        continue
+
+                    basis_valao2[iao] = valao
+                    basis_aoat2 [iao] = iat
+                    basis_lao2  [iao] = j-1
+                    basis_hdiag2[iao] = level
+                    basis_aoexp [iao] = zeta
+                    basis_ao2sh [iao] = ish
+                    iao += 1
+#
+#      ibf = ibf+1
+#      basis%primcount(ibf) = ipr
+#      basis%valao    (ibf) = valao
+#      basis%aoat     (ibf) = iat
+#      basis%lao      (ibf) = j
+#      basis%nprim    (ibf) = nprim
+#      basis%hdiag    (ibf) = level
+#
+#      do p=1,nprim
+#         ipr = ipr+1
+#         basis%alp (ipr)=alp (p)
+#         basis%cont(ipr)=cont(p)*trafo(j)
+#      enddo
+#
+#      if (j .eq. 5) cycle
+#
+#      iao = iao+1
+#      basis%valao2(iao) = valao
+#      basis%aoat2 (iao) = iat
+#      basis%lao2  (iao) = j-1
+#      basis%hdiag2(iao) = level
+#      basis%aoexp (iao) = zeta
+#      basis%ao2sh (iao) = ish
+#
+#         endif
+#
+#         ! f
+#         if(l.eq.3)then
+            if l == 3:
+#            MODIFICATIION: inset this function directly to not pass ton of arrays.
+#            call set_f_function(basis,iat,ish,iao,ibf,ipr, &
+#               &                npq,l,nprim,zeta,level,1)
+#         endif
+#   real(wp) :: trafo(11:20) = &
+#      & [1.0_wp, 1.0_wp, 1.0_wp, sqrt(5.0_wp), sqrt(5.0_wp), &
+#      &  sqrt(5.0_wp), sqrt(5.0_wp), sqrt(5.0_wp), sqrt(5.0_wp), sqrt(15.0_wp)]
+                trafo = np.array([0,0,0,0,0,0,0,0,0,0,0, # 11 empty spaces
+                                  1.0, 1.0, 1.0, np.sqrt(5.0), np.sqrt(5.0), np.sqrt(5.0), np.sqrt(5.0), np.sqrt(5.0), np.sqrt(5.0), np.sqrt(15.0)],dtype = np.float64)
+#   integer :: info
+#
+#   call slaterToGauss(nprim, npq, l, zeta, alp, cont, .true., info)
+                alp, cont, info = slaterToGauss(nprim,npq,l,zeta,True)
+#   basis%minalp(ish) = minval(alp(:nprim))
+                basis_minalp[ish] = np.min(alp[:nprim])
+#
+#   do j = 11, 20
+                for j in range(11,21):
+                    basis_primcount[ibf] = ipr
+                    basis_valao[ibf] = valao
+                    basis_aoat[ibf] = iat
+                    basis_lao[ibf] = j
+                    basis_nprim[ibf] = nprim
+                    basis_hdiag[ibf] = level
+                    ibf += 1
+
+                    for p in range(0,nprim):
+                        basis_alp[ipr]=alp[p]
+                        basis_cont[ipr]=cont[p]*trafo[j]
+                        ipr += 1
+
+                    if (j >= 11 and j <= 13):
+                        continue
+
+                    basis_valao2[iao] = valao
+                    basis_aoat2[iao] = iat
+                    basis_lao2[iao] = j-3
+                    basis_hdiag2[iao] = level
+                    basis_aoexp[iao] = zeta
+                    basis_ao2sh[iao] = ish
+                    iao = iao+1
+#
+#      ibf = ibf+1
+#      basis%primcount(ibf) = ipr
+#      basis%valao    (ibf) = valao
+#      basis%aoat     (ibf) = iat
+#      basis%lao      (ibf) = j
+#      basis%nprim    (ibf) = nprim
+#      basis%hdiag    (ibf) = level
+#
+#      do p=1,nprim
+#         ipr = ipr+1
+#         basis%alp (ipr)=alp (p)
+#         basis%cont(ipr)=cont(p)*trafo(j)
+#      enddo
+#
+#      if (j.ge.11 .and. j.le.13) cycle
+#
+#      iao = iao+1
+#      basis%valao2(iao) = valao
+#      basis%aoat2 (iao) = iat
+#      basis%lao2  (iao) = j-3
+#      basis%hdiag2(iao) = level
+#      basis%aoexp (iao) = zeta
+#      basis%ao2sh (iao) = ish
+#
+#         basis%sh2bf(2,ish) = ibf-basis%sh2bf(1,ish)
+#         basis%sh2ao(2,ish) = iao-basis%sh2ao(1,ish)
+            basis_sh2bf[ish,1] = ibf-basis_sh2bf[ish,0]
+            basis_sh2ao[ish,1] = iao-basis_sh2ao[ish,0]
+#      enddo shells
+#      basis%shells(2,iat)=ish
+#      basis%fila  (2,iat)=ibf
+#      basis%fila2 (2,iat)=iao
+        basis_shells[iat,1]=ish
+        basis_fila[iat,1]=ibf
+        basis_fila2[iat,1]=iao
+#   enddo atoms
+#
+#   ok = all(basis%alp(:ipr) > 0.0_wp) .and. basis%nbf == ibf .and. basis%nao == iao
+    ok = np.all(basis_alp[:ipr] > 0) and basis_nbf == ibf and basis_nao == iao
+#
+#end subroutine newBasisset
+#
+#
+#! ========================================================================
+#!> determine basisset limits
+#subroutine xbasis0(xtbData,n,at,basis)
+def xbasis0(element_ids):
+#   type(TxTBData), intent(in) :: xtbData
+#   type(TBasisset),intent(inout) :: basis
+#   integer,intent(in)  :: n
+#   integer,intent(in)  :: at(n)
+#   integer :: nbf
+#   integer :: nao
+#   integer :: nshell
+#
+#   integer i,j,k,l
+#
+#   call dim_basis(xtbData,n,at,nshell,nao,nbf)
+    n = element_ids.shape[0]
+    nshell, nao, nbf = dim_basis(element_ids)
+#
+#   call basis%allocate(n,nbf,nao,nshell)
+    allocate_basisset(n, nbf, nao, nshell)
+    
+#
+#end subroutine xbasis0
+#subroutine allocate_basisset(self,n,nbf,nao,nshell)
+def allocate_basisset(n, nbf, nao, nshell):
+#   implicit none
+#   class(TBasisset),intent(inout) :: self
+#   integer,intent(in) :: n,nbf,nao,nshell
+#   self%n=n
+#   self%nbf=nbf
+#   self%nao=nao
+#   self%nshell=nshell
+#   call self%deallocate
+#   allocate( self%shells(2,n),    source = 0 )
+    shells = np.zeros(nshell,2)
+#   allocate( self%sh2ao(2,nshell),source = 0 )
+    sh2ao = np.zeros(nshell,2)
+#   allocate( self%sh2bf(2,nshell),source = 0 )
+    sh2bf = np.zeros(nshell,2)
+#   allocate( self%minalp(nshell), source = 0.0_wp )
+    minalp = np.zeros(nshell)
+#   allocate( self%level(nshell),  source = 0.0_wp )
+    level = np.zeros(nshell)
+#   allocate( self%zeta(nshell),   source = 0.0_wp )
+    zeta = np.zeros(nshell)
+#   allocate( self%valsh(nshell),  source = 0 )
+    valsh = np.zeros(nshell)
+#   allocate( self%hdiag(nbf),     source = 0.0_wp )
+    hdiag = np.zeros(nbf)
+#   allocate( self%alp(9*nbf),     source = 0.0_wp )
+    alp = np.zeros(9*nbf)
+#   allocate( self%cont(9*nbf),    source = 0.0_wp )
+    cont = np.zeros(9*nbf)
+#   allocate( self%hdiag2(nao),    source = 0.0_wp )
+    hdiag2 = np.zeros(nao)
+#   allocate( self%aoexp(nao),     source = 0.0_wp )
+    aoexp = np.zeros(nao)
+#   allocate( self%ash(nao),       source = 0 )
+    ash = np.zeros(nao)
+#   allocate( self%lsh(nao),       source = 0 )
+    lsh = np.zeros(nao)
+#   allocate( self%ao2sh(nao),     source = 0 )
+    ao2sh = np.zeros(nao)
+#   allocate( self%nprim(nbf),     source = 0 )
+    nprim = np.zeros(nao)
+#   allocate( self%primcount(nbf), source = 0 )
+    primcount = np.zeros(nao)
+#   allocate( self%caoshell(5,n),  source = 0 )
+    caoshell = np.zeros(n,5)
+#   allocate( self%saoshell(5,n),  source = 0 )
+    saoshell = np.zeros(n,5)
+#   allocate( self%fila(2,n),      source = 0 )
+    fila = np.zeros(n,2)
+#   allocate( self%fila2(2,n),     source = 0 )
+    fila2 = np.zeros(n,2)
+#   allocate( self%lao(nbf),       source = 0 )
+    lao = np.zeros(nbf)
+#   allocate( self%aoat(nbf),      source = 0 )
+    aoat = np.zeros(nbf)
+#   allocate( self%valao(nbf),     source = 0 )
+    valao = np.zeros(nbf)
+#   allocate( self%lao2(nao),      source = 0 )
+    lao2 = np.zeros(nao)
+#   allocate( self%aoat2(nao),     source = 0 )
+    aoat2 = np.zeros(nao)
+#   allocate( self%valao2(nbf),    source = 0 )
+    valao2 = np.zeros(nao)
+#end subroutine allocate_basisset
