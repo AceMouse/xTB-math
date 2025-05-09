@@ -1,50 +1,114 @@
 diff --git a/src/intgrad.f90 b/src/intgrad.f90
-index 44f8f7e..e16abf5 100644
+index 44f8f7e..9ff58da 100644
 --- a/src/intgrad.f90
 +++ b/src/intgrad.f90
-@@ -872,8 +872,39 @@ pure subroutine get_grad_overlap(icao,jcao,naoi,naoj,ishtyp,jshtyp,ri,rj,point,i
+@@ -22,6 +22,7 @@
+ module xtb_intgrad
+    use xtb_mctc_accuracy, only : wp
+    use xtb_mctc_constants, only : pi
++   use utils
+    implicit none
+ 
+    integer, parameter :: maxl = 6
+@@ -141,10 +142,12 @@ pure subroutine build_kab(ra,alp,rb,bet,gama,kab)
+ end subroutine build_kab
+ 
+ ! --------------------------------------------------------------[SAW1801]-
+-pure subroutine dtrf2(s,li,lj)
++! pure
++subroutine dtrf2(s,li,lj)
+    use xtb_mctc_blas, only : mctc_gemm
+    real(wp),intent(inout) :: s(6,6)
+    integer, intent(in)    :: li,lj
++
+    ! CAO-AO transformation
+    real(wp), parameter :: trafo(6,6) = reshape((/ & ! copied from scf.f, simplyfied
+       ! --- dS
+@@ -167,8 +170,21 @@ pure subroutine dtrf2(s,li,lj)
+    real(wp) s2(6,6),sspher,dum(6,6)
+    integer ii,jj,m,n
+ 
++   integer :: u
++   character(len=200) :: path
++   call testfile_path('dtrf2', path)
++
++   open(newunit=u, file=trim(path), form='unformatted', access='stream')
++   write(u) size(s, 1), size(s, 2), s
++   write(u) li
++   write(u) lj
++
+    !     transformation not needed for pure s/p overlap -> do nothing
+-   if (li.lt.2.and.lj.lt.2) return
++   if (li.lt.2.and.lj.lt.2) then
++     write(u) size(s, 1), size(s, 2), s
++     close(u)
++     return
++   endif
+ 
+    ! --- means li.ge.2.or.lj.ge.2, so one of them is a d-shell
+    !     assuming its on jat ... a wild guess
+@@ -182,6 +198,9 @@ pure subroutine dtrf2(s,li,lj)
+          s2(jj,1)=sspher
+       enddo
+       s(1:5,1) = s2(2:6,1)
++
++      write(u) size(s, 1), size(s, 2), s
++      close(u)
+       return
+    case(1) ! p-d
+       do ii=1,3
+@@ -194,6 +213,9 @@ pure subroutine dtrf2(s,li,lj)
+          enddo
+          s(1:5,ii) = s2(2:6,ii)
+       enddo
++
++      write(u) size(s, 1), size(s, 2), s
++      close(u)
+       return
+    end select
+    !     wasn't there, then try iat ...
+@@ -207,6 +229,9 @@ pure subroutine dtrf2(s,li,lj)
+          s2(1,jj)=sspher
+       enddo
+       s(1,1:5) = s2(1,2:6)
++
++      write(u) size(s, 1), size(s, 2), s
++      close(u)
+       return
+    case(1) ! d-p
+       do ii=1,3
+@@ -219,6 +244,9 @@ pure subroutine dtrf2(s,li,lj)
+          enddo
+          s(ii,1:5) = s2(ii,2:6)
+       enddo
++
++      write(u) size(s, 1), size(s, 2), s
++      close(u)
+       return
+    end select
+    !     if not returned up to here -> d-d
+@@ -226,6 +254,9 @@ pure subroutine dtrf2(s,li,lj)
+    CALL mctc_gemm(trafo, s, dum, transa='T')
+    CALL mctc_gemm(dum, trafo, s2, transb='N')
+    s(1:5,1:5) = s2(2:6,2:6)
++
++   write(u) size(s, 1), size(s, 2), s
++   close(u)
+    return
+ 
+ end subroutine dtrf2
+@@ -872,8 +903,8 @@ pure subroutine get_grad_overlap(icao,jcao,naoi,naoj,ishtyp,jshtyp,ri,rj,point,i
     enddo  ! ip : loop over i prims
  end subroutine get_grad_overlap
  
 -
 -pure subroutine get_multiints(icao,jcao,naoi,naoj,ishtyp,jshtyp,ri,rj,point, &
-+subroutine random_uuid(uuid)
-+    character(len=*), intent(out) :: uuid
-+    character(len=16) :: hexchars
-+    integer :: i, n
-+    real :: r(1)
-+    character(len=1) :: c
-+
-+    hexchars = '0123456789abcdef'
-+    uuid = ''
-+    do i = 1, 36
-+        if (i == 9 .or. i == 14 .or. i == 19 .or. i == 24) then
-+            uuid(i:i) = '-'
-+        else
-+            call random_number(r)
-+            n = 1 + int(r(1) * 16.0)
-+            uuid(i:i) = hexchars(n:n)
-+        end if
-+    end do
-+end subroutine
-+
-+subroutine create_directory(dir_name)
-+   character(len=*), intent(in) :: dir_name
-+   character(len=255) :: command
-+
-+   ! Construct the command to create the directory
-+   write(command, '("mkdir -p ", A)') trim(adjustl(dir_name))
-+
-+   ! Execute the command
-+   call system(command)
-+end subroutine create_directory
-+
 +! pure
 +subroutine get_multiints(icao,jcao,naoi,naoj,ishtyp,jshtyp,ri,rj,point, &
        &                           intcut,nprim,primcount,alp,cont,ss,dd,qq)
     integer, intent(in)  :: icao
     integer, intent(in)  :: jcao
-@@ -894,13 +925,37 @@ pure subroutine get_multiints(icao,jcao,naoi,naoj,ishtyp,jshtyp,ri,rj,point, &
+@@ -894,13 +925,29 @@ pure subroutine get_multiints(icao,jcao,naoi,naoj,ishtyp,jshtyp,ri,rj,point, &
     real(wp),intent(in)  :: alp(:)
     real(wp),intent(in)  :: cont(:)
  
@@ -56,18 +120,10 @@ index 44f8f7e..e16abf5 100644
     real(wp),parameter :: max_r2 = 2000.0_wp
     real(wp),parameter :: sqrtpi = sqrt(pi)
  
-+   character(len=36) :: uuid
-+   character(len=100) :: filename, dir
-+   character(len=200) :: path
 +   integer :: u
++   character(len=200) :: path
 +
-+   call random_seed()
-+   call random_uuid(uuid)
-+   write(filename, '(A,A)') 'args_', uuid
-+   dir = 'calls/get_multiints/'
-+   write(path, '(A,A,A)') trim(dir), trim(filename), ".bin"
-+
-+   call create_directory(trim(dir))
++   call testfile_path('get_multiints', path)
 +
 +   open(newunit=u, file=trim(path), form='unformatted', access='stream')
 +   write(u) icao, jcao, naoi, naoj, ishtyp, jshtyp
@@ -83,7 +139,7 @@ index 44f8f7e..e16abf5 100644
     ss = 0.0_wp
     dd = 0.0_wp
     qq = 0.0_wp
-@@ -910,7 +965,14 @@ pure subroutine get_multiints(icao,jcao,naoi,naoj,ishtyp,jshtyp,ri,rj,point, &
+@@ -910,7 +957,14 @@ pure subroutine get_multiints(icao,jcao,naoi,naoj,ishtyp,jshtyp,ri,rj,point, &
     rij = ri - rj
     rij2 = rij(1)**2 + rij(2)**2 + rij(3)**2
  
@@ -99,7 +155,7 @@ index 44f8f7e..e16abf5 100644
  
     ! we go through the primitives (because the screening is the same for all of them)
     do ip = 1,nprim(icao+1)
-@@ -948,6 +1010,12 @@ pure subroutine get_multiints(icao,jcao,naoi,naoj,ishtyp,jshtyp,ri,rj,point, &
+@@ -948,6 +1002,12 @@ pure subroutine get_multiints(icao,jcao,naoi,naoj,ishtyp,jshtyp,ri,rj,point, &
           enddo  ! mli : Cartesian component of i prims
        enddo ! jp : loop over j prims
     enddo  ! ip : loop over i prims
@@ -112,3 +168,71 @@ index 44f8f7e..e16abf5 100644
  end subroutine get_multiints
  
  
+diff --git a/src/meson.build b/src/meson.build
+index ced9a9d..12ddc1d 100644
+--- a/src/meson.build
++++ b/src/meson.build
+@@ -158,4 +158,5 @@ srcs += files(
+   'wrmo.f90',
+   'xhelp.f90',
+   'zmatpr.f90',
++  'utils.f90',
+ )
+diff --git a/src/utils.f90 b/src/utils.f90
+new file mode 100644
+index 0000000..5145879
+--- /dev/null
++++ b/src/utils.f90
+@@ -0,0 +1,52 @@
++module utils
++  implicit none
++  contains
++
++  subroutine random_uuid(uuid)
++      character(len=*), intent(out) :: uuid
++      character(len=16) :: hexchars
++      integer :: i, n
++      real :: r(1)
++      character(len=1) :: c
++
++      hexchars = '0123456789abcdef'
++      uuid = ''
++      do i = 1, 36
++          if (i == 9 .or. i == 14 .or. i == 19 .or. i == 24) then
++              uuid(i:i) = '-'
++          else
++              call random_number(r)
++              n = 1 + int(r(1) * 16.0)
++              uuid(i:i) = hexchars(n:n)
++          end if
++      end do
++  end subroutine
++
++  subroutine create_directory(dir_name)
++     character(len=*), intent(in) :: dir_name
++     character(len=255) :: command
++
++     ! Construct the command to create the directory
++     write(command, '("mkdir -p ", A)') trim(adjustl(dir_name))
++
++     ! Execute the command
++     call system(command)
++  end subroutine create_directory
++
++  subroutine testfile_path(fn_name, path)
++    character(len=*), intent(in)  :: fn_name
++    character(len=*), intent(out) :: path
++
++    character(len=36) :: uuid
++    character(len=100) :: filename, dir
++
++    call random_seed()
++    call random_uuid(uuid)
++    write(filename, '(A,A)') 'args_', uuid
++    dir = 'calls/' // trim(fn_name) // '/'
++    write(path, '(A,A,A)') trim(dir), trim(filename), ".bin"
++
++    call create_directory(trim(dir))
++  end subroutine
++
++end module utils
