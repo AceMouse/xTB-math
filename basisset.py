@@ -109,9 +109,17 @@ def atovlp(l, npri,nprj, alpa, alpb, conta, contb):
             if l == 1:
                 ab05 = ab*0.5
                 sss = s00*ab05
-            ss = ss+sss*conta[ii]*contb[jj]
+            ss += sss*conta[ii]*contb[jj]
     return ss
 
+def atovlp_np(l,npri,nprj, alpa, alpb, conta, contb):
+    alpa_rect = np.broadcast_to(alpa, (npri, nprj))
+    alpb_rect = np.broadcast_to(alpa, (nprj, npri))
+    ab = 1./(alpa_rect + alpb_rect.transpose())
+    sss = (np.Pi*ab)**1.5
+    if l == 1:
+        sss *= ab*0.5
+    return np.sum(sss*np.outer(conta,contb))
 #subroutine set_d_function(basis,iat,ish,iao,ibf,ipr,npq,l,nprim,zeta,level,valao)
 #   type(TBasisset), intent(inout) :: basis
 #   integer, intent(in)    :: iat
@@ -163,6 +171,7 @@ def atovlp(l, npri,nprj, alpa, alpb, conta, contb):
 #   enddo
 #end subroutine set_d_function
 def set_d_functoin(basis,iat,ish,iao,ibf,ipr,npq,l,nprim,zeta,level,valao):
+    pass
 
 #
 #subroutine set_f_function(basis,iat,ish,iao,ibf,ipr,npq,l,nprim,zeta,level,valao)
@@ -217,6 +226,171 @@ def set_d_functoin(basis,iat,ish,iao,ibf,ipr,npq,l,nprim,zeta,level,valao):
 #   enddo
 #end subroutine set_f_function
 #subroutine newBasisset(xtbData,n,at,basis,ok)
+
+def new_basis_set_simple(element_ids):
+    a = np.zeros(10)
+    c = np.zeros(10)
+    aR = np.zeros(10)
+    cR = np.zeros(10)
+    aS = np.zeros(10)
+    cS = np.zeros(10)
+
+    n = element_ids.shape[0]
+    nshell, nao, nbf = dim_basis(element_ids)
+    basis_shells = np.zeros(nshell,2)
+    basis_sh2ao = np.zeros(nshell,2)
+    basis_sh2bf = np.zeros(nshell,2)
+    basis_minalp = np.zeros(nshell)
+    basis_level = np.zeros(nshell)
+    basis_zeta = np.zeros(nshell)
+    basis_valsh = np.zeros(nshell)
+    basis_hdiag = np.zeros(nbf)
+    basis_alp = np.zeros(9*nbf)
+    basis_cont = np.zeros(9*nbf)
+    basis_hdiag2 = np.zeros(nao)
+    basis_aoexp = np.zeros(nao)
+    basis_ash = np.zeros(nao)
+    basis_lsh = np.zeros(nao)
+    basis_ao2sh = np.zeros(nao)
+    basis_nprim = np.zeros(nao)
+    basis_primcount = np.zeros(nao)
+    basis_caoshell = np.zeros(n,5)
+    basis_saoshell = np.zeros(n,5)
+    basis_fila = np.zeros(n,2)
+    basis_fila2 = np.zeros(n,2)
+    basis_lao = np.zeros(nbf)
+    basis_aoat = np.zeros(nbf)
+    basis_valao = np.zeros(nbf)
+    basis_lao2 = np.zeros(nao)
+    basis_aoat2 = np.zeros(nao)
+    basis_valao2 = np.zeros(nao)
+    basis_hdiag[:] = 1e42
+    ibf=0
+    iao=0
+    ipr=0
+    ish=0
+    ok=True
+    for iat in range(0,n):
+        ati = element_ids[iat]
+        basis_shells[iat,0] = ish+1 # TODO: should this just be no addition? Is this to fix 1 indexing? 
+        basis_fila[iat,0] = ibf+1
+        basis_fila2[iat,0] = iao+1
+        for m in range(nShell[ati]):
+            npq = principalQantumNumber[ati,m]
+            l = angShell[ati,m]
+            level = selfEnergy[ati,m]
+            zeta = slaterExponent[ati,m]
+            valao = valenceShell[ati,m]
+            if valao != 0:
+                nprim = numberOfPrimitives[ati,m]
+            else:
+                thisprimR = numberOfPrimitives[ati,m]
+            basis_lsh[ish] = l
+            basis_ash[ish] = iat
+            basis_sh2bf[ish,0] = ibf
+            basis_sh2ao[ish,0] = iao
+            basis_caoshell[iat,m] = ibf
+            basis_saoshell[iat,m] = iao
+            basis_level[ish] = level
+            basis_zeta[ish] = zeta
+            basis_valsh[ish] = valao
+            
+            valao_flip = 1
+            j_offset = 0
+            trafo = np.array([1,1,1,1,1,1,1,np.sqrt(3.),np.sqrt(3.),np.sqrt(3.), # combined for d and f
+                              1.0, 1.0, 1.0, np.sqrt(5.0), np.sqrt(5.0), np.sqrt(5.0), np.sqrt(5.0), np.sqrt(5.0), np.sqrt(5.0), np.sqrt(15.0)],dtype = np.float64)
+            additional_prim = 0
+            ss=-1
+            normalize_basis_cont = False
+            match l:
+                case 0: # s
+                    if valao != 0: 
+                        if ati <= 2: # H-He 
+                            a, c, info = slaterToGauss(nprim, npq, l, zeta, True)
+                            basis_minalp[ish] = np.min(a[:nprim])
+                        else: 
+                            aS, cS, info = slaterToGauss(nprim, npq, l, zeta, True)
+                            basis_minalp[ish] = np.min(aS[:nprim])
+                        basis_nprim[ibf] = nprim
+                    else: # DZ s
+                        additional_prim = thisprimR
+                        normalize_basis_cont = True
+                        if ati <= 2: # H-He
+                            aR, cR, info = slaterToGauss(thisprimR, npq, l, zeta, True)
+                            ss = atovlp(0,nprim,thisprimR,a,aR,c,cR)
+                            min_alpa = np.min(a[:nprim])
+                        else:
+                            aR, cR, info = slaterToGauss(thisprimR, npq, l, zeta, True)
+                            ss = atovlp(0,nprim,thisprimR,aS,aR,cS,cR)
+                            min_alpa = np.min(aS[:nprim])
+                        basis_minalp[ish] = min(min_alpa, np.min(aR[:thisprimR]))
+                        basis_nprim[ibf] = thisprimR+nprim
+                    j_low = 0
+                    j_high = 1
+                case 1: # p
+                    a, c, info = slaterToGauss(nprim, npq, l, zeta, True)
+                    basis_minalp[ish] = np.min(a[:nprim])
+                    if ati <= 2: # H-He
+                        valao_flip = -1
+                    j_low = 1
+                    j_high = 4
+                case 2: # d
+                    a, c, info = slaterToGauss(nprim, npq, l, zeta, True)
+                    basis_minalp[ish] = np.min(a[:nprim])
+                    j_low = 4
+                    j_high = 10
+                    j_offset = -1
+                case 3: # f
+                    a, c, info = slaterToGauss(nprim, npq, l, zeta, True)
+                    basis_minalp[ish] = np.min(a[:nprim])
+                    j_low = 10
+                    j_high = 20
+                    j_offset = -3
+                    valao = 1
+            for j in range(j_low,j_high):
+                basis_primcount[ibf] = ipr
+                basis_valao    [ibf] = valao*valao_flip
+                basis_aoat     [ibf] = iat
+                basis_lao      [ibf] = j
+                basis_hdiag    [ibf] = level
+
+                idum=ipr
+                for p in range(0,additional_prim):
+                    basis_alp[ipr] = aR[p]
+                    basis_cont[ipr] = cR[p]
+                    ipr+=1
+
+                for p in range(0,nprim):
+                    if l == 0 and ati > 2:
+                        basis_alp[ipr]=aS[p]
+                        basis_cont[ipr]=-ss*cS[p]
+                    else:
+                        basis_alp[ipr]=a[p]
+                        basis_cont[ipr]=-ss*c[p]*trafo[j]
+                    ipr += 1
+
+                if (j >= 10 and j <= 12) or j == 4:
+                    continue
+                if normalize_basis_cont:
+                    ss = atovlp(0,basis_nprim[ibf],basis_nprim[ibf],basis_alp[idum],basis_alp[idum],basis_cont[idum],basis_cont[idum])
+                    for p in range(0,basis_nprim[ibf]):
+                        basis_cont[idum+p]/=np.sqrt(ss)
+
+                basis_valao2[iao] = valao*valao_flip
+                basis_aoat2[iao] = iat
+                basis_lao2[iao] = j+j_offset
+                basis_hdiag2[iao] = level
+                basis_aoexp[iao] = zeta
+                basis_ao2sh[iao] = ish
+
+                ibf += 1
+                iao = iao+1
+            ish += 1
+        basis_shells[iat,1]=ish
+        basis_fila[iat,1]=ibf
+        basis_fila2[iat,1]=iao
+    ok = np.all(basis_alp[:ipr] > 0) and basis_nbf == ibf and basis_nao == iao
+
 def new_basis_set(element_ids):
 #   type(TxTBData), intent(in) :: xtbData
 #   type(TBasisset),intent(inout) :: basis
@@ -237,7 +411,7 @@ def new_basis_set(element_ids):
     aS = np.zeros(10)
     cS = np.zeros(10)
 
-#   call xbasis0(xtbData,n,at,basis)
+#  call xbasis0(xtbData,n,at,basis)
     n = element_ids.shape[0]
     nshell, nao, nbf = dim_basis(element_ids)
     basis_shells = np.zeros(nshell,2)
@@ -295,7 +469,6 @@ def new_basis_set(element_ids):
 #      shells: do m=1,xtbData%nShell(ati)
         for m in range(nShell[ati]):
 #         ish = ish+1
-            ish += 1
 #         ! principle QN
 #         npq=xtbData%hamiltonian%principalQuantumNumber(m,ati)
             npq = principalQantumNumber[ati,m]
@@ -787,6 +960,7 @@ def new_basis_set(element_ids):
 #   real(wp) :: trafo(11:20) = &
 #      & [1.0_wp, 1.0_wp, 1.0_wp, sqrt(5.0_wp), sqrt(5.0_wp), &
 #      &  sqrt(5.0_wp), sqrt(5.0_wp), sqrt(5.0_wp), sqrt(5.0_wp), sqrt(15.0_wp)]
+                valao = 1
                 trafo = np.array([0,0,0,0,0,0,0,0,0,0,0, # 11 empty spaces
                                   1.0, 1.0, 1.0, np.sqrt(5.0), np.sqrt(5.0), np.sqrt(5.0), np.sqrt(5.0), np.sqrt(5.0), np.sqrt(5.0), np.sqrt(15.0)],dtype = np.float64)
 #   integer :: info
@@ -850,6 +1024,7 @@ def new_basis_set(element_ids):
 #         basis%sh2ao(2,ish) = iao-basis%sh2ao(1,ish)
             basis_sh2bf[ish,1] = ibf-basis_sh2bf[ish,0]
             basis_sh2ao[ish,1] = iao-basis_sh2ao[ish,0]
+            ish += 1
 #      enddo shells
 #      basis%shells(2,iat)=ish
 #      basis%fila  (2,iat)=ibf
