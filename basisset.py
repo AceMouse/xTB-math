@@ -369,12 +369,14 @@ def new_basis_set_simple(element_ids):
                         basis_cont[ipr]=-ss*c[p]*trafo[j]
                     ipr += 1
 
-                if (j >= 10 and j <= 12) or j == 4:
-                    continue
                 if normalize_basis_cont:
                     ss = atovlp(0,basis_nprim[ibf],basis_nprim[ibf],basis_alp[idum],basis_alp[idum],basis_cont[idum],basis_cont[idum])
                     for p in range(0,basis_nprim[ibf]):
                         basis_cont[idum+p]/=np.sqrt(ss)
+                ibf += 1
+
+                if (j >= 10 and j <= 12) or j == 4:
+                    continue
 
                 basis_valao2[iao] = valao*valao_flip
                 basis_aoat2[iao] = iat
@@ -383,8 +385,7 @@ def new_basis_set_simple(element_ids):
                 basis_aoexp[iao] = zeta
                 basis_ao2sh[iao] = ish
 
-                ibf += 1
-                iao = iao+1
+                iao += 1
             ish += 1
         basis_shells[iat,1]=ish
         basis_fila[iat,1]=ibf
