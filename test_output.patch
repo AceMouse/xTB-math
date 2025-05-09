@@ -1,5 +1,5 @@
 diff --git a/src/intgrad.f90 b/src/intgrad.f90
-index 44f8f7e..9ff58da 100644
+index 44f8f7e..af1105e 100644
 --- a/src/intgrad.f90
 +++ b/src/intgrad.f90
 @@ -22,6 +22,7 @@
@@ -97,7 +97,241 @@ index 44f8f7e..9ff58da 100644
     return
  
  end subroutine dtrf2
-@@ -872,8 +903,8 @@ pure subroutine get_grad_overlap(icao,jcao,naoi,naoj,ishtyp,jshtyp,ri,rj,point,i
+@@ -379,24 +410,50 @@ pure subroutine horizontal_shift(ae, l, cfs)
+    end select
+ end subroutine horizontal_shift
+ 
+-pure subroutine form_product(a, b, la, lb, d)
++! pure
++subroutine form_product(a, b, la, lb, d)
+    integer, intent(in) :: la, lb
+-   real(wp), intent(in) :: a(*), b(*)
+-   real(wp), intent(inout) :: d(*)
++   real(wp), intent(in) :: a(:), b(:)
++   real(wp), intent(inout) :: d(:)
+    integer :: i
++
++
++   integer :: u
++   character(len=200) :: path
++   call testfile_path('form_product', path)
++
++   open(newunit=u, file=trim(path), form='unformatted', access='stream')
++   write(u) la
++   write(u) lb
++   write(u) size(a), a
++   write(u) size(b), b
++   write(u) size(d), d
++
++
+    if(la.ge.4.or.lb.ge.4) goto 40
+    if(la.ge.3.or.lb.ge.3) goto 30
+    if(la.ge.2.or.lb.ge.2) goto 20
+    ! <s|s> = <s>
+    d(1)=a(1)*b(1)
+-   if(la.eq.0.and.lb.eq.0) return
++   if(la.eq.0.and.lb.eq.0) then
++     write(u) size(d), d
++     close(u)
++     return
++   endif
+    ! <s|p> = <s|*(|s>+|p>)
+    !       = <s> + <p>
+    d(2)=a(1)*b(2)+a(2)*b(1)
+-   if(la.eq.0.or.lb.eq.0) return
++   if(la.eq.0.or.lb.eq.0) then
++     write(u) size(d), d
++     close(u)
++     return
++   endif
+    ! <p|p> = (<s|+<p|)*(|s>+|p>)
+    !       = <s> + <p> + <d>
+    d(3)=a(2)*b(2)
++
++   write(u) size(d), d
++   close(u)
+    return
+ 20 continue
+    ! <s|d> = <s|*(|s>+|p>+|d>)
+@@ -404,15 +461,26 @@ pure subroutine form_product(a, b, la, lb, d)
+    d(1)=a(1)*b(1)
+    d(2)=a(1)*b(2)+a(2)*b(1)
+    d(3)=a(1)*b(3)+a(3)*b(1)
+-   if(la.eq.0.or.lb.eq.0) return
++   if(la.eq.0.or.lb.eq.0) then
++     write(u) size(d), d
++     close(u)
++     return
++   endif
+    ! <p|d> = (<s|+<p|)*(|s>+|p>+|d>)
+    !       = <s> + <p> + <d> + <f>
+    d(3)=d(3)+a(2)*b(2)
+    d(4)=a(2)*b(3)+a(3)*b(2)
+-   if(la.le.1.or.lb.le.1) return
++   if(la.le.1.or.lb.le.1) then
++     write(u) size(d), d
++     close(u)
++     return
++   endif
+    ! <d|d> = (<s|+<p|+<d|)*(|s>+|p>+|d>)
+    !       = <s> + <p> + <d> + <f> + <g>
+    d(5)=a(3)*b(3)
++
++   write(u) size(d), d
++   close(u)
+    return
+ 30 continue
+    ! <s|f> = <s|*(|s>+|p>+|d>+|f>)
+@@ -421,21 +489,36 @@ pure subroutine form_product(a, b, la, lb, d)
+    d(2)=a(1)*b(2)+a(2)*b(1)
+    d(3)=a(1)*b(3)+a(3)*b(1)
+    d(4)=a(1)*b(4)+a(4)*b(1)
+-   if(la.eq.0.or.lb.eq.0) return
++   if(la.eq.0.or.lb.eq.0) then
++     write(u) size(d), d
++     close(u)
++     return
++   endif
+    ! <p|f> = (<s|+<p|)*(|s>+|p>+|d>+|f>)
+    !       = <s> + <p> + <d> + <f> + <g>
+    d(3)=d(3)+a(2)*b(2)
+    d(4)=d(4)+a(2)*b(3)+a(3)*b(2)
+    d(5)=a(2)*b(4)+a(4)*b(2)
+-   if(la.le.1.or.lb.le.1) return
++   if(la.le.1.or.lb.le.1) then
++     write(u) size(d), d
++     close(u)
++     return
++   endif
+    ! <d|f> = (<s|+<p|+<d|)*(|s>+|p>+|d>+|f>)
+    !       = <s> + <p> + <d> + <f> + <g> + <h>
+    d(5)=d(5)+a(3)*b(3)
+    d(6)=a(3)*b(4)+a(4)*b(3)
+-   if(la.le.2.or.lb.le.2) return
++   if(la.le.2.or.lb.le.2) then
++     write(u) size(d), d
++     close(u)
++     return
++   endif
+    ! <f|f> = (<s|+<p|+<d|+<f|)*(|s>+|p>+|d>+|f>)
+    !       = <s> + <p> + <d> + <f> + <g> + <h> + <i>
+    d(7)=a(4)*b(4)
++
++   write(u) size(d), d
++   close(u)
+    return
+ 40 continue
+    ! <s|g> = <s|*(|s>+|p>+|d>+|f>+|g>)
+@@ -445,33 +528,53 @@ pure subroutine form_product(a, b, la, lb, d)
+    d(3)=a(1)*b(3)+a(3)*b(1)
+    d(4)=a(1)*b(4)+a(4)*b(1)
+    d(5)=a(1)*b(5)+a(5)*b(1)
+-   if(la.eq.0.or.lb.eq.0) return
++   if(la.eq.0.or.lb.eq.0) then
++     write(u) size(d), d
++     close(u)
++     return
++   endif
+    ! <p|g> = (<s|+<p|)*(|s>+|p>+|d>+|f>+|g>)
+    !       = <s> + <p> + <d> + <f> + <g> + <h>
+    d(3)=d(3)+a(2)*b(2)
+    d(4)=d(4)+a(2)*b(3)+a(3)*b(2)
+    d(5)=d(5)+a(2)*b(4)+a(4)*b(2)
+    d(6)=a(2)*b(5)+a(5)*b(2)
+-   if(la.le.1.or.lb.le.1) return
++   if(la.le.1.or.lb.le.1) then
++     write(u) size(d), d
++     close(u)
++     return
++   endif
+    ! <d|g> = (<s|+<p|+<d|)*(|s>+|p>+|d>+|f>+|g>)
+    !       = <s> + <p> + <d> + <f> + <g> + <h> + <i>
+    d(5)=d(5)+a(3)*b(3)
+    d(6)=d(5)+a(3)*b(4)+a(4)*b(3)
+    d(7)=a(3)*b(5)+a(5)*b(3)
+-   if(la.le.2.or.lb.le.2) return
++   if(la.le.2.or.lb.le.2) then
++     write(u) size(d), d
++     close(u)
++     return
++   endif
+    ! <f|g> = (<s|+<p|+<d|+<f|)*(|s>+|p>+|d>+|f>+|g>)
+    !       = <s> + <p> + <d> + <f> + <g> + <h> + <i> + <k>
+    d(7)=d(7)+a(4)*b(4)
+    d(8)=a(4)*b(5)+a(5)*b(4)
+-   if(la.le.3.or.lb.le.3) return
++   if(la.le.3.or.lb.le.3) then
++     write(u) size(d), d
++     close(u)
++     return
++   endif
+    ! <g|g> = (<s|+<p|+<d|+<f|+<g|)*(|s>+|p>+|d>+|f>+|g>)
+    !       = <s> + <p> + <d> + <f> + <g> + <h> + <i> + <k> + <l>
+    d(9)=a(5)*b(5)
+ 
++   write(u) size(d), d
++   close(u)
++
+ end subroutine form_product
+ 
+ 
+-pure subroutine overlap_3d(ri, rj, rp, ai, aj, li, lj, s1d, s3d)
++! pure
++subroutine overlap_3d(ri, rj, rp, ai, aj, li, lj, s1d, s3d)
+    real(wp), intent(in) :: ri(3)
+    real(wp), intent(in) :: rj(3)
+    real(wp), intent(in) :: rp(3)
+@@ -506,7 +609,8 @@ pure subroutine overlap_3d(ri, rj, rp, ai, aj, li, lj, s1d, s3d)
+ 
+ end subroutine overlap_3d
+ 
+-pure subroutine multipole_3d(ri, rj, rc, rp, ai, aj, li, lj, s1d, s3d)
++! pure
++subroutine multipole_3d(ri, rj, rc, rp, ai, aj, li, lj, s1d, s3d)
+    real(wp), intent(in) :: ri(3)
+    real(wp), intent(in) :: rj(3)
+    real(wp), intent(in) :: rp(3)
+@@ -554,7 +658,8 @@ pure subroutine multipole_3d(ri, rj, rc, rp, ai, aj, li, lj, s1d, s3d)
+ 
+ end subroutine multipole_3d
+ 
+-pure subroutine overlap_grad_3d(ri, rj, rp, ai, aj, li, lj, s1d, s3d, ds3d)
++! pure
++subroutine overlap_grad_3d(ri, rj, rp, ai, aj, li, lj, s1d, s3d, ds3d)
+    real(wp), intent(in) :: ri(3)
+    real(wp), intent(in) :: rj(3)
+    real(wp), intent(in) :: rp(3)
+@@ -604,7 +709,8 @@ pure subroutine overlap_grad_3d(ri, rj, rp, ai, aj, li, lj, s1d, s3d, ds3d)
+ 
+ end subroutine overlap_grad_3d
+ 
+-pure subroutine multipole_grad_3d(ri, rj, rc, rp, ai, aj, li, lj, s1d, s3d, ds3d)
++! pure
++subroutine multipole_grad_3d(ri, rj, rc, rp, ai, aj, li, lj, s1d, s3d, ds3d)
+    real(wp), intent(in) :: ri(3)
+    real(wp), intent(in) :: rj(3)
+    real(wp), intent(in) :: rc(3)
+@@ -728,7 +834,8 @@ pure subroutine shiftintg(g,s,r)
+ end subroutine shiftintg
+ 
+ 
+-pure subroutine get_overlap(icao,jcao,naoi,naoj,ishtyp,jshtyp,ri,rj,point,intcut, &
++! pure
++subroutine get_overlap(icao,jcao,naoi,naoj,ishtyp,jshtyp,ri,rj,point,intcut, &
+       &                nprim,primcount,alp,cont,sint)
+    integer, intent(in)  :: icao
+    integer, intent(in)  :: jcao
+@@ -799,7 +906,8 @@ pure subroutine get_overlap(icao,jcao,naoi,naoj,ishtyp,jshtyp,ri,rj,point,intcut
+ 
+ end subroutine get_overlap
+ 
+-pure subroutine get_grad_overlap(icao,jcao,naoi,naoj,ishtyp,jshtyp,ri,rj,point,intcut, &
++! pure
++subroutine get_grad_overlap(icao,jcao,naoi,naoj,ishtyp,jshtyp,ri,rj,point,intcut, &
+       &                     nprim,primcount,alp,cont,sdq,sdqg)
+    integer, intent(in)  :: icao
+    integer, intent(in)  :: jcao
+@@ -872,8 +980,8 @@ pure subroutine get_grad_overlap(icao,jcao,naoi,naoj,ishtyp,jshtyp,ri,rj,point,i
     enddo  ! ip : loop over i prims
  end subroutine get_grad_overlap
  
@@ -108,7 +342,7 @@ index 44f8f7e..9ff58da 100644
        &                           intcut,nprim,primcount,alp,cont,ss,dd,qq)
     integer, intent(in)  :: icao
     integer, intent(in)  :: jcao
-@@ -894,13 +925,29 @@ pure subroutine get_multiints(icao,jcao,naoi,naoj,ishtyp,jshtyp,ri,rj,point, &
+@@ -894,13 +1002,29 @@ pure subroutine get_multiints(icao,jcao,naoi,naoj,ishtyp,jshtyp,ri,rj,point, &
     real(wp),intent(in)  :: alp(:)
     real(wp),intent(in)  :: cont(:)
  
@@ -139,7 +373,7 @@ index 44f8f7e..9ff58da 100644
     ss = 0.0_wp
     dd = 0.0_wp
     qq = 0.0_wp
-@@ -910,7 +957,14 @@ pure subroutine get_multiints(icao,jcao,naoi,naoj,ishtyp,jshtyp,ri,rj,point, &
+@@ -910,7 +1034,14 @@ pure subroutine get_multiints(icao,jcao,naoi,naoj,ishtyp,jshtyp,ri,rj,point, &
     rij = ri - rj
     rij2 = rij(1)**2 + rij(2)**2 + rij(3)**2
  
@@ -155,7 +389,7 @@ index 44f8f7e..9ff58da 100644
  
     ! we go through the primitives (because the screening is the same for all of them)
     do ip = 1,nprim(icao+1)
-@@ -948,6 +1002,12 @@ pure subroutine get_multiints(icao,jcao,naoi,naoj,ishtyp,jshtyp,ri,rj,point, &
+@@ -948,10 +1079,17 @@ pure subroutine get_multiints(icao,jcao,naoi,naoj,ishtyp,jshtyp,ri,rj,point, &
           enddo  ! mli : Cartesian component of i prims
        enddo ! jp : loop over j prims
     enddo  ! ip : loop over i prims
@@ -168,6 +402,12 @@ index 44f8f7e..9ff58da 100644
  end subroutine get_multiints
  
  
+-pure subroutine get_grad_multiint(icao,jcao,naoi,naoj,ishtyp,jshtyp,ri,rj, &
++! pure
++subroutine get_grad_multiint(icao,jcao,naoi,naoj,ishtyp,jshtyp,ri,rj, &
+       &                           intcut,nprim,primcount,alp,cont,sdq,sdqg)
+    integer, intent(in)  :: icao
+    integer, intent(in)  :: jcao
 diff --git a/src/meson.build b/src/meson.build
 index ced9a9d..12ddc1d 100644
 --- a/src/meson.build

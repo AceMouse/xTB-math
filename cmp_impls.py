@@ -1,5 +1,5 @@
 import numpy as np
-from energy import dtrf2, get_multiints
+from energy import dtrf2, form_product, get_multiints
 import glob
 import argparse
 import os
@@ -96,15 +96,48 @@ def test_dtrf2():
 
             dtrf2(s, li, lj)
 
-            if (not np.array_equal(s, s_res)):
+            s_equal = np.array_equal(s, s_res)
+            if (not s_equal):
                 print("Fortran:")
                 print("s: ", s_res)
 
                 print("Python:")
                 print("s: ", s)
-                assert np.array_equal(s, s_res), "s matrices do not match"
+                assert s_equal, "s matrices do not match"
 
 
+def test_form_product():
+    for file_path in glob.glob(f'{directory}/form_product/*.bin'):  # Matches all .bin files in the directory
+        with open(file_path, 'rb') as f:
+            def read_ints(n=1):
+                return np.fromfile(f, dtype=np.int32, count=n)
 
-test_get_multiints()
-test_dtrf2()
+            la, lb = read_ints(2)
+
+            a1 = read_ints(1)[0]
+            a = np.fromfile(f, dtype=np.float64, count=a1)
+
+            b1 = read_ints(1)[0]
+            b = np.fromfile(f, dtype=np.float64, count=b1)
+
+            d1 = read_ints(1)[0]
+            d = np.fromfile(f, dtype=np.float64, count=d1)
+
+            d1_res = read_ints(1)[0]
+            d_res = np.fromfile(f, dtype=np.float64, count=d1_res)
+
+            form_product(a, b, la, lb, d)
+
+            d_equal = np.array_equal(d, d_res)
+            if (not d_equal):
+                print("Fortran:")
+                print("d: ", d_res)
+
+                print("Python:")
+                print("d: ", d)
+                assert d_equal, "d matrices do not match"
+
+
+test_form_product()
+#test_get_multiints()
+#test_dtrf2()
