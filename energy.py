@@ -556,7 +556,7 @@ def multipole_3d(ri, rj, rc, rp, li, lj, s1d, s3d):
         horizontal_shift(rp[k] - ri[k], li[k], vi)
         horizontal_shift(rp[k] - rj[k], lj[k], vj)
         form_product(vi, vj, li[k], lj[k], vv)
-        for l in range(li[k] + lj[k]):
+        for l in range(li[k] + lj[k] + 1):
             val[0,k] = val[0,k] + s1d[l] * vv[l]
             val[1,k] = val[1,k] + (s1d[l+1] + rpc*s1d[l]) * vv[l]
             val[2,k] = val[2,k] + (s1d[l+2] + 2*rpc*s1d[l+1] + rpc*rpc*s1d[l]) * vv[l]

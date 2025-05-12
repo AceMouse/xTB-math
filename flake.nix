@@ -22,7 +22,7 @@
       } ''
         xtb ${./caffeine.xyz}
         mv calls $out
-        PYTHONPATH=${./.} python ${./cmp_impls.py} $out/get_multiints/
+        PYTHONPATH=${./.} python ${./cmp_impls.py} $out
       '';
     };
 
