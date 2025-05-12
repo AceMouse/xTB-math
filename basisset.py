@@ -1,4 +1,4 @@
-from gfn2 import angShell, nShell, repZeff, valenceShell, slaterExponent, selfEnergy,principalQantumNumber, numberOfPrimitives
+from gfn2 import angShell, nShell, repZeff, valenceShell, slaterExponent, selfEnergy, principalQuantumNumber, numberOfPrimitives
 import numpy as np
 import time
 
@@ -103,7 +103,7 @@ def atovlp(l, npri,nprj, alpa, alpb, conta, contb):
     for ii in range(0,npri):
         for jj in range(0,nprj):
             ab = 1./(alpa[ii]+alpb[jj])
-            s00 = (np.Pi*ab)**1.5
+            s00 = (np.pi*ab)**1.5
             if l == 0:
                 sss = s00
             if l == 1:
@@ -116,7 +116,7 @@ def atovlp_np(l,npri,nprj, alpa, alpb, conta, contb):
     alpa_rect = np.broadcast_to(alpa, (npri, nprj))
     alpb_rect = np.broadcast_to(alpa, (nprj, npri))
     ab = 1./(alpa_rect + alpb_rect.transpose())
-    sss = (np.Pi*ab)**1.5
+    sss = (np.pi*ab)**1.5
     if l == 1:
         sss *= ab*0.5
     return np.sum(sss*np.outer(conta,contb))
@@ -237,9 +237,9 @@ def new_basis_set_simple(element_ids):
 
     n = element_ids.shape[0]
     nshell, nao, nbf = dim_basis(element_ids)
-    basis_shells = np.zeros(nshell,2)
-    basis_sh2ao = np.zeros(nshell,2)
-    basis_sh2bf = np.zeros(nshell,2)
+    basis_shells = np.zeros((nshell,2))
+    basis_sh2ao = np.zeros((nshell,2))
+    basis_sh2bf = np.zeros((nshell,2))
     basis_minalp = np.zeros(nshell)
     basis_level = np.zeros(nshell)
     basis_zeta = np.zeros(nshell)
@@ -252,12 +252,12 @@ def new_basis_set_simple(element_ids):
     basis_ash = np.zeros(nao)
     basis_lsh = np.zeros(nao)
     basis_ao2sh = np.zeros(nao)
-    basis_nprim = np.zeros(nao)
-    basis_primcount = np.zeros(nao)
-    basis_caoshell = np.zeros(n,5)
-    basis_saoshell = np.zeros(n,5)
-    basis_fila = np.zeros(n,2)
-    basis_fila2 = np.zeros(n,2)
+    basis_nprim = np.zeros(nbf)
+    basis_primcount = np.zeros(nbf)
+    basis_caoshell = np.zeros((n,5))
+    basis_saoshell = np.zeros((n,5))
+    basis_fila = np.zeros((n,2))
+    basis_fila2 = np.zeros((n,2))
     basis_lao = np.zeros(nbf)
     basis_aoat = np.zeros(nbf)
     basis_valao = np.zeros(nbf)
@@ -276,7 +276,7 @@ def new_basis_set_simple(element_ids):
         basis_fila[iat,0] = ibf+1
         basis_fila2[iat,0] = iao+1
         for m in range(nShell[ati]):
-            npq = principalQantumNumber[ati,m]
+            npq = principalQuantumNumber[ati,m]
             l = angShell[ati,m]
             level = selfEnergy[ati,m]
             zeta = slaterExponent[ati,m]
@@ -311,7 +311,6 @@ def new_basis_set_simple(element_ids):
                         else: 
                             aS, cS, info = slaterToGauss(nprim, npq, l, zeta, True)
                             basis_minalp[ish] = np.min(aS[:nprim])
-                        basis_nprim[ibf] = nprim
                     else: # DZ s
                         additional_prim = thisprimR
                         normalize_basis_cont = True
@@ -324,7 +323,6 @@ def new_basis_set_simple(element_ids):
                             ss = atovlp(0,nprim,thisprimR,aS,aR,cS,cR)
                             min_alpa = np.min(aS[:nprim])
                         basis_minalp[ish] = min(min_alpa, np.min(aR[:thisprimR]))
-                        basis_nprim[ibf] = thisprimR+nprim
                     j_low = 0
                     j_high = 1
                 case 1: # p
@@ -352,6 +350,7 @@ def new_basis_set_simple(element_ids):
                 basis_valao    [ibf] = valao*valao_flip
                 basis_aoat     [ibf] = iat
                 basis_lao      [ibf] = j
+                basis_nprim    [ibf] = nprim + additional_prim
                 basis_hdiag    [ibf] = level
 
                 idum=ipr
@@ -386,11 +385,18 @@ def new_basis_set_simple(element_ids):
                 basis_ao2sh[iao] = ish
 
                 iao += 1
+            basis_sh2bf[ish,1] = ibf-basis_sh2bf[ish,0]
+            basis_sh2ao[ish,1] = iao-basis_sh2ao[ish,0]
             ish += 1
         basis_shells[iat,1]=ish
         basis_fila[iat,1]=ibf
         basis_fila2[iat,1]=iao
-    ok = np.all(basis_alp[:ipr] > 0) and basis_nbf == ibf and basis_nao == iao
+    ok = np.all(basis_alp[:ipr] > 0) and nbf == ibf and nao == iao
+    return basis_shells, basis_sh2ao, basis_sh2bf, basis_minalp, basis_level, basis_zeta, basis_valsh,\
+        basis_hdiag, basis_alp, basis_cont, basis_hdiag2, basis_aoexp, basis_ash, basis_lsh, basis_ao2sh, \
+        basis_nprim, basis_primcount, basis_caoshell, basis_saoshell, basis_fila, basis_fila2, basis_lao, \
+        basis_aoat, basis_valao, basis_lao2, basis_aoat2, basis_valao2, ok
+
 
 def new_basis_set(element_ids):
 #   type(TxTBData), intent(in) :: xtbData
@@ -415,9 +421,9 @@ def new_basis_set(element_ids):
 #  call xbasis0(xtbData,n,at,basis)
     n = element_ids.shape[0]
     nshell, nao, nbf = dim_basis(element_ids)
-    basis_shells = np.zeros(nshell,2)
-    basis_sh2ao = np.zeros(nshell,2)
-    basis_sh2bf = np.zeros(nshell,2)
+    basis_shells = np.zeros((nshell,2))
+    basis_sh2ao = np.zeros((nshell,2))
+    basis_sh2bf = np.zeros((nshell,2))
     basis_minalp = np.zeros(nshell)
     basis_level = np.zeros(nshell)
     basis_zeta = np.zeros(nshell)
@@ -430,12 +436,12 @@ def new_basis_set(element_ids):
     basis_ash = np.zeros(nao)
     basis_lsh = np.zeros(nao)
     basis_ao2sh = np.zeros(nao)
-    basis_nprim = np.zeros(nao)
-    basis_primcount = np.zeros(nao)
-    basis_caoshell = np.zeros(n,5)
-    basis_saoshell = np.zeros(n,5)
-    basis_fila = np.zeros(n,2)
-    basis_fila2 = np.zeros(n,2)
+    basis_nprim = np.zeros(nbf)
+    basis_primcount = np.zeros(nbf)
+    basis_caoshell = np.zeros((n,5))
+    basis_saoshell = np.zeros((n,5))
+    basis_fila = np.zeros((n,2))
+    basis_fila2 = np.zeros((n,2))
     basis_lao = np.zeros(nbf)
     basis_aoat = np.zeros(nbf)
     basis_valao = np.zeros(nbf)
@@ -472,7 +478,7 @@ def new_basis_set(element_ids):
 #         ish = ish+1
 #         ! principle QN
 #         npq=xtbData%hamiltonian%principalQuantumNumber(m,ati)
-            npq = principalQantumNumber[ati,m]
+            npq = principalQuantumNumber[ati,m]
 #         l=xtbData%hamiltonian%angShell(m,ati)
             l = angShell[ati,m]
 #
@@ -910,7 +916,7 @@ def new_basis_set(element_ids):
                     ibf += 1
 
                     for p in range(0,nprim):
-                        basis_alp[ipr]=alp [p]
+                        basis_alp[ipr]=alp[p]
                         basis_cont[ipr]=cont[p]*trafo[j]
                         ipr += 1
                     
@@ -1036,7 +1042,11 @@ def new_basis_set(element_ids):
 #   enddo atoms
 #
 #   ok = all(basis%alp(:ipr) > 0.0_wp) .and. basis%nbf == ibf .and. basis%nao == iao
-    ok = np.all(basis_alp[:ipr] > 0) and basis_nbf == ibf and basis_nao == iao
+    ok = np.all(basis_alp[:ipr] > 0) and nbf == ibf and nao == iao
+    return basis_shells, basis_sh2ao, basis_sh2bf, basis_minalp, basis_level, basis_zeta, basis_valsh,\
+        basis_hdiag, basis_alp, basis_cont, basis_hdiag2, basis_aoexp, basis_ash, basis_lsh, basis_ao2sh, \
+        basis_nprim, basis_primcount, basis_caoshell, basis_saoshell, basis_fila, basis_fila2, basis_lao, \
+        basis_aoat, basis_valao, basis_lao2, basis_aoat2, basis_valao2, ok
 #
 #end subroutine newBasisset
 #
@@ -1105,9 +1115,9 @@ def allocate_basisset(n, nbf, nao, nshell):
 #   allocate( self%ao2sh(nao),     source = 0 )
     ao2sh = np.zeros(nao)
 #   allocate( self%nprim(nbf),     source = 0 )
-    nprim = np.zeros(nao)
+    nprim = np.zeros(nbf)
 #   allocate( self%primcount(nbf), source = 0 )
-    primcount = np.zeros(nao)
+    primcount = np.zeros(nbf)
 #   allocate( self%caoshell(5,n),  source = 0 )
     caoshell = np.zeros(n,5)
 #   allocate( self%saoshell(5,n),  source = 0 )
@@ -1129,3 +1139,23 @@ def allocate_basisset(n, nbf, nao, nshell):
 #   allocate( self%valao2(nbf),    source = 0 )
     valao2 = np.zeros(nao)
 #end subroutine allocate_basisset
+BAS = bool(1)
+if BAS:
+    t1 = time.time()
+    x1 = new_basis_set(element_ids) 
+    t2 = time.time()
+    x2 = new_basis_set_simple(element_ids)
+    t3 = time.time()
+    allclose = True
+    sum1 = 0
+    sum2 = 0
+    for idx, (output1, output2) in enumerate(zip(x1,x2)):
+        close = np.allclose(output1,output2)
+        print(close)
+        if not close:
+            print(f"{idx+1:02} normal: {output1}\nsimple: {output2}")
+        allclose &= close
+        sum1 += np.sum(output1)
+        sum2 += np.sum(output2)
+    print(f"all close: {allclose}")
+    print_res2(sum1,sum2,t1,t2,t3,"Sum of new basis set output")

@@ -1,5 +1,5 @@
 from math import sqrt, exp, pi
-from gfn2 import kExpLight, kExpHeavy, repAlpha, repZeff, nShell, chemicalHardness, shellHardness, thirdOrderAtom, selfEnergy, kCN, shellPoly, slaterExponent, atomicRadii, paulingEN, kEN, angShell, llao, llao2, itt, wExp, kdiff, kScale, pairParam, enScale, enScale4, electronegativity, maxElem, trafo
+from gfn2 import kExpLight, kExpHeavy, repAlpha, repZeff, nShell, chemicalHardness, shellHardness, thirdOrderAtom, selfEnergy, kCN, shellPoly, slaterExponent, atomicRadii, paulingEN, kEN, angShell, llao, llao2, itt, wExp, kdiff, kScale, pairParam, enScale, enScale4, electronegativity, maxElem, trafo, valenceShell
 import numpy as np
 import scipy
 import time
@@ -320,7 +320,6 @@ def build_SDQH0(nat, nao, caoshell, saoshell, trans, sint, dpint, qpint, H0, H0_
                     zi = slaterExponent[izp][ish]
                     zj = slaterExponent[jzp][jsh]
                     zetaij = (2 * sqrt(zi*zj)/(zi+zj))**wExp # Y term equation (7) in main.pdf
-                    valenceShell = generateValenceShellData(nShell, angShell) 
                     km = h0scal(il, jl, izp, jzp, (valenceShell[izp, ish] != 0), (valenceShell[jzp, jsh] != 0)) # X term, see equation (3-5) and K term. 
 
                     hav = 0.5 * km * (hii + hjj) * zetaij # equation (1)
@@ -441,17 +440,6 @@ def h0scal(il, jl, izp, jzp, valaoi, valaoj):
     return km
 
 
-def generateValenceShellData(nShell, angShell):
-    mShell = np.max(nShell)
-    valenceShell = np.zeros((mShell, maxElem), dtype=int)
-    for iZp in range(nShell.shape[0]):
-        valShell = np.full(4, True, dtype=bool)
-        for iSh in range(nShell[iZp]):
-            lAng = angShell[iZp, iSh]
-            if (valShell[lAng]):
-                valShell[lAng] = False
-                valenceShell[iZp, iSh] = 1
-    return valenceShell
 
 # Cartesian components of the angular momentum vector.
 lx = np.array([

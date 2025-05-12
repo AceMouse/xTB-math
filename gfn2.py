@@ -804,3 +804,124 @@ electronegativity = paulingEN[:maxElem]
 # Values from param_gfn2-xtb.txt
 kdiff = 2.0
 ksd = 2.0
+
+def generateValenceShellData(nShell, angShell):
+    mShell = np.max(nShell)
+    valenceShell = np.zeros((maxElem, mShell), dtype=int)
+    for iZp in range(nShell.shape[0]):
+        valShell = np.full(4, True, dtype=bool)
+        for iSh in range(nShell[iZp]):
+            lAng = angShell[iZp, iSh]
+            if (valShell[lAng]):
+                valShell[lAng] = False
+                valenceShell[iZp, iSh] = 1
+    return valenceShell
+
+valenceShell = generateValenceShellData(nShell, angShell)
+
+#subroutine setGFN2NumberOfPrimitives(self, nShell)
+#
+#   !> Data instance
+#   type(THamiltonianData), intent(inout) :: self
+#
+#   !> Number of shells
+#   integer, intent(in) :: nShell(:)
+#
+#   integer :: nPrim, iZp, iSh
+#
+#   do iZp = 1, maxElem
+#      do iSh = 1, nShell(iZp)
+#         nPrim = 0
+#         if (iZp <= 2) then
+#            select case(self%angShell(iSh, iZp))
+#            case(0)
+#               nPrim = 3
+#            case(1)
+#               nPrim = 4
+#            end select
+#         else
+#            select case(self%angShell(iSh, iZp))
+#            case(0)
+#               if (self%principalQuantumNumber(iSh, iZp) > 5) then
+#                  nPrim = 6
+#               else
+#                  nPrim = 4
+#               end if
+#            case(1)
+#               if (self%principalQuantumNumber(iSh, iZp) > 5) then
+#                  nPrim = 6
+#               else
+#                  nPrim = 4
+#               end if
+#            case(2)
+#               nPrim = 3
+#            case(3)
+#               nPrim = 4
+#            end select
+#         end if
+#         self%numberOfPrimitives(iSh, iZp) = nPrim
+#      end do
+#   end do
+def setGFN2NumberOfPrimitives():
+    mShell = np.max(nShell)
+    numberOfPrimitives = np.zeros((maxElem, mShell), dtype=int)
+    for iZp in range(0,maxElem):
+        for iSh in range(0,nShell[iZp]):
+            nPrim = 0
+            if iZp <= 2:
+                match angShell[iZp,iSh]:
+                    case 0:
+                        nPrim = 3
+                    case 1:
+                        nPrim = 4
+            else:
+                match angShell[iZp,iSh]:
+                    case 0:
+                        if principalQuantumNumber[iZp,iSh] > 5:
+                            nPrim = 6
+                        else: 
+                            nPrim = 4
+                    case 1:
+                        if principalQuantumNumber[iZp,iSh] > 5:
+                            nPrim = 6
+                        else:
+                            nPrim = 4
+                    case 2:
+                        nPrim = 3
+                    case 3:
+                        nPrim = 4
+            numberOfPrimitives[iZp, iSh] = nPrim
+    return numberOfPrimitives
+numberOfPrimitives = setGFN2NumberOfPrimitives()
+#
+#end subroutine setGFN2NumberOfPrimitives
+#
+#
+#subroutine setGFN2ThirdOrderShell(thirdOrderShell, nShell, angShell, &
+#      & thirdOrderAtom, gam3Shell)
+#
+#   real(wp), intent(out) :: thirdOrderShell(:, :)
+#
+#   integer, intent(in) :: nShell(:)
+#
+#   integer, intent(in) :: angShell(:, :)
+#
+#   real(wp), intent(in) :: thirdOrderAtom(:)
+#
+#   real(wp), intent(in) :: gam3Shell(:, 0:)
+#
+#   integer :: nElem, iZp, iSh, lAng, iKind
+#
+#   nElem = min(size(thirdOrderShell, dim=2), size(nShell), size(angShell, dim=2), &
+#      & size(thirdOrderAtom))
+#
+#   thirdOrderShell(:, :) = 0.0_wp
+#   do iZp = 1, maxElem
+#      iKind = gfn2Kinds(iZp)
+#      do iSh = 1, nShell(iZp)
+#         lAng = angShell(iSh, iZp)
+#         thirdOrderShell(iSh, iZp) = thirdOrderAtom(iZp) * gam3Shell(iKind, lAng)
+#      end do
+#   end do
+#
+#end subroutine setGFN2ThirdOrderShell

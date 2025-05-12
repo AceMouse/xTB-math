@@ -27,7 +27,7 @@ nf = 15
 #      & 1.033434062e-1_wp, & ! 4f
 #      & 6.952785407e-2_wp, & ! 5f
 #      & 8.565417784e-2_wp]   ! 5g
-pAlfa1 = np.array(
+pAlpha1 = np.array(
 [
     2.709498091e-1,# 1s
     1.012151084e-1,# 2s
@@ -67,7 +67,7 @@ pAlfa1 = np.array(
 #      & 1.554531559e-1_wp, 5.854079811e-2_wp],& ! 5g
 #      & shape(pAlpha2))
 #
-pAlfa2 = np.array(
+pAlpha2 = np.array(
 [
     8.518186635e-1, 1.516232927e-1,# 1s
     1.292278611e-1, 4.908584205e-2,# 2s
@@ -143,7 +143,7 @@ pCoeff2 = np.array(
 #      & 1.649233885e-1_wp, 7.487066646e-2_wp, 3.735787219e-2_wp, & ! 5f
 #      & 2.545432122e-1_wp, 1.006544376e-1_wp, 4.624463922e-2_wp],& ! 5g
 #      & shape(pAlpha3))
-pAlfa3 = np.array(
+pAlpha3 = np.array(
 [
     2.227660584e+0, 4.057711562e-1, 1.098175104e-1,# 1s
     2.581578398e+0, 1.567622104e-1, 6.018332272e-2,# 2s
@@ -638,7 +638,7 @@ pAlpha6s = np.array([
 #   real(wp), parameter :: pCoeff6s(6) = [&
 #      & 4.554359511e-3_wp, 5.286443143e-2_wp,-7.561016358e-1_wp, & ! 6s
 #      &-2.269803820e-1_wp, 1.332494651e+0_wp, 3.622518293e-1_wp]
-pCoeffs6s = np.array([
+pCoeff6s = np.array([
     4.554359511e-3, 5.286443143e-2,-7.561016358e-1,
     2.269803820e-1, 1.332494651e+0, 3.622518293e-1
 ])
@@ -653,7 +653,7 @@ pAlpha6p = np.array([
 #   real(wp), parameter :: pCoeff6p(6) = [&
 #      & 2.782723680e-3_wp,-1.282887780e-1_wp,-2.266255943e-1_wp, & ! 6p
 #      & 4.682259383e-1_wp, 6.752048848e-1_wp, 1.091534212e-1_wp]
-pCoeffs6p = np.array([
+pCoeff6p = np.array([
     2.782723680e-3,-1.282887780e-1,-2.266255943e-1,
     4.682259383e-1, 6.752048848e-1, 1.091534212e-1
 ])
@@ -686,7 +686,7 @@ def slaterToGauss(ng, n, l, zeta, norm):
     global pCoeff6p
     global pAlpha6p
 
-    top = 2./np.Pi
+    top = 2./np.pi
     dfactorial = np.array([1.0,1.0,3.0,15.0,105.0,945.0,10395.0,135135.0], dtype = np.float64)
 #   !> Number of Gaussian functions for the expansion
 #   integer, intent(in) :: ng
@@ -812,17 +812,17 @@ def slaterToGauss(ng, n, l, zeta, norm):
             alpha[0] = pAlpha1[ityp-1] * zeta**2
             coeff[0] = 1
         case 2:
-            alpha[:ng] = pAlpha2[:,ityp-1] * zeta**2
-            coeff[:ng] = pCoeff2[:,ityp-1]
+            alpha[:ng] = pAlpha2[ityp-1,:] * zeta**2
+            coeff[:ng] = pCoeff2[ityp-1,:]
         case 3:
-            alpha[:ng] = pAlpha3[:,ityp-1] * zeta**2
-            coeff[:ng] = pCoeff3[:,ityp-1]
+            alpha[:ng] = pAlpha3[ityp-1,:] * zeta**2
+            coeff[:ng] = pCoeff3[ityp-1,:]
         case 4:
-            alpha[:ng] = pAlpha4[:,ityp-1] * zeta**2
-            coeff[:ng] = pCoeff4[:,ityp-1]
+            alpha[:ng] = pAlpha4[ityp-1,:] * zeta**2
+            coeff[:ng] = pCoeff4[ityp-1,:]
         case 5:
-            alpha[:ng] = pAlpha5[:,ityp-1] * zeta**2
-            coeff[:ng] = pCoeff5[:,ityp-1]
+            alpha[:ng] = pAlpha5[ityp-1,:] * zeta**2
+            coeff[:ng] = pCoeff5[ityp-1,:]
         case 6:
             if n == 6:
                 if l == 0:
@@ -835,8 +835,8 @@ def slaterToGauss(ng, n, l, zeta, norm):
                     info = 2
                     return alpha, coeff, info
             else:
-                alpha[:ng] = pAlpha6[:,ityp-1] * zeta**2
-                coeff[:ng] = pCoeff6[:,ityp-1]
+                alpha[:ng] = pAlpha6[ityp-1,:] * zeta**2
+                coeff[:ng] = pCoeff6[ityp-1,:]
 
 #
 #   !> normalize the gaussian if requested
