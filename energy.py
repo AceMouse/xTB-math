@@ -529,15 +529,18 @@ def get_multiints(icao,jcao,naoi,naoj,ishtyp,jshtyp,ri,rj,point,intcut,nprim,pri
 
 
 # calculates a partial overlap in one cartesian direction
+dftr = [1.0, 1.0, 3.0, 15.0, 105.0, 945.0, 10395.0, 135135.0]
 def olapp(l, gama):
-    if (l % 2 != 0):
-        return 0.0
+    s = []
+    for lx in l:
+        if (lx % 2 != 0):
+            s.append(0.0)
+            continue
 
-    dftr = [1.0, 1.0, 3.0, 15.0, 105.0, 945.0, 10395.0, 135135.0]
-
-    lh = l//2
-    gm = 0.5 / gama
-    return gm**lh*dftr[lh]
+        lh = lx//2
+        gm = 0.5 / gama
+        s.append(gm**lh*dftr[lh])
+    return s
 
 maxl = 6
 maxl2 = maxl*2
