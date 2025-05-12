@@ -1,5 +1,5 @@
 import numpy as np
-from energy import dtrf2, form_product, get_multiints, horizontal_shift, multipole_3d, olapp
+from energy import dtrf2, form_product, get_multiints, h0scal, horizontal_shift, multipole_3d, olapp
 import glob
 import argparse
 import os
@@ -235,8 +235,6 @@ def test_olapp():
 
             s = olapp(l, gama)
 
-            print(f"l: {l}\ngama: {gama}")
-
             s_equal = np.array_equal(s, s_res)
             if (not s_equal):
                 print("Fortran:")
@@ -247,9 +245,41 @@ def test_olapp():
                 assert s_equal, "s reals do not match"
 
 
+
+def test_h0scal():
+    for file_path in glob.glob(f'{directory}/h0scal/*.bin'):
+        with open(file_path, 'rb') as f:
+            def read_ints(n=1):
+                return np.fromfile(f, dtype=np.int32, count=n)
+
+            def read_reals(n=1):
+                return np.fromfile(f, dtype=np.float64, count=n)
+
+            def read_logicals(n=1):
+                return np.fromfile(f, dtype=np.int32, count=n).astype(bool)
+
+            il, jl = read_ints(2)
+            izp, jzp = read_ints(2)
+            valaoi, valaoj = read_logicals(2)
+
+            km_res = read_reals(1)[0]
+
+            km = h0scal(il, jl, izp, jzp, valaoi, valaoj)
+
+            km_equal = np.array_equal(km, km_res)
+            if (not km_equal):
+                print("Fortran:")
+                print("km: ", km_res)
+
+                print("Python:")
+                print("km: ", km)
+                assert km_equal, "km reals do not match"
+
+
 #test_olapp()
 #test_multipole_3d()
 #test_horizontal_shift()
 #test_form_product()
 #test_dtrf2()
-test_get_multiints()
+#test_get_multiints()
+test_h0scal()

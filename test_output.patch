@@ -346,6 +346,63 @@ index ced9a9d..12ddc1d 100644
    'zmatpr.f90',
 +  'utils.f90',
  )
+diff --git a/src/scc_core.f90 b/src/scc_core.f90
+index 5b29581..a995b8a 100644
+--- a/src/scc_core.f90
++++ b/src/scc_core.f90
+@@ -29,6 +29,7 @@ module xtb_scc_core
+    use xtb_xtb_dispersion
+    use xtb_xtb_multipole
+    use xtb_broyden
++   use utils
+    implicit none
+    private
+ 
+@@ -606,7 +607,7 @@ end subroutine scc
+ 
+ 
+ !> H0 off-diag scaling
+-subroutine h0scal(hData,il,jl,izp,jzp,valaoi,valaoj,km)
++subroutine gh0scal(hData,il,jl,izp,jzp,valaoi,valaoj,km)
+   !$acc routine seq
+    type(THamiltonianData), intent(in) :: hData
+    integer, intent(in)  :: il
+@@ -642,8 +643,34 @@ subroutine h0scal(hData,il,jl,izp,jzp,valaoi,valaoj,km)
+    endif
+ 
+ 
+-end subroutine h0scal
++end subroutine gh0scal
++
++subroutine h0scal(hData,il,jl,izp,jzp,valaoi,valaoj,km)
++  !$acc routine seq
++   type(THamiltonianData), intent(in) :: hData
++   integer, intent(in)  :: il
++   integer, intent(in)  :: jl
++   integer, intent(in)  :: izp
++   integer, intent(in)  :: jzp
++   logical, intent(in)  :: valaoi
++   logical, intent(in)  :: valaoj
++   real(wp),intent(out) :: km
++
+ 
++   integer :: u
++   character(len=200) :: path
++   call testfile_path('h0scal', path)
++
++   open(newunit=u, file=trim(path), form='unformatted', access='stream')
++   write(u) il, jl
++   write(u) izp, jzp
++   write(u) valaoi, valaoj
++
++   call gh0scal(hData,il,jl,izp,jzp,valaoi,valaoj,km)
++
++   write(u) km
++   close(u)
++end subroutine h0scal
+ 
+ !! ========================================================================
+ !  total energy for GFN1
 diff --git a/src/utils.f90 b/src/utils.f90
 new file mode 100644
 index 0000000..5145879
