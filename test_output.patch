@@ -1,5 +1,5 @@
 diff --git a/src/intgrad.f90 b/src/intgrad.f90
-index 44f8f7e..af1105e 100644
+index 44f8f7e..68c1a00 100644
 --- a/src/intgrad.f90
 +++ b/src/intgrad.f90
 @@ -22,6 +22,7 @@
@@ -97,8 +97,41 @@ index 44f8f7e..af1105e 100644
     return
  
  end subroutine dtrf2
-@@ -379,24 +410,50 @@ pure subroutine horizontal_shift(ae, l, cfs)
+@@ -354,11 +385,23 @@ pure subroutine prod3(a,b,d,la,lb)
+ 
+ end subroutine prod3
+ 
+-pure subroutine horizontal_shift(ae, l, cfs)
++! pure
++subroutine horizontal_shift(ae, l, cfs)
+    integer, intent(in) :: l
+    real(wp), intent(in) :: ae
+-   real(wp), intent(inout) :: cfs(*)
++   real(wp), intent(inout) :: cfs(:)
+    integer :: i
++
++   integer :: u
++   character(len=200) :: path
++   call testfile_path('horizontal_shift', path)
++
++   open(newunit=u, file=trim(path), form='unformatted', access='stream')
++   write(u) ae
++   write(u) l
++   write(u) size(cfs), cfs
++
++
+    select case(l)
+    case(0) ! s
+       continue
+@@ -377,26 +420,57 @@ pure subroutine horizontal_shift(ae, l, cfs)
+       cfs(3)=cfs(3)+ 6*ae*ae*cfs(5)
+       cfs(4)=cfs(4)+ 4*ae*cfs(5)
     end select
++
++
++   write(u) size(cfs), cfs
++   close(u)
++
  end subroutine horizontal_shift
  
 -pure subroutine form_product(a, b, la, lb, d)
@@ -153,7 +186,7 @@ index 44f8f7e..af1105e 100644
     return
  20 continue
     ! <s|d> = <s|*(|s>+|p>+|d>)
-@@ -404,15 +461,26 @@ pure subroutine form_product(a, b, la, lb, d)
+@@ -404,15 +478,26 @@ pure subroutine form_product(a, b, la, lb, d)
     d(1)=a(1)*b(1)
     d(2)=a(1)*b(2)+a(2)*b(1)
     d(3)=a(1)*b(3)+a(3)*b(1)
@@ -182,7 +215,7 @@ index 44f8f7e..af1105e 100644
     return
  30 continue
     ! <s|f> = <s|*(|s>+|p>+|d>+|f>)
-@@ -421,21 +489,36 @@ pure subroutine form_product(a, b, la, lb, d)
+@@ -421,21 +506,36 @@ pure subroutine form_product(a, b, la, lb, d)
     d(2)=a(1)*b(2)+a(2)*b(1)
     d(3)=a(1)*b(3)+a(3)*b(1)
     d(4)=a(1)*b(4)+a(4)*b(1)
@@ -222,7 +255,7 @@ index 44f8f7e..af1105e 100644
     return
  40 continue
     ! <s|g> = <s|*(|s>+|p>+|d>+|f>+|g>)
-@@ -445,33 +528,53 @@ pure subroutine form_product(a, b, la, lb, d)
+@@ -445,33 +545,53 @@ pure subroutine form_product(a, b, la, lb, d)
     d(3)=a(1)*b(3)+a(3)*b(1)
     d(4)=a(1)*b(4)+a(4)*b(1)
     d(5)=a(1)*b(5)+a(5)*b(1)
@@ -281,7 +314,7 @@ index 44f8f7e..af1105e 100644
     real(wp), intent(in) :: ri(3)
     real(wp), intent(in) :: rj(3)
     real(wp), intent(in) :: rp(3)
-@@ -506,7 +609,8 @@ pure subroutine overlap_3d(ri, rj, rp, ai, aj, li, lj, s1d, s3d)
+@@ -506,7 +626,8 @@ pure subroutine overlap_3d(ri, rj, rp, ai, aj, li, lj, s1d, s3d)
  
  end subroutine overlap_3d
  
@@ -291,7 +324,7 @@ index 44f8f7e..af1105e 100644
     real(wp), intent(in) :: ri(3)
     real(wp), intent(in) :: rj(3)
     real(wp), intent(in) :: rp(3)
-@@ -554,7 +658,8 @@ pure subroutine multipole_3d(ri, rj, rc, rp, ai, aj, li, lj, s1d, s3d)
+@@ -554,7 +675,8 @@ pure subroutine multipole_3d(ri, rj, rc, rp, ai, aj, li, lj, s1d, s3d)
  
  end subroutine multipole_3d
  
@@ -301,7 +334,7 @@ index 44f8f7e..af1105e 100644
     real(wp), intent(in) :: ri(3)
     real(wp), intent(in) :: rj(3)
     real(wp), intent(in) :: rp(3)
-@@ -604,7 +709,8 @@ pure subroutine overlap_grad_3d(ri, rj, rp, ai, aj, li, lj, s1d, s3d, ds3d)
+@@ -604,7 +726,8 @@ pure subroutine overlap_grad_3d(ri, rj, rp, ai, aj, li, lj, s1d, s3d, ds3d)
  
  end subroutine overlap_grad_3d
  
@@ -311,7 +344,7 @@ index 44f8f7e..af1105e 100644
     real(wp), intent(in) :: ri(3)
     real(wp), intent(in) :: rj(3)
     real(wp), intent(in) :: rc(3)
-@@ -728,7 +834,8 @@ pure subroutine shiftintg(g,s,r)
+@@ -728,7 +851,8 @@ pure subroutine shiftintg(g,s,r)
  end subroutine shiftintg
  
  
@@ -321,7 +354,7 @@ index 44f8f7e..af1105e 100644
        &                nprim,primcount,alp,cont,sint)
     integer, intent(in)  :: icao
     integer, intent(in)  :: jcao
-@@ -799,7 +906,8 @@ pure subroutine get_overlap(icao,jcao,naoi,naoj,ishtyp,jshtyp,ri,rj,point,intcut
+@@ -799,7 +923,8 @@ pure subroutine get_overlap(icao,jcao,naoi,naoj,ishtyp,jshtyp,ri,rj,point,intcut
  
  end subroutine get_overlap
  
@@ -331,7 +364,7 @@ index 44f8f7e..af1105e 100644
        &                     nprim,primcount,alp,cont,sdq,sdqg)
     integer, intent(in)  :: icao
     integer, intent(in)  :: jcao
-@@ -872,8 +980,8 @@ pure subroutine get_grad_overlap(icao,jcao,naoi,naoj,ishtyp,jshtyp,ri,rj,point,i
+@@ -872,8 +997,8 @@ pure subroutine get_grad_overlap(icao,jcao,naoi,naoj,ishtyp,jshtyp,ri,rj,point,i
     enddo  ! ip : loop over i prims
  end subroutine get_grad_overlap
  
@@ -342,7 +375,7 @@ index 44f8f7e..af1105e 100644
        &                           intcut,nprim,primcount,alp,cont,ss,dd,qq)
     integer, intent(in)  :: icao
     integer, intent(in)  :: jcao
-@@ -894,13 +1002,29 @@ pure subroutine get_multiints(icao,jcao,naoi,naoj,ishtyp,jshtyp,ri,rj,point, &
+@@ -894,13 +1019,29 @@ pure subroutine get_multiints(icao,jcao,naoi,naoj,ishtyp,jshtyp,ri,rj,point, &
     real(wp),intent(in)  :: alp(:)
     real(wp),intent(in)  :: cont(:)
  
@@ -373,7 +406,7 @@ index 44f8f7e..af1105e 100644
     ss = 0.0_wp
     dd = 0.0_wp
     qq = 0.0_wp
-@@ -910,7 +1034,14 @@ pure subroutine get_multiints(icao,jcao,naoi,naoj,ishtyp,jshtyp,ri,rj,point, &
+@@ -910,7 +1051,14 @@ pure subroutine get_multiints(icao,jcao,naoi,naoj,ishtyp,jshtyp,ri,rj,point, &
     rij = ri - rj
     rij2 = rij(1)**2 + rij(2)**2 + rij(3)**2
  
@@ -389,7 +422,7 @@ index 44f8f7e..af1105e 100644
  
     ! we go through the primitives (because the screening is the same for all of them)
     do ip = 1,nprim(icao+1)
-@@ -948,10 +1079,17 @@ pure subroutine get_multiints(icao,jcao,naoi,naoj,ishtyp,jshtyp,ri,rj,point, &
+@@ -948,10 +1096,17 @@ pure subroutine get_multiints(icao,jcao,naoi,naoj,ishtyp,jshtyp,ri,rj,point, &
           enddo  ! mli : Cartesian component of i prims
        enddo ! jp : loop over j prims
     enddo  ! ip : loop over i prims

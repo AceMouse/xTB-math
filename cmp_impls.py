@@ -1,5 +1,5 @@
 import numpy as np
-from energy import dtrf2, form_product, get_multiints
+from energy import dtrf2, form_product, get_multiints, horizontal_shift
 import glob
 import argparse
 import os
@@ -138,6 +138,37 @@ def test_form_product():
                 assert d_equal, "d matrices do not match"
 
 
-test_form_product()
+def test_horizontal_shift():
+    for file_path in glob.glob(f'{directory}/horizontal_shift/*.bin'):  # Matches all .bin files in the directory
+        with open(file_path, 'rb') as f:
+            def read_ints(n=1):
+                return np.fromfile(f, dtype=np.int32, count=n)
+
+            def read_reals(n=1):
+                return np.fromfile(f, dtype=np.float64, count=n)  # match `real(wp)`
+
+            ae = read_reals(1)[0]
+            l = read_ints(1)[0]
+
+            cfs1 = read_ints(1)[0]
+            cfs = np.fromfile(f, dtype=np.float64, count=cfs1)
+
+            cfs_res1 = read_ints(1)[0]
+            cfs_res = np.fromfile(f, dtype=np.float64, count=cfs_res1)
+
+            horizontal_shift(ae, l, cfs)
+
+            cfs_equal = np.array_equal(cfs, cfs_res)
+            if (not cfs_equal):
+                print("Fortran:")
+                print("cfs: ", cfs_res)
+
+                print("Python:")
+                print("cfs: ", cfs)
+                assert cfs_equal, "cfs matrices do not match"
+
+
+test_horizontal_shift()
+#test_form_product()
 #test_get_multiints()
 #test_dtrf2()
