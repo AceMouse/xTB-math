@@ -500,14 +500,13 @@ def get_multiints(icao,jcao,naoi,naoj,ishtyp,jshtyp,ri,rj,point,intcut,nprim,pri
             # exponent the same for each l component
             alpj = alp[jprim]
             ab = 1.0 / (alpi + alpj)
-            # 
             est = alpi * alpj * rij2 * ab
             if (est > intcut):
                 continue
             kab = exp(-est) * (sqrtpi * sqrt(ab))**3
             rp = (alpi*ri + alpj*rj) * ab
             for k in range(ishtyp + jshtyp + 3):
-                t[k] = olapp(k, alpi+alpj)
+                t[k] = olapp([k], alpi+alpj)[0]
 
             #--------------- compute gradient ----------
             # now compute integrals  for different components of i(e.g., px,py,pz)
