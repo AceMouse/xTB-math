@@ -19,7 +19,7 @@ CN = False
 #element_ids = np.array([C,C,C])
 #positions = np.array([[1,0,0],[0,1,0],[0,0,1]])
 rand = np.random.default_rng()
-element_cnt = 1000
+element_cnt = 100
 element_ids = rand.choice(repZeff.shape[0], size=element_cnt)
 positions = rand.random((element_cnt,3))
 atoms = list(zip(element_ids, positions))
@@ -263,20 +263,16 @@ if EHT:
 # intcut = max(20.0, 25.0-10.0*log10(acc)) where acc is the accuracy, a number between 1e-4 and 1e+3 (higher than 3.16 results in intcut = 20.0 though). acc is set with -a (--acc) and defaults to 1.0 resulting in intcut=25.0
 # 
 # What are the rest of the args?
-def build_SDQH0(nat, nao, caoshell, saoshell, trans, sint, dpint, qpint, H0, H0_noovlp, nprim, primcount, alp, cont, intcut): # TODO: We need to find these arg values
-    at = np.zeros(nat, dtype=np.int32)
-    # Cartesian coordinates
-    xyz = np.zeros((3, nat), dtype=np.float64) # positions for each atom (x,y,z)
-    # Map shell of atom to index in CAO space (lowest Cart. component is taken)
-    # caoshell: atom number -> basis function
-
-    # one dimensional array as the hamiltoninan is symmetric and we choose to index into it using a pairing function lin(i,j) = idx
-    H0[:] = 0.0
-    H0_noovlp[:] = 0.0
+def build_SDQH0(nat, at, nbf, nao, xyz, trans, selfEnergy, \
+       intcut, caoshell, saoshell, nprim, primcount, alp, cont): # TODO: We need to find these arg values
+    #H0[:] = 0.0
+    #H0_noovlp[:] = 0.0
+    H0 = np.zeros(nao*(nao+1)//2)
+    H0_noovlp = np.zeros(nao*(nao+1)//2)
 
     sint = np.zeros((nao, nao), dtype=np.float64)     # overlap matrix S
-    dpint = np.zeros((3, nao, nao), dtype=np.float64) # Dipol moment matrix D
-    qpint = np.zeros((6, nao, nao), dtype=np.float64) # Quadropole moment matrix Q
+    dpint = np.zeros((nao, nao, 3), dtype=np.float64) # Dipol moment matrix D
+    qpint = np.zeros((nao, nao, 6), dtype=np.float64) # Quadropole moment matrix Q
     point = np.zeros(3)
 
     il = 0
@@ -291,15 +287,17 @@ def build_SDQH0(nat, nao, caoshell, saoshell, trans, sint, dpint, qpint, H0, H0_
     qq = np.zeros((6, 6, 6), dtype=np.float64)
     tmp = np.zeros((6, 6), dtype=np.float64)
 
-    ra = [3] 
     #compute the upper triangle of S, D, Q and H0
+    print(xyz.shape)
     for iat in range(nat):
         for jat in range(nat):
             if (jat >= iat):
                 continue
-            ra = xyz[0:3, iat].copy() # NOTE: Is copy needed?
+
+            ra = xyz[iat,0:3]
             izp = at[iat]
             jzp = at[jat]
+            print(f"({iat},{jat}) ids: ({izp},{jzp})")
             for ish in range(nShell[izp]):
                 ishtyp = angShell[izp, ish]
                 icao = caoshell[iat, ish]
@@ -324,7 +322,7 @@ def build_SDQH0(nat, nao, caoshell, saoshell, trans, sint, dpint, qpint, H0, H0_
 
                     hav = 0.5 * km * (hii + hjj) * zetaij # equation (1)
 
-                    for itr in range(trans.shape[1]): # NOTE: Is the indexing here correct?
+                    for itr in range(trans.shape[0]): # NOTE: Is the indexing here correct?
                         rb = xyz[jat, 0:3] + trans[itr, :]
                         rab2 = np.sum((rb - ra)**2)
 
@@ -356,7 +354,7 @@ def build_SDQH0(nat, nao, caoshell, saoshell, trans, sint, dpint, qpint, H0, H0_
                                 H0_noovlp[ij] = H0_noovlp[ij] + hav * shpoly
                                 sint[iao, jao] = sint[iao, jao] + ss[ii, jj]
                                 dpint[iao, jao, :] = dpint[iao, jao, :] + dd[ii, jj, :]
-                                qpint[iao, jao, :] = qpint[iao, jao, :] + dd[ii, jj, :]
+                                qpint[iao, jao, :] = qpint[iao, jao, :] + qq[ii, jj, :]
 
     # mirror the upper triangle to the lower of S, D and Q. H0 does not need it as we used the pairing function to index it. 
     for iao in range(0, nao):
@@ -373,7 +371,7 @@ def build_SDQH0(nat, nao, caoshell, saoshell, trans, sint, dpint, qpint, H0, H0_
             ishtyp = angShell[izp, ish]
             for iao in range(0, llao2[ishtyp]):
                 i = iao + saoshell[iat, ish]
-                ii = i * (1 + i)/2  # compute the pairing function. 
+                ii = i * (1 + i)//2  # compute the pairing function. 
                 sint[i,i] = 1.0 + sint[i,i]
                 H0[ii] = H0[ii] + selfEnergy[iat, ish]
                 H0_noovlp[ii] = H0_noovlp[ii] + selfEnergy[iat, ish]
@@ -404,16 +402,16 @@ def build_SDQH0(nat, nao, caoshell, saoshell, trans, sint, dpint, qpint, H0, H0_
                         dpint[jao, iao, 0:3] = dpint[jao, iao, 0:3] + dd[ii, jj, 0:3]
                         if (iao != jao):
                             dpint[iao, jao, 0:3] = dpint[iao, jao, 0:3] + dd[ii, jj, 0:3]
-                        qpint[jao, iao, 0:6] = dpint[jao, iao, 0:6] + qq[ii, jj, 0:6]
+                        qpint[jao, iao, 0:6] = qpint[jao, iao, 0:6] + qq[ii, jj, 0:6]
                         if (jao != iao):
-                            qpint[iao, jao, 0:6] = dpint[iao, jao, 0:6] + qq[ii, jj, 0:6]
-
+                            qpint[iao, jao, 0:6] = qpint[iao, jao, 0:6] + qq[ii, jj, 0:6]
+    return sint, dpint, qpint, H0, H0_noovlp
 
 # a symmetric version (Cantor) paring function assigning a unique number to each unordered pair of numbers. i.e lin(a,b) = lin(x,y) iff. a = x, b = y or a = y, b = x.
 def lin(i1, i2):
     idum1 = max(i1,i2)
     idum2 = min(i1,i2)
-    return idum2 + idum1 * (idum1-1)/2
+    return idum2 + idum1 * (idum1-1)//2
 
 
 def h0scal(il, jl, izp, jzp, valaoi, valaoj):
@@ -749,9 +747,84 @@ def dtrf2(s,li,lj):
     # if not returned up to here -> d-d
     # CB: transposing s in first dgemm is important for integrals other than S
     dum = np.zeros((6,6))
-    dum = mctc_dgemm(trafo, s, dum, transa='T')
-    s2 = mctc_dgemm(dum, trafo, s2, transb='N')
+    dum = mctc_dgemm(trafo, s, dum, transa=True)
+    s2 = mctc_dgemm(dum, trafo, s2, transb=False)
     s[0:5,0:5] = s2[1:6,1:6]
 
-def mctc_dgemm(amat, bmat, cmat, transa='n', transb='n', alpha=1.0, beta=0.0):
+def mctc_dgemm(amat, bmat, cmat, transa=False, transb=False, alpha=1.0, beta=0.0):
     return scipy.linalg.blas.dgemm(alpha, amat, bmat, beta, cmat, transa, transb)
+#subroutine getSelfEnergy2D(hData, nShell, at, cn, qat, selfEnergy, dSEdcn, dSEdq)
+#   type(THamiltonianData), intent(in) :: hData
+#   integer, intent(in) :: nShell(:)
+#   integer, intent(in) :: at(:)
+#   real(wp), intent(in), optional :: cn(:)
+#   real(wp), intent(in), optional :: qat(:)
+#   real(wp), intent(out) :: selfEnergy(:, :)
+#   real(wp), intent(out), optional :: dSEdcn(:, :)
+#   real(wp), intent(out), optional :: dSEdq(:, :)
+#
+#   integer :: iAt, iZp, iSh
+#
+#   selfEnergy(:, :) = 0.0_wp
+#   if (present(dSEdcn)) dSEdcn(:, :) = 0.0_wp
+#   if (present(dSEdq)) dSEdq(:, :) = 0.0_wp
+#   do iAt = 1, size(cn)
+#      iZp = at(iAt)
+#      do iSh = 1, nShell(iZp)
+#         selfEnergy(iSh, iAt) = hData%selfEnergy(iSh, iZp)
+#      end do
+#   end do
+#   if (present(dSEdcn) .and. present(cn)) then
+#      do iAt = 1, size(cn)
+#         iZp = at(iAt)
+#         do iSh = 1, nShell(iZp)
+#            selfEnergy(iSh, iAt) = selfEnergy(iSh, iAt) &
+#               & - hData%kCN(iSh, iZp) * cn(iAt)
+#            dSEdcn(iSh, iAt) = -hData%kCN(iSh, iZp)
+#         end do
+#      end do
+#   end if
+#   if (present(dSEdq) .and. present(qat)) then
+#      do iAt = 1, size(cn)
+#         iZp = at(iAt)
+#         do iSh = 1, nShell(iZp)
+#            selfEnergy(iSh, iAt) = selfEnergy(iSh, iAt) &
+#               & - hData%kQShell(iSh,iZp)*qat(iAt) - hData%kQAtom(iZp)*qat(iAt)**2
+#            dSEdq(iSh, iAt) = -hData%kQShell(iSh,iZp) &
+#               & - hData%kQAtom(iZp)*2*qat(iAt)
+#         end do
+#      end do
+#   end if
+#
+#end subroutine getSelfEnergy2D
+def getSelfEnergy(element_ids, cn): # actually the H_\kappa\kappa diagonal terms from the GFN2 Hamiltonian. Weird naming it selfEnergy. 
+    selfEnergyCopy = np.zeros((element_ids.shape[0], np.max(nShell)))
+    for iAt in range(element_ids.shape[0]):
+        iZp = element_ids[iAt]
+        for iSh in range(nShell[iZp]):
+            selfEnergyCopy[iAt, iSh] = selfEnergy[iZp, iSh]
+    for iAt in range(element_ids.shape[0]):
+        iZp = element_ids[iAt]
+        for iSh in range(nShell[iZp]):
+            selfEnergyCopy[iAt, iSh] -= kCN[iZp,iSh]*cn[iAt] 
+    return selfEnergyCopy
+
+
+
+BUILD = True
+if BUILD:
+    trans = np.zeros((1,3))
+    from basisset import new_basis_set_simple, dim_basis_np
+    _, basis_nao, basis_nbf = dim_basis_np(element_ids)
+    basis_shells, basis_sh2ao, basis_sh2bf, basis_minalp, basis_level, basis_zeta, basis_valsh, basis_hdiag, basis_alp, basis_cont, basis_hdiag2, basis_aoexp, basis_ash, basis_lsh, basis_ao2sh, basis_nprim, basis_primcount, basis_caoshell, basis_saoshell, basis_fila, basis_fila2, basis_lao, basis_aoat, basis_valao, basis_lao2, basis_aoat2, basis_valao2, ok = new_basis_set_simple(element_ids)
+    acc = 1.0
+    intcut = max(20.0, 25.0-10.0*np.log10(acc))
+    cn = GFN2_coordination_numbers_np(element_ids, positions)
+    print(cn.shape)
+    selfEnergy_H_kappa_kappa = getSelfEnergy(element_ids, cn)
+    print(selfEnergy_H_kappa_kappa.shape)
+    S, dpint, qpint, H0, H0_noovlp = build_SDQH0(element_cnt, element_ids, \
+      basis_nbf, basis_nao, positions, trans, selfEnergy_H_kappa_kappa, intcut, \
+      basis_caoshell, basis_saoshell, basis_nprim, basis_primcount, basis_alp, \
+      basis_cont)
+    
