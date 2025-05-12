@@ -1,5 +1,5 @@
 diff --git a/src/intgrad.f90 b/src/intgrad.f90
-index 44f8f7e..68c1a00 100644
+index 44f8f7e..6670c21 100644
 --- a/src/intgrad.f90
 +++ b/src/intgrad.f90
 @@ -22,6 +22,7 @@
@@ -324,8 +324,37 @@ index 44f8f7e..68c1a00 100644
     real(wp), intent(in) :: ri(3)
     real(wp), intent(in) :: rj(3)
     real(wp), intent(in) :: rp(3)
-@@ -554,7 +675,8 @@ pure subroutine multipole_3d(ri, rj, rc, rp, ai, aj, li, lj, s1d, s3d)
+@@ -521,6 +642,22 @@ pure subroutine multipole_3d(ri, rj, rc, rp, ai, aj, li, lj, s1d, s3d)
+    integer :: k, l
+    real(wp) :: vi(0:maxl), vj(0:maxl), vv(0:maxl2), val(3, 3), rpc
  
++
++   integer :: u
++   character(len=200) :: path
++   call testfile_path('multipole_3d', path)
++
++   open(newunit=u, file=trim(path), form='unformatted', access='stream')
++   write(u) size(ri), ri
++   write(u) size(rj), rj
++   write(u) size(rc), rc
++   write(u) size(rp), rp
++   write(u) size(li), li
++   write(u) size(lj), lj
++   write(u) size(s1d), s1d
++   write(u) size(s3d), s3d
++
++
+    val(:, :) = 0.0_wp
+ 
+    do k = 1, 3
+@@ -552,9 +689,14 @@ pure subroutine multipole_3d(ri, rj, rc, rp, ai, aj, li, lj, s1d, s3d)
+    s3d( 9) = val(1, 2) * val(2, 1) * val(3, 2)
+    s3d(10) = val(1, 1) * val(2, 2) * val(3, 2)
+ 
++
++   write(u) size(s3d), s3d
++   close(u)
++
  end subroutine multipole_3d
  
 -pure subroutine overlap_grad_3d(ri, rj, rp, ai, aj, li, lj, s1d, s3d, ds3d)
@@ -334,7 +363,7 @@ index 44f8f7e..68c1a00 100644
     real(wp), intent(in) :: ri(3)
     real(wp), intent(in) :: rj(3)
     real(wp), intent(in) :: rp(3)
-@@ -604,7 +726,8 @@ pure subroutine overlap_grad_3d(ri, rj, rp, ai, aj, li, lj, s1d, s3d, ds3d)
+@@ -604,7 +746,8 @@ pure subroutine overlap_grad_3d(ri, rj, rp, ai, aj, li, lj, s1d, s3d, ds3d)
  
  end subroutine overlap_grad_3d
  
@@ -344,7 +373,7 @@ index 44f8f7e..68c1a00 100644
     real(wp), intent(in) :: ri(3)
     real(wp), intent(in) :: rj(3)
     real(wp), intent(in) :: rc(3)
-@@ -728,7 +851,8 @@ pure subroutine shiftintg(g,s,r)
+@@ -728,7 +871,8 @@ pure subroutine shiftintg(g,s,r)
  end subroutine shiftintg
  
  
@@ -354,7 +383,7 @@ index 44f8f7e..68c1a00 100644
        &                nprim,primcount,alp,cont,sint)
     integer, intent(in)  :: icao
     integer, intent(in)  :: jcao
-@@ -799,7 +923,8 @@ pure subroutine get_overlap(icao,jcao,naoi,naoj,ishtyp,jshtyp,ri,rj,point,intcut
+@@ -799,7 +943,8 @@ pure subroutine get_overlap(icao,jcao,naoi,naoj,ishtyp,jshtyp,ri,rj,point,intcut
  
  end subroutine get_overlap
  
@@ -364,7 +393,7 @@ index 44f8f7e..68c1a00 100644
        &                     nprim,primcount,alp,cont,sdq,sdqg)
     integer, intent(in)  :: icao
     integer, intent(in)  :: jcao
-@@ -872,8 +997,8 @@ pure subroutine get_grad_overlap(icao,jcao,naoi,naoj,ishtyp,jshtyp,ri,rj,point,i
+@@ -872,8 +1017,8 @@ pure subroutine get_grad_overlap(icao,jcao,naoi,naoj,ishtyp,jshtyp,ri,rj,point,i
     enddo  ! ip : loop over i prims
  end subroutine get_grad_overlap
  
@@ -375,7 +404,7 @@ index 44f8f7e..68c1a00 100644
        &                           intcut,nprim,primcount,alp,cont,ss,dd,qq)
     integer, intent(in)  :: icao
     integer, intent(in)  :: jcao
-@@ -894,13 +1019,29 @@ pure subroutine get_multiints(icao,jcao,naoi,naoj,ishtyp,jshtyp,ri,rj,point, &
+@@ -894,13 +1039,29 @@ pure subroutine get_multiints(icao,jcao,naoi,naoj,ishtyp,jshtyp,ri,rj,point, &
     real(wp),intent(in)  :: alp(:)
     real(wp),intent(in)  :: cont(:)
  
@@ -406,7 +435,7 @@ index 44f8f7e..68c1a00 100644
     ss = 0.0_wp
     dd = 0.0_wp
     qq = 0.0_wp
-@@ -910,7 +1051,14 @@ pure subroutine get_multiints(icao,jcao,naoi,naoj,ishtyp,jshtyp,ri,rj,point, &
+@@ -910,7 +1071,14 @@ pure subroutine get_multiints(icao,jcao,naoi,naoj,ishtyp,jshtyp,ri,rj,point, &
     rij = ri - rj
     rij2 = rij(1)**2 + rij(2)**2 + rij(3)**2
  
@@ -422,7 +451,7 @@ index 44f8f7e..68c1a00 100644
  
     ! we go through the primitives (because the screening is the same for all of them)
     do ip = 1,nprim(icao+1)
-@@ -948,10 +1096,17 @@ pure subroutine get_multiints(icao,jcao,naoi,naoj,ishtyp,jshtyp,ri,rj,point, &
+@@ -948,10 +1116,17 @@ pure subroutine get_multiints(icao,jcao,naoi,naoj,ishtyp,jshtyp,ri,rj,point, &
           enddo  ! mli : Cartesian component of i prims
        enddo ! jp : loop over j prims
     enddo  ! ip : loop over i prims

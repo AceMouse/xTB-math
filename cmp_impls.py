@@ -1,5 +1,5 @@
 import numpy as np
-from energy import dtrf2, form_product, get_multiints, horizontal_shift
+from energy import dtrf2, form_product, get_multiints, horizontal_shift, multipole_3d
 import glob
 import argparse
 import os
@@ -168,7 +168,54 @@ def test_horizontal_shift():
                 assert cfs_equal, "cfs matrices do not match"
 
 
-test_horizontal_shift()
+def test_multipole_3d():
+    for file_path in glob.glob(f'{directory}/multipole_3d/*.bin'):
+        with open(file_path, 'rb') as f:
+            def read_ints(n=1):
+                return np.fromfile(f, dtype=np.int32, count=n)
+
+            ri1 = read_ints(1)[0]
+            ri = np.fromfile(f, dtype=np.float64, count=ri1)
+
+            rj1 = read_ints(1)[0]
+            rj = np.fromfile(f, dtype=np.float64, count=rj1)
+
+            rc1 = read_ints(1)[0]
+            rc = np.fromfile(f, dtype=np.float64, count=rc1)
+
+            rp1 = read_ints(1)[0]
+            rp = np.fromfile(f, dtype=np.float64, count=rp1)
+
+            li1 = read_ints(1)[0]
+            li = np.fromfile(f, dtype=np.int32, count=li1)
+
+            lj1 = read_ints(1)[0]
+            lj = np.fromfile(f, dtype=np.int32, count=lj1)
+
+            s1d1 = read_ints(1)[0]
+            s1d = np.fromfile(f, dtype=np.float64, count=s1d1)
+
+            s3d1 = read_ints(1)[0]
+            s3d = np.fromfile(f, dtype=np.float64, count=s3d1)
+
+            s3d_res1 = read_ints(1)[0]
+            s3d_res = np.fromfile(f, dtype=np.float64, count=s3d_res1)
+
+
+            multipole_3d(ri, rj, rc, rp, li, lj, s1d, s3d)
+
+            s3d_equal = np.array_equal(s3d, s3d_res)
+            if (not s3d_equal):
+                print("Fortran:")
+                print("s3d: ", s3d_res)
+
+                print("Python:")
+                print("s3d: ", s3d)
+                assert s3d_equal, "s3d matrices do not match"
+
+
+test_multipole_3d()
+#test_horizontal_shift()
 #test_form_product()
 #test_get_multiints()
 #test_dtrf2()
