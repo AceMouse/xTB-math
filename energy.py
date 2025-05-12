@@ -498,14 +498,13 @@ def get_multiints(icao,jcao,naoi,naoj,ishtyp,jshtyp,ri,rj,point,intcut,nprim,pri
             # exponent the same for each l component
             alpj = alp[jprim]
             ab = 1.0 / (alpi + alpj)
-            # 
             est = alpi * alpj * rij2 * ab
             if (est > intcut):
                 continue
             kab = exp(-est) * (sqrtpi * sqrt(ab))**3
             rp = (alpi*ri + alpj*rj) * ab
             for k in range(ishtyp + jshtyp + 3):
-                t[k] = olapp(k, alpi+alpj)
+                t[k] = olapp([k], alpi+alpj)[0]
 
             #--------------- compute gradient ----------
             # now compute integrals  for different components of i(e.g., px,py,pz)
@@ -527,15 +526,18 @@ def get_multiints(icao,jcao,naoi,naoj,ishtyp,jshtyp,ri,rj,point,intcut,nprim,pri
 
 
 # calculates a partial overlap in one cartesian direction
+dftr = [1.0, 1.0, 3.0, 15.0, 105.0, 945.0, 10395.0, 135135.0]
 def olapp(l, gama):
-    if (l % 2 != 0):
-        return 0.0
+    s = []
+    for lx in l:
+        if (lx % 2 != 0):
+            s.append(0.0)
+            continue
 
-    dftr = [1.0, 1.0, 3.0, 15.0, 105.0, 945.0, 10395.0, 135135.0]
-
-    lh = l//2
-    gm = 0.5 / gama
-    return gm**lh*dftr[lh]
+        lh = lx//2
+        gm = 0.5 / gama
+        s.append(gm**lh*dftr[lh])
+    return s
 
 maxl = 6
 maxl2 = maxl*2

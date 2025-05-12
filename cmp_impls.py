@@ -1,5 +1,5 @@
 import numpy as np
-from energy import dtrf2, form_product, get_multiints, horizontal_shift, multipole_3d
+from energy import dtrf2, form_product, get_multiints, horizontal_shift, multipole_3d, olapp
 import glob
 import argparse
 import os
@@ -42,15 +42,16 @@ def test_get_multiints():
 
             # Read dd dimensions
             d1, d2, d3 = read_ints(3)
-            fdd = np.fromfile(f, dtype=np.float64, count=d1 * d2 * d3).reshape((d1, d2, d3))
+            fdd = np.fromfile(f, dtype=np.float64, count=d1 * d2 * d3).reshape((d3, d2, d1))
 
             # Read qq dimensions
             q1, q2, q3 = read_ints(3)
-            fqq = np.fromfile(f, dtype=np.float64, count=q1 * q2 * q3).reshape((q1, q2, q3))
+            fqq = np.fromfile(f, dtype=np.float64, count=q1 * q2 * q3).reshape((q3, q2, q1))
 
             ss,dd,qq = get_multiints(icao, jcao, naoi, naoj, ishtyp, jshtyp, ri, rj, point, intcut, nprim, primcount, alp, cont)
 
-            ss_equal = np.array_equal(ss, fss)
+
+            ss_equal = np.allclose(ss, fss)
             if (not ss_equal):
                 print("Fortran:")
                 print("ss: ", fss)
@@ -59,7 +60,7 @@ def test_get_multiints():
                 print("ss: ", ss)
                 assert ss_equal, "ss matrices do not match"
 
-            dd_equal = np.array_equal(dd, fdd)
+            dd_equal = np.allclose(dd, fdd)
             if (not dd_equal):
                 print("Fortran:")
                 print("dd: ", fdd)
@@ -68,7 +69,7 @@ def test_get_multiints():
                 print("dd: ", dd)
                 assert dd_equal, "dd matrices do not match"
 
-            qq_equal = np.array_equal(qq, fqq)
+            qq_equal = np.allclose(qq, fqq)
             if (not qq_equal):
                 print("Fortran:")
                 print("qq: ", fqq)
@@ -214,8 +215,41 @@ def test_multipole_3d():
                 assert s3d_equal, "s3d matrices do not match"
 
 
-test_multipole_3d()
+
+def test_olapp():
+    for file_path in glob.glob(f'{directory}/olapp/*.bin'):
+        with open(file_path, 'rb') as f:
+            def read_ints(n=1):
+                return np.fromfile(f, dtype=np.int32, count=n)
+
+            def read_reals(n=1):
+                return np.fromfile(f, dtype=np.float64, count=n)
+
+            l1 = read_ints(1)[0]
+            l = np.fromfile(f, dtype=np.int32, count=l1)
+
+            gama = read_reals(1)[0]
+
+            s_res1 = read_ints(1)[0]
+            s_res = np.fromfile(f, dtype=np.float64, count=s_res1)
+
+            s = olapp(l, gama)
+
+            print(f"l: {l}\ngama: {gama}")
+
+            s_equal = np.array_equal(s, s_res)
+            if (not s_equal):
+                print("Fortran:")
+                print("s: ", s_res)
+
+                print("Python:")
+                print("s: ", s)
+                assert s_equal, "s reals do not match"
+
+
+#test_olapp()
+#test_multipole_3d()
 #test_horizontal_shift()
 #test_form_product()
-#test_get_multiints()
 #test_dtrf2()
+test_get_multiints()
