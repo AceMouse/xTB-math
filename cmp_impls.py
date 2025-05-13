@@ -1,5 +1,5 @@
 import numpy as np
-from energy import dtrf2, form_product, get_multiints, h0scal, horizontal_shift, multipole_3d, olapp
+from energy import build_SDQH0, dtrf2, form_product, get_multiints, h0scal, horizontal_shift, multipole_3d, olapp
 import glob
 import argparse
 import os
@@ -38,7 +38,7 @@ def test_get_multiints():
 
             # Read ss dimensions
             m, n = read_ints(2)
-            fss = np.fromfile(f, dtype=np.float64, count=m * n).reshape((m, n))
+            fss = np.fromfile(f, dtype=np.float64, count=m * n).reshape((n, m))
 
             # Read dd dimensions
             d1, d2, d3 = read_ints(3)
@@ -97,13 +97,13 @@ def test_dtrf2():
                 return np.fromfile(f, dtype=np.int32, count=n)
 
             s1, s2 = read_ints(2)
-            s = np.fromfile(f, dtype=np.float64, count=s1 * s2).reshape((s1, s2))
+            s = np.fromfile(f, dtype=np.float64, count=s1 * s2).reshape((s2, s1))
 
             li = read_ints(1)[0]
             lj = read_ints(1)[0]
 
             s1_res, s2_res = read_ints(2)
-            s_res = np.fromfile(f, dtype=np.float64, count=s1_res * s2_res).reshape((s1_res, s2_res))
+            s_res = np.fromfile(f, dtype=np.float64, count=s1_res * s2_res).reshape((s2_res, s1_res))
 
             dtrf2(s, li, lj)
 
@@ -322,6 +322,114 @@ def test_h0scal():
     print("\033[0;0m", end='')
 
 
+
+def test_build_SDQH0():
+    for file_path in glob.glob(f'{directory}/build_SDQH0/*.bin'):
+        with open(file_path, 'rb') as f:
+            def read_ints(n=1):
+                return np.fromfile(f, dtype=np.int32, count=n)
+
+            def read_reals(n=1):
+                return np.fromfile(f, dtype=np.float64, count=n)
+
+            nat = read_ints(1)[0]
+            at1 = read_ints(1)[0]
+            at = np.fromfile(f, dtype=np.int32, count=at1)
+            nbf = read_ints(1)[0]
+            nao = read_ints(1)[0]
+            xyz1, xyz2 = read_ints(2)
+            xyz = np.fromfile(f, dtype=np.float64, count=xyz1 * xyz2).reshape((xyz2, xyz1))
+            trans1, trans2 = read_ints(2)
+            trans = np.fromfile(f, dtype=np.float64, count=trans1 * trans2).reshape((trans2, trans1))
+            selfEnergy1, selfEnergy2 = read_ints(2)
+            selfEnergy = np.fromfile(f, dtype=np.float64, count=selfEnergy1 * selfEnergy2).reshape((selfEnergy2, selfEnergy1))
+            intcut = read_reals(1)[0]
+            caoshell1, caoshell2 = read_ints(2)
+            caoshell = np.fromfile(f, dtype=np.int32, count=caoshell1 * caoshell2).reshape((caoshell2, caoshell1))
+            saoshell1, saoshell2 = read_ints(2)
+            saoshell = np.fromfile(f, dtype=np.int32, count=saoshell1 * saoshell2).reshape((saoshell2, saoshell1))
+            nprim1 = read_ints(1)[0]
+            nprim = np.fromfile(f, dtype=np.int32, count=nprim1)
+            primcount1 = read_ints(1)[0]
+            primcount = np.fromfile(f, dtype=np.int32, count=primcount1)
+            alp1 = read_ints(1)[0]
+            alp = np.fromfile(f, dtype=np.float64, count=alp1)
+            cont1 = read_ints(1)[0]
+            cont = np.fromfile(f, dtype=np.float64, count=cont1)
+
+            sint_res1, sint_res2 = read_ints(2)
+            sint_res = np.fromfile(f, dtype=np.float64, count=sint_res1 * sint_res2).reshape((sint_res2, sint_res1))
+            dpint_res1, dpint_res2, dpint_res3 = read_ints(3)
+            dpint_res = np.fromfile(f, dtype=np.float64, count=dpint_res1 * dpint_res2 * dpint_res3).reshape((dpint_res3, dpint_res2, dpint_res1))
+            qpint_res1, qpint_res2, qpint_res3 = read_ints(3)
+            qpint_res = np.fromfile(f, dtype=np.float64, count=qpint_res1 * qpint_res2 * qpint_res3).reshape((qpint_res3, qpint_res2, qpint_res1))
+            H0_res1 = read_ints(1)[0]
+            H0_res = np.fromfile(f, dtype=np.float64, count=H0_res1)
+            H0_noovlp_res1 = read_ints(1)[0]
+            H0_noovlp_res = np.fromfile(f, dtype=np.float64, count=H0_noovlp_res1)
+
+            sint, dpint, qpint, H0, H0_noovlp = build_SDQH0(nat, at, nbf, nao, xyz, trans, selfEnergy, intcut, caoshell, saoshell, nprim, primcount, alp, cont)
+
+            sint_equal = np.array_equal(sint, sint_res)
+            if (not sint_equal):
+                print("Fortran:")
+                print("sint: ", sint_res)
+
+                print("Python:")
+                print("sint: ", sint)
+
+                print("\033[1;31m")
+                assert sint_equal, "[build_SDQH0] sint matrices do not match"
+
+            dpint_equal = np.array_equal(dpint, dpint_res)
+            if (not dpint_equal):
+                print("Fortran:")
+                print("dpint: ", dpint_res)
+
+                print("Python:")
+                print("dpint: ", dpint)
+
+                print("\033[1;31m")
+                assert dpint_equal, "[build_SDQH0] dpint matrices do not match"
+
+            qpint_equal = np.array_equal(qpint, qpint_res)
+            if (not qpint_equal):
+                print("Fortran:")
+                print("qpint: ", qpint_res)
+
+                print("Python:")
+                print("qpint: ", qpint)
+
+                print("\033[1;31m")
+                assert qpint_equal, "[build_SDQH0] qpint matrices do not match"
+
+            H0_equal = np.array_equal(H0, H0_res)
+            if (not H0_equal):
+                print("Fortran:")
+                print("H0: ", H0_res)
+
+                print("Python:")
+                print("H0: ", H0)
+
+                print("\033[1;31m")
+                assert H0_equal, "[build_SDQH0] H0 arrays do not match"
+
+            H0_noovlp_equal = np.array_equal(H0_noovlp, H0_noovlp_res)
+            if (not H0_noovlp_equal):
+                print("Fortran:")
+                print("H0_noovlp: ", H0_noovlp_res)
+
+                print("Python:")
+                print("H0_noovlp: ", H0_noovlp)
+
+                print("\033[1;31m")
+                assert H0_noovlp_equal, "[build_SDQH0] H0_noovlp arrays do not match"
+
+    print("\033[0;32m", end='')
+    print("matches! [build_SDQH0]")
+    print("\033[0;0m", end='')
+
+
 test_olapp()
 test_multipole_3d()
 test_horizontal_shift()
@@ -329,3 +437,4 @@ test_form_product()
 test_dtrf2()
 test_get_multiints()
 test_h0scal()
+test_build_SDQH0()

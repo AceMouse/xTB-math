@@ -522,7 +522,7 @@ index 0000000..aaf4ae3
 +
 +end module utils
 diff --git a/src/xtb/hamiltonian.f90 b/src/xtb/hamiltonian.f90
-index 59ca64c..4fefd5b 100644
+index 59ca64c..29114bb 100644
 --- a/src/xtb/hamiltonian.f90
 +++ b/src/xtb/hamiltonian.f90
 @@ -143,7 +143,7 @@ end subroutine getSelfEnergy2D
@@ -534,7 +534,7 @@ index 59ca64c..4fefd5b 100644
        & intcut, caoshell, saoshell, nprim, primcount, alp, cont, &
        & sint, dpint, qpint, H0, H0_noovlp)
     implicit none
-@@ -368,6 +368,95 @@ subroutine build_SDQH0(nShell, hData, nat, at, nbf, nao, xyz, trans, selfEnergy,
+@@ -368,6 +368,96 @@ subroutine build_SDQH0(nShell, hData, nat, at, nbf, nao, xyz, trans, selfEnergy,
        end do
     end do
  
@@ -604,6 +604,7 @@ index 59ca64c..4fefd5b 100644
 +     open(newunit=u, file=trim(path), form='unformatted', access='stream')
 +     write(u) nat
 +     write(u) size(at), at
++     write(u) nbf
 +     write(u) nao
 +     write(u) size(xyz, 1), size(xyz, 2), xyz
 +     write(u) size(trans, 1), size(trans, 2), trans
@@ -623,8 +624,8 @@ index 59ca64c..4fefd5b 100644
 +     write(u) size(sint, 1), size(sint, 2), sint
 +     write(u) size(dpint, 1), size(dpint, 2), size(dpint, 3), dpint
 +     write(u) size(qpint, 1), size(qpint, 2), size(qpint, 3), qpint
-+     write(u) size(H0, 1), H0
-+     write(u) size(H0_noovlp, 1), H0_noovlp
++     write(u) size(H0), H0
++     write(u) size(H0_noovlp), H0_noovlp
 +     close(u)
 +   end if
  end subroutine build_SDQH0
