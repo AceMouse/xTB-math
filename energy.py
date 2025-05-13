@@ -422,8 +422,8 @@ def h0scal(il, jl, izp, jzp, valaoi, valaoj):
         electronegativity_izp = electronegativity[izp]
         electronegativity_jzp = electronegativity[jzp]
         den = (electronegativity_izp - electronegativity_jzp)**2
-        enpoly = (1.0 + enScale[il, jl] * den * (1.0 + enScale4 * den))
-        km = kScale[il, jl] * enpoly * pairParam[jzp, izp]
+        enpoly = (1.0 + enScale[il-1, jl-1] * den * (1.0 + enScale4 * den))
+        km = kScale[il-1, jl-1] * enpoly * pairParam[jzp, izp]
         return km
 
     # "DZ" functions (on H for GFN or 3S for EA calc on all atoms)
@@ -431,10 +431,10 @@ def h0scal(il, jl, izp, jzp, valaoi, valaoj):
         km = kdiff
         return km
     if (not valaoi and valaoj):
-        km = 0.5 * (kScale[jl, jl] + kdiff)
+        km = 0.5 * (kScale[jl-1, jl-1] + kdiff)
         return km
     if (not valaoj and valaoi):
-        km = 0.5 * (kScale[il, il] + kdiff)
+        km = 0.5 * (kScale[il-1, il-1] + kdiff)
     return km
 
 
