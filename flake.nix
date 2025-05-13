@@ -6,24 +6,35 @@
   };
 
   outputs = { self, nixpkgs, ... }: {
-    checks."x86_64-linux" = let
+    apps."x86_64-linux" = let
       pkgs = nixpkgs.legacyPackages."x86_64-linux";
+      xtb = (self.packages."x86_64-linux".xtb.overrideAttrs (finalAttrs: previousAttrs: {
+        patches = [./test_output.patch];
+      }));
+      xtb_test_data = builtins.derivation {
+        name = "xtb-test-data";
+        system = "x86_64-linux";
+        builder = "${pkgs.bash}/bin/bash";
+        src = ./caffeine.xyz;
+        args = ["-c" ''
+          PATH=$PATH:${pkgs.coreutils}/bin
+          ${xtb}/bin/xtb $src
+          mv calls $out
+        ''];
+      };
     in {
-      "cmp-impls" = pkgs.runCommand "cmp-impls" {
-        nativeBuildInputs = with pkgs; [
-          (self.packages."x86_64-linux".xtb.overrideAttrs (finalAttrs: previousAttrs: {
-            patches = [./test_output.patch];
-          }))
-          (pkgs.python3.withPackages (python-pkgs: with python-pkgs; [
-            numpy
-            scipy
-          ]))
-        ];
-      } ''
-        xtb ${./caffeine.xyz}
-        mv calls $out
-        PYTHONPATH=${./.} python ${./cmp_impls.py} $out
-      '';
+      "cmp-impls" = let
+        python = (pkgs.python3.withPackages (python-pkgs: with python-pkgs; [
+          numpy
+          scipy
+        ]));
+      in {
+        type = "app";
+        program = toString (pkgs.writeShellScript "cmp-impls" ''
+          PYTHONPATH=${pkgs.lib.cleanSource ./.} exec ${python}/bin/python \
+            ${./cmp_impls.py} ${xtb_test_data}
+        '');
+      };
     };
 
     packages."x86_64-linux" = let

@@ -58,6 +58,8 @@ def test_get_multiints():
 
                 print("Python:")
                 print("ss: ", ss)
+
+                print("\033[1;31m")
                 assert ss_equal, "ss matrices do not match"
 
             dd_equal = np.allclose(dd, fdd)
@@ -67,6 +69,8 @@ def test_get_multiints():
 
                 print("Python:")
                 print("dd: ", dd)
+
+                print("\033[1;31m")
                 assert dd_equal, "dd matrices do not match"
 
             qq_equal = np.allclose(qq, fqq)
@@ -76,7 +80,13 @@ def test_get_multiints():
 
                 print("Python:")
                 print("qq: ", qq)
-                assert qq_equal, "qq matrices do not match"
+
+                print("\033[1;31m")
+                assert qq_equal, "[get_multiints] qq matrices do not match"
+
+    print("\033[0;32m", end='')
+    print("matches! [get_multiints]")
+    print("\033[0;0m", end='')
 
 
 
@@ -104,7 +114,13 @@ def test_dtrf2():
 
                 print("Python:")
                 print("s: ", s)
-                assert s_equal, "s matrices do not match"
+
+                print("\033[1;31m")
+                assert s_equal, "[dtrf2] s matrices do not match"
+
+    print("\033[0;32m", end='')
+    print("matches! [dtrf2]")
+    print("\033[0;0m", end='')
 
 
 def test_form_product():
@@ -136,7 +152,13 @@ def test_form_product():
 
                 print("Python:")
                 print("d: ", d)
-                assert d_equal, "d matrices do not match"
+
+                print("\033[1;31m")
+                assert d_equal, "[form_product] d matrices do not match"
+
+    print("\033[0;32m", end='')
+    print("matches! [form_product]")
+    print("\033[0;0m", end='')
 
 
 def test_horizontal_shift():
@@ -166,7 +188,13 @@ def test_horizontal_shift():
 
                 print("Python:")
                 print("cfs: ", cfs)
-                assert cfs_equal, "cfs matrices do not match"
+
+                print("\033[1;31m")
+                assert cfs_equal, "[horizontal_shift] cfs matrices do not match"
+
+    print("\033[0;32m", end='')
+    print("matches! [horizontal_shift]")
+    print("\033[0;0m", end='')
 
 
 def test_multipole_3d():
@@ -212,7 +240,13 @@ def test_multipole_3d():
 
                 print("Python:")
                 print("s3d: ", s3d)
-                assert s3d_equal, "s3d matrices do not match"
+
+                print("\033[1;31m")
+                assert s3d_equal, "[multipole_3d] s3d matrices do not match"
+
+    print("\033[0;32m", end='')
+    print("matches! [multipole_3d]")
+    print("\033[0;0m", end='')
 
 
 
@@ -242,7 +276,13 @@ def test_olapp():
 
                 print("Python:")
                 print("s: ", s)
-                assert s_equal, "s reals do not match"
+
+                print("\033[1;31m")
+                assert s_equal, "[olapp] s reals do not match"
+
+    print("\033[0;32m", end='')
+    print("matches! [olapp]")
+    print("\033[0;0m", end='')
 
 
 
@@ -273,13 +313,19 @@ def test_h0scal():
 
                 print("Python:")
                 print("km: ", km)
-                assert km_equal, "km reals do not match"
+
+                print("\033[1;31m")
+                assert km_equal, "[h0scal] km reals do not match"
+
+    print("\033[0;32m", end='')
+    print("matches! [h0scal]")
+    print("\033[0;0m", end='')
 
 
-#test_olapp()
-#test_multipole_3d()
-#test_horizontal_shift()
-#test_form_product()
-#test_dtrf2()
+test_olapp()
+test_multipole_3d()
+test_horizontal_shift()
+test_form_product()
+test_dtrf2()
 test_get_multiints()
-#test_h0scal()
+test_h0scal()

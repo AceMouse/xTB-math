@@ -811,7 +811,7 @@ def getSelfEnergy(element_ids, cn): # actually the H_\kappa\kappa diagonal terms
 
 
 
-BUILD = True
+BUILD = False
 if BUILD:
     trans = np.zeros((1,3))
     from basisset import new_basis_set_simple, dim_basis_np
