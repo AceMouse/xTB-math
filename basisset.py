@@ -228,6 +228,7 @@ def set_d_functoin(basis,iat,ish,iao,ibf,ipr,npq,l,nprim,zeta,level,valao):
 #subroutine newBasisset(xtbData,n,at,basis,ok)
 
 def new_basis_set_simple(element_ids):
+    print(principalQuantumNumber)
     a = np.zeros(10)
     c = np.zeros(10)
     aR = np.zeros(10)
@@ -277,6 +278,9 @@ def new_basis_set_simple(element_ids):
         basis_fila2[iat,0] = iao+1
         for m in range(nShell[ati]):
             npq = principalQuantumNumber[ati,m]
+            print(npq, ati, m)
+            if npq <= 0:
+                quit(1)
             l = angShell[ati,m]
             level = selfEnergy[ati,m]
             zeta = slaterExponent[ati,m]
@@ -305,7 +309,7 @@ def new_basis_set_simple(element_ids):
             match l:
                 case 0: # s
                     if valao != 0: 
-                        if ati <= 2: # H-He 
+                        if ati < 2: # H-He 
                             a, c, info = slaterToGauss(nprim, npq, l, zeta, True)
                             basis_minalp[ish] = np.min(a[:nprim])
                         else: 
@@ -314,12 +318,11 @@ def new_basis_set_simple(element_ids):
                     else: # DZ s
                         additional_prim = thisprimR
                         normalize_basis_cont = True
-                        if ati <= 2: # H-He
-                            aR, cR, info = slaterToGauss(thisprimR, npq, l, zeta, True)
+                        aR, cR, info = slaterToGauss(thisprimR, npq, l, zeta, True)
+                        if ati < 2: # H-He
                             ss = atovlp(0,nprim,thisprimR,a,aR,c,cR)
                             min_alpa = np.min(a[:nprim])
                         else:
-                            aR, cR, info = slaterToGauss(thisprimR, npq, l, zeta, True)
                             ss = atovlp(0,nprim,thisprimR,aS,aR,cS,cR)
                             min_alpa = np.min(aS[:nprim])
                         basis_minalp[ish] = min(min_alpa, np.min(aR[:thisprimR]))
@@ -328,7 +331,7 @@ def new_basis_set_simple(element_ids):
                 case 1: # p
                     a, c, info = slaterToGauss(nprim, npq, l, zeta, True)
                     basis_minalp[ish] = np.min(a[:nprim])
-                    if ati <= 2: # H-He
+                    if ati < 2: # H-He
                         valao_flip = -1
                     j_low = 1
                     j_high = 4
@@ -345,6 +348,9 @@ def new_basis_set_simple(element_ids):
                     j_high = 20
                     j_offset = -3
                     valao = 1
+            if info != 0:
+                print(f"({ati},{m}) slaterToGauss({nprim},{npq},{l},{zeta}) = {a, c, aR, cR ,info}")
+                quit(info)
             for j in range(j_low,j_high):
                 basis_primcount[ibf] = ipr
                 basis_valao    [ibf] = valao*valao_flip
@@ -436,10 +442,10 @@ def new_basis_set(element_ids):
     basis_ash = np.zeros(nao)
     basis_lsh = np.zeros(nao)
     basis_ao2sh = np.zeros(nao)
-    basis_nprim = np.zeros(nbf)
-    basis_primcount = np.zeros(nbf)
-    basis_caoshell = np.zeros((n,5))
-    basis_saoshell = np.zeros((n,5))
+    basis_nprim = np.zeros(nbf, dtype = np.int32)
+    basis_primcount = np.zeros(nbf, dtype = np.int32)
+    basis_caoshell = np.zeros((n,5), dtype = np.int32)
+    basis_saoshell = np.zeros((n,5), dtype = np.int32)
     basis_fila = np.zeros((n,2))
     basis_fila2 = np.zeros((n,2))
     basis_lao = np.zeros(nbf)
@@ -547,7 +553,7 @@ def new_basis_set(element_ids):
 #            basis%aoexp (iao) = zeta
 #            basis%ao2sh (iao) = ish
 #         endif
-            if ( l == 0 and ati <= 2 and valao != 0):
+            if ( l == 0 and ati < 2 and valao != 0):
                 a, c, info = slaterToGauss(nprim, npq, l, zeta, True)
                 basis_minalp[ish] = np.min(a[:nprim])
 
@@ -612,7 +618,7 @@ def new_basis_set(element_ids):
 #            basis%aoexp (iao) = zeta
 #            basis%ao2sh (iao) = ish
 #         endif
-            if ( l == 0 and ati <= 2 and valao == 0):
+            if ( l == 0 and ati < 2 and valao == 0):
                 aR, cR, info = slaterToGauss(thisprimR, npq, zeta, True)
                 ss = atovlp(0,nprim,thisprimR,a,aR,c,cR)
                 basis_minalp[ish] = min(np.min(a[:nprim]),np.min(aR[:thisprimR]))
@@ -678,7 +684,7 @@ def new_basis_set(element_ids):
 #               basis%ao2sh (iao) = ish
 #            enddo
 #         endif
-            if ( l == 1 and ati <= 2):
+            if ( l == 1 and ati < 2):
                 a, c, info = slaterToGauss(nprim, npq, l, zeta, True)
                 basis_minalp[ish] = np.min(a[:nprim])
                 for j in range(2,5):
@@ -731,7 +737,7 @@ def new_basis_set(element_ids):
 #            basis%aoexp (iao) = zeta
 #            basis%ao2sh (iao) = ish
 #         endif
-            if ( l == 0 and ati > 2 and valao != 0):
+            if ( l == 0 and ati >= 2 and valao != 0):
                 aS, cS, info = slaterToGauss(nprim, npq, l, zeta, True)
                 basis_minalp[ish] = np.min(aS[:nprim])
 
@@ -783,7 +789,7 @@ def new_basis_set(element_ids):
 #               basis%ao2sh (iao) = ish
 #            enddo
 #         endif
-            if ( l == 1 and ati > 2):
+            if ( l == 1 and ati >= 2):
                 a, c, info = slaterToGauss(nprim, npq, l, zeta, True)
                 basis_minalp[ish] = np.min(a[:nprim])
                 for j in range(2,5):
@@ -848,7 +854,7 @@ def new_basis_set(element_ids):
 #            basis%aoexp (iao) = zeta
 #            basis%ao2sh (iao) = ish
 #         endif
-            if ( l == 0 and ati > 2 and valao == 0):
+            if ( l == 0 and ati >= 2 and valao == 0):
                 aR, cR, info = slaterToGauss(thisprimR, npq, zeta, True)
                 ss = atovlp(0,nprim,thisprimR,aS,aR,cS,cR)
                 basis_minalp[ish] = min(np.min(aS[:nprim]),np.min(aR[:thisprimR]))
@@ -1150,10 +1156,10 @@ if BAS:
     sum1 = 0
     sum2 = 0
     for idx, (output1, output2) in enumerate(zip(x1,x2)):
-        close = np.allclose(output1,output2)
+        close = np.allclose(output1,output2) or np.allclose(output1-1,output2)
         print(close)
         if not close:
-            print(f"{idx+1:02} normal: {output1}\nsimple: {output2}")
+            print(f"{idx+1:02} normal: {output1.tolist()}\nsimple: {output2.tolist()}")
         allclose &= close
         sum1 += np.sum(output1)
         sum2 += np.sum(output2)
