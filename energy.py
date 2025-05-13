@@ -288,7 +288,6 @@ def build_SDQH0(nat, at, nbf, nao, xyz, trans, selfEnergy, \
     tmp = np.zeros((6, 6), dtype=np.float64)
 
     #compute the upper triangle of S, D, Q and H0
-    print(xyz.shape)
     for iat in range(nat):
         for jat in range(nat):
             if (jat >= iat):
@@ -297,7 +296,6 @@ def build_SDQH0(nat, at, nbf, nao, xyz, trans, selfEnergy, \
             ra = xyz[iat,0:3]
             izp = at[iat]
             jzp = at[jat]
-            print(f"({iat},{jat}) ids: ({izp},{jzp})")
             for ish in range(nShell[izp]):
                 ishtyp = angShell[izp, ish]
                 icao = caoshell[iat, ish]
@@ -822,9 +820,7 @@ if BUILD:
     acc = 1.0
     intcut = max(20.0, 25.0-10.0*np.log10(acc))
     cn = GFN2_coordination_numbers_np(element_ids, positions)
-    print(cn.shape)
     selfEnergy_H_kappa_kappa = getSelfEnergy(element_ids, cn)
-    print(selfEnergy_H_kappa_kappa.shape)
     S, dpint, qpint, H0, H0_noovlp = build_SDQH0(element_cnt, element_ids, \
       basis_nbf, basis_nao, positions, trans, selfEnergy_H_kappa_kappa, intcut, \
       basis_caoshell, basis_saoshell, basis_nprim, basis_primcount, basis_alp, \
