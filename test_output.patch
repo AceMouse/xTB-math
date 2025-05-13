@@ -441,10 +441,10 @@ index 5b29581..65fb968 100644
  !  total energy for GFN1
 diff --git a/src/utils.f90 b/src/utils.f90
 new file mode 100644
-index 0000000..532bf82
+index 0000000..aaf4ae3
 --- /dev/null
 +++ b/src/utils.f90
-@@ -0,0 +1,91 @@
+@@ -0,0 +1,76 @@
 +module utils
 +  implicit none
 +  contains
@@ -490,49 +490,34 @@ index 0000000..532bf82
 +
 +    integer, parameter :: max_cached = 100
 +    character(len=100), save :: cached_dirs(max_cached) = ''
-+    logical, save :: cached_exists(max_cached) = .false.
 +    integer :: i, slot
-+    logical :: found
 +
 +    dir = 'calls/' // trim(fn_name) // '/'
-+    found = .false.
 +    slot = -1
 +
 +    ! Search for fn_name in cache
 +    do i = 1, max_cached
 +      if (trim(cached_dirs(i)) == trim(dir)) then
-+        found = .true.
-+        exit
-+      elseif (cached_dirs(i) == '' .and. slot == -1) then
++        testfile_path = .true.
++        return
++      elseif (cached_dirs(i) == '') then
 +        slot = i
 +      end if
 +    end do
 +
-+    if (found) then
-+      ! Known dir, return cached existence
-+      testfile_path = cached_exists(i)
-+      return
-+    end if
-+
 +    ! Not in cache, do the check
 +    inquire(file=trim(dir)//'.', exist=testfile_path)
 +
-+    ! Cache it
-+    if (slot > 0) then
-+      cached_dirs(slot) = dir
-+      cached_exists(slot) = testfile_path
-+    endif
-+
 +    if (.not. testfile_path) then
 +      call create_directory(trim(dir))
-+    endif
 +
-+    if (.not. testfile_path) then
 +      call random_seed()
 +      call random_uuid(uuid)
 +      write(filename, '(A,A)') 'args_', uuid
 +      write(path, '(A,A,A)') trim(dir), trim(filename), ".bin"
 +    endif
++
++    cached_dirs(slot) = dir
 +  end function testfile_path
 +
 +end module utils
