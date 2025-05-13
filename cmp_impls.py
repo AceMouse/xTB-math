@@ -281,5 +281,5 @@ def test_h0scal():
 #test_horizontal_shift()
 #test_form_product()
 #test_dtrf2()
-#test_get_multiints()
-test_h0scal()
+test_get_multiints()
+#test_h0scal()

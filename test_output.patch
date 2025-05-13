@@ -1,5 +1,5 @@
 diff --git a/src/intgrad.f90 b/src/intgrad.f90
-index 44f8f7e..ac1fdfd 100644
+index 44f8f7e..10ee35b 100644
 --- a/src/intgrad.f90
 +++ b/src/intgrad.f90
 @@ -22,6 +22,7 @@
@@ -30,7 +30,7 @@ index 44f8f7e..ac1fdfd 100644
     !$acc routine seq
     integer,intent(in) :: l
     real(wp),intent(in) :: gama
-@@ -108,7 +115,47 @@ pure elemental function olapp(l,gama) result(s)
+@@ -108,7 +115,55 @@ pure elemental function olapp(l,gama) result(s)
        gm=0.5_wp/gama
        s=gm**lh*dftr(lh)
     endif
@@ -42,19 +42,23 @@ index 44f8f7e..ac1fdfd 100644
 +   real(wp),intent(in) :: gama
 +   real(wp) :: s(size(l))
 +
++   logical :: exists
 +   integer :: u
 +   character(len=200) :: path
-+   call testfile_path('olapp', path)
 +
-+   open(newunit=u, file=trim(path), form='unformatted', access='stream')
-+   write(u) size(l), l
-+   write(u) gama
++   exists = testfile_path('olapp', path)
++   if (.not.exists) then
++     open(newunit=u, file=trim(path), form='unformatted', access='stream')
++     write(u) size(l), l
++     write(u) gama
++   end if
 +
 +   s = golapp(l, gama)
 +
-+   write(u) size(s), s
-+   close(u)
-+
++   if (.not.exists) then
++     write(u) size(s), s
++     close(u)
++   end if
 +end function olapp_array
 +
 +function olapp_scalar(l, gama) result(s)
@@ -62,24 +66,28 @@ index 44f8f7e..ac1fdfd 100644
 +   real(wp),intent(in) :: gama
 +   real(wp) :: s
 +
++   logical :: exists
 +   integer :: u
 +   character(len=200) :: path
-+   call testfile_path('olapp', path)
 +
-+   open(newunit=u, file=trim(path), form='unformatted', access='stream')
-+   write(u) 1, [l]
-+   write(u) gama
++   exists = testfile_path('olapp', path)
++   if (.not.exists) then
++     open(newunit=u, file=trim(path), form='unformatted', access='stream')
++     write(u) 1, [l]
++     write(u) gama
++   end if
 +
 +   s = golapp(l, gama)
 +
-+   write(u) 1, [s]
-+   close(u)
-+
++   if (.not.exists) then
++     write(u) 1, [s]
++     close(u)
++   end if
 +end function olapp_scalar
  
  ! --------------------------------------------------------------[SAW1907]-
  !> returns center of product Gaussian from two Gaussians by GPT
-@@ -141,7 +188,7 @@ pure subroutine build_kab(ra,alp,rb,bet,gama,kab)
+@@ -141,7 +196,7 @@ pure subroutine build_kab(ra,alp,rb,bet,gama,kab)
  end subroutine build_kab
  
  ! --------------------------------------------------------------[SAW1801]-
@@ -88,7 +96,7 @@ index 44f8f7e..ac1fdfd 100644
     use xtb_mctc_blas, only : mctc_gemm
     real(wp),intent(inout) :: s(6,6)
     integer, intent(in)    :: li,lj
-@@ -228,6 +275,26 @@ pure subroutine dtrf2(s,li,lj)
+@@ -228,6 +283,31 @@ pure subroutine dtrf2(s,li,lj)
     s(1:5,1:5) = s2(2:6,2:6)
     return
  
@@ -99,23 +107,28 @@ index 44f8f7e..ac1fdfd 100644
 +   real(wp),intent(inout) :: s(6,6)
 +   integer, intent(in)    :: li,lj
 +
++   logical :: exists
 +   integer :: u
 +   character(len=200) :: path
-+   call testfile_path('dtrf2', path)
 +
-+   open(newunit=u, file=trim(path), form='unformatted', access='stream')
-+   write(u) size(s, 1), size(s, 2), s
-+   write(u) li
-+   write(u) lj
++   exists = testfile_path('dtrf2', path)
++   if (.not.exists) then
++     open(newunit=u, file=trim(path), form='unformatted', access='stream')
++     write(u) size(s, 1), size(s, 2), s
++     write(u) li
++     write(u) lj
++   end if
 +
 +   call gdtrf2(s,li,lj)
 +
-+   write(u) size(s, 1), size(s, 2), s
-+   close(u)
++   if (.not.exists) then
++     write(u) size(s, 1), size(s, 2), s
++     close(u)
++   end if
  end subroutine dtrf2
  
  ! --------------------------------------------------------------[SAW1801]-
-@@ -354,7 +421,7 @@ pure subroutine prod3(a,b,d,la,lb)
+@@ -354,7 +434,7 @@ pure subroutine prod3(a,b,d,la,lb)
  
  end subroutine prod3
  
@@ -124,7 +137,7 @@ index 44f8f7e..ac1fdfd 100644
     integer, intent(in) :: l
     real(wp), intent(in) :: ae
     real(wp), intent(inout) :: cfs(*)
-@@ -377,9 +444,29 @@ pure subroutine horizontal_shift(ae, l, cfs)
+@@ -377,9 +457,34 @@ pure subroutine horizontal_shift(ae, l, cfs)
        cfs(3)=cfs(3)+ 6*ae*ae*cfs(5)
        cfs(4)=cfs(4)+ 4*ae*cfs(5)
     end select
@@ -135,19 +148,24 @@ index 44f8f7e..ac1fdfd 100644
 +   real(wp), intent(in) :: ae
 +   real(wp), intent(inout) :: cfs(:)
 +
++   logical :: exists
 +   integer :: u
 +   character(len=200) :: path
-+   call testfile_path('horizontal_shift', path)
 +
-+   open(newunit=u, file=trim(path), form='unformatted', access='stream')
-+   write(u) ae
-+   write(u) l
-+   write(u) size(cfs), cfs
++   exists = testfile_path('horizontal_shift', path)
++   if (.not.exists) then
++     open(newunit=u, file=trim(path), form='unformatted', access='stream')
++     write(u) ae
++     write(u) l
++     write(u) size(cfs), cfs
++   end if
 +
 +   call ghorizontal_shift(ae, l, cfs)
 +
-+   write(u) size(cfs), cfs
-+   close(u)
++   if (.not.exists) then
++     write(u) size(cfs), cfs
++     close(u)
++   end if
  end subroutine horizontal_shift
  
 -pure subroutine form_product(a, b, la, lb, d)
@@ -155,41 +173,46 @@ index 44f8f7e..ac1fdfd 100644
     integer, intent(in) :: la, lb
     real(wp), intent(in) :: a(*), b(*)
     real(wp), intent(inout) :: d(*)
-@@ -468,10 +555,31 @@ pure subroutine form_product(a, b, la, lb, d)
+@@ -468,10 +573,36 @@ pure subroutine form_product(a, b, la, lb, d)
     !       = <s> + <p> + <d> + <f> + <g> + <h> + <i> + <k> + <l>
     d(9)=a(5)*b(5)
  
 -end subroutine form_product
 +end subroutine gform_product
-+
+ 
 +subroutine form_product(a, b, la, lb, d)
 +   integer, intent(in) :: la, lb
 +   real(wp), intent(in) :: a(:), b(:)
 +   real(wp), intent(inout) :: d(:)
 +
++   logical :: exists
 +   integer :: u
 +   character(len=200) :: path
-+   call testfile_path('form_product', path)
- 
-+   open(newunit=u, file=trim(path), form='unformatted', access='stream')
-+   write(u) la
-+   write(u) lb
-+   write(u) size(a), a
-+   write(u) size(b), b
-+   write(u) size(d), d
- 
--pure subroutine overlap_3d(ri, rj, rp, ai, aj, li, lj, s1d, s3d)
++
++   exists = testfile_path('form_product', path)
++   if (.not.exists) then
++     open(newunit=u, file=trim(path), form='unformatted', access='stream')
++     write(u) la
++     write(u) lb
++     write(u) size(a), a
++     write(u) size(b), b
++     write(u) size(d), d
++   end if
++
 +   call gform_product(a, b, la, lb, d)
 +
-+   write(u) size(d), d
-+   close(u)
++   if (.not.exists) then
++     write(u) size(d), d
++     close(u)
++   end if
 +end subroutine form_product
-+
+ 
+-pure subroutine overlap_3d(ri, rj, rp, ai, aj, li, lj, s1d, s3d)
 +subroutine overlap_3d(ri, rj, rp, ai, aj, li, lj, s1d, s3d)
     real(wp), intent(in) :: ri(3)
     real(wp), intent(in) :: rj(3)
     real(wp), intent(in) :: rp(3)
-@@ -506,7 +614,7 @@ pure subroutine overlap_3d(ri, rj, rp, ai, aj, li, lj, s1d, s3d)
+@@ -506,7 +637,7 @@ pure subroutine overlap_3d(ri, rj, rp, ai, aj, li, lj, s1d, s3d)
  
  end subroutine overlap_3d
  
@@ -198,7 +221,7 @@ index 44f8f7e..ac1fdfd 100644
     real(wp), intent(in) :: ri(3)
     real(wp), intent(in) :: rj(3)
     real(wp), intent(in) :: rp(3)
-@@ -552,9 +660,41 @@ pure subroutine multipole_3d(ri, rj, rc, rp, ai, aj, li, lj, s1d, s3d)
+@@ -552,9 +683,46 @@ pure subroutine multipole_3d(ri, rj, rc, rp, ai, aj, li, lj, s1d, s3d)
     s3d( 9) = val(1, 2) * val(2, 1) * val(3, 2)
     s3d(10) = val(1, 1) * val(2, 2) * val(3, 2)
  
@@ -216,24 +239,29 @@ index 44f8f7e..ac1fdfd 100644
 +   real(wp), intent(in) :: s1d(0:)
 +   real(wp), intent(out) :: s3d(10)
 +
++   logical :: exists
 +   integer :: u
 +   character(len=200) :: path
-+   call testfile_path('multipole_3d', path)
 +
-+   open(newunit=u, file=trim(path), form='unformatted', access='stream')
-+   write(u) size(ri), ri
-+   write(u) size(rj), rj
-+   write(u) size(rc), rc
-+   write(u) size(rp), rp
-+   write(u) size(li), li
-+   write(u) size(lj), lj
-+   write(u) size(s1d), s1d
-+   write(u) size(s3d), s3d
++   exists = testfile_path('multipole_3d', path)
++   if (.not.exists) then
++     open(newunit=u, file=trim(path), form='unformatted', access='stream')
++     write(u) size(ri), ri
++     write(u) size(rj), rj
++     write(u) size(rc), rc
++     write(u) size(rp), rp
++     write(u) size(li), li
++     write(u) size(lj), lj
++     write(u) size(s1d), s1d
++     write(u) size(s3d), s3d
++   end if
 +
 +   call gmultipole_3d(ri, rj, rc, rp, ai, aj, li, lj, s1d, s3d)
 +
-+   write(u) size(s3d), s3d
-+   close(u)
++   if (.not.exists) then
++     write(u) size(s3d), s3d
++     close(u)
++   end if
  end subroutine multipole_3d
  
 -pure subroutine overlap_grad_3d(ri, rj, rp, ai, aj, li, lj, s1d, s3d, ds3d)
@@ -241,7 +269,7 @@ index 44f8f7e..ac1fdfd 100644
     real(wp), intent(in) :: ri(3)
     real(wp), intent(in) :: rj(3)
     real(wp), intent(in) :: rp(3)
-@@ -604,7 +744,7 @@ pure subroutine overlap_grad_3d(ri, rj, rp, ai, aj, li, lj, s1d, s3d, ds3d)
+@@ -604,7 +772,7 @@ pure subroutine overlap_grad_3d(ri, rj, rp, ai, aj, li, lj, s1d, s3d, ds3d)
  
  end subroutine overlap_grad_3d
  
@@ -250,7 +278,7 @@ index 44f8f7e..ac1fdfd 100644
     real(wp), intent(in) :: ri(3)
     real(wp), intent(in) :: rj(3)
     real(wp), intent(in) :: rc(3)
-@@ -728,7 +868,7 @@ pure subroutine shiftintg(g,s,r)
+@@ -728,7 +896,7 @@ pure subroutine shiftintg(g,s,r)
  end subroutine shiftintg
  
  
@@ -259,7 +287,7 @@ index 44f8f7e..ac1fdfd 100644
        &                nprim,primcount,alp,cont,sint)
     integer, intent(in)  :: icao
     integer, intent(in)  :: jcao
-@@ -799,7 +939,7 @@ pure subroutine get_overlap(icao,jcao,naoi,naoj,ishtyp,jshtyp,ri,rj,point,intcut
+@@ -799,7 +967,7 @@ pure subroutine get_overlap(icao,jcao,naoi,naoj,ishtyp,jshtyp,ri,rj,point,intcut
  
  end subroutine get_overlap
  
@@ -268,7 +296,7 @@ index 44f8f7e..ac1fdfd 100644
        &                     nprim,primcount,alp,cont,sdq,sdqg)
     integer, intent(in)  :: icao
     integer, intent(in)  :: jcao
-@@ -872,8 +1012,7 @@ pure subroutine get_grad_overlap(icao,jcao,naoi,naoj,ishtyp,jshtyp,ri,rj,point,i
+@@ -872,8 +1040,7 @@ pure subroutine get_grad_overlap(icao,jcao,naoi,naoj,ishtyp,jshtyp,ri,rj,point,i
     enddo  ! ip : loop over i prims
  end subroutine get_grad_overlap
  
@@ -278,13 +306,13 @@ index 44f8f7e..ac1fdfd 100644
        &                           intcut,nprim,primcount,alp,cont,ss,dd,qq)
     integer, intent(in)  :: icao
     integer, intent(in)  :: jcao
-@@ -948,10 +1087,55 @@ pure subroutine get_multiints(icao,jcao,naoi,naoj,ishtyp,jshtyp,ri,rj,point, &
+@@ -948,10 +1115,59 @@ pure subroutine get_multiints(icao,jcao,naoi,naoj,ishtyp,jshtyp,ri,rj,point, &
           enddo  ! mli : Cartesian component of i prims
        enddo ! jp : loop over j prims
     enddo  ! ip : loop over i prims
 -end subroutine get_multiints
 +end subroutine gget_multiints
- 
++
 +subroutine get_multiints(icao,jcao,naoi,naoj,ishtyp,jshtyp,ri,rj,point, &
 +      &                           intcut,nprim,primcount,alp,cont,ss,dd,qq)
 +   integer, intent(in)  :: icao
@@ -305,30 +333,34 @@ index 44f8f7e..ac1fdfd 100644
 +   integer, intent(in)  :: primcount(:)
 +   real(wp),intent(in)  :: alp(:)
 +   real(wp),intent(in)  :: cont(:)
-+
+ 
++   logical :: exists
 +   integer :: u
 +   character(len=200) :: path
 +
-+   call testfile_path('get_multiints', path)
-+
-+   open(newunit=u, file=trim(path), form='unformatted', access='stream')
-+   write(u) icao, jcao, naoi, naoj, ishtyp, jshtyp
-+   write(u) ri
-+   write(u) rj
-+   write(u) point
-+   write(u) intcut
-+   write(u) size(nprim), nprim
-+   write(u) size(primcount), primcount
-+   write(u) size(alp), alp
-+   write(u) size(cont), cont
++   exists = testfile_path('get_multiints', path)
++   if (.not.exists) then
++     open(newunit=u, file=trim(path), form='unformatted', access='stream')
++     write(u) icao, jcao, naoi, naoj, ishtyp, jshtyp
++     write(u) ri
++     write(u) rj
++     write(u) point
++     write(u) intcut
++     write(u) size(nprim), nprim
++     write(u) size(primcount), primcount
++     write(u) size(alp), alp
++     write(u) size(cont), cont
++   end if
 +
 +   call gget_multiints(icao,jcao,naoi,naoj,ishtyp,jshtyp,ri,rj,point,intcut,nprim,primcount,alp,cont,ss,dd,qq)
 +
-+   write(u) size(ss, 1), size(ss, 2), ss
-+   write(u) size(dd, 1), size(dd, 2), size(dd, 3), dd
-+   write(u) size(qq, 1), size(qq, 2), size(qq, 3), qq
++   if (.not.exists) then
++     write(u) size(ss, 1), size(ss, 2), ss
++     write(u) size(dd, 1), size(dd, 2), size(dd, 3), dd
++     write(u) size(qq, 1), size(qq, 2), size(qq, 3), qq
 +
-+   close(u)
++     close(u)
++   end if
 +end subroutine get_multiints
  
 -pure subroutine get_grad_multiint(icao,jcao,naoi,naoj,ishtyp,jshtyp,ri,rj, &
@@ -347,7 +379,7 @@ index ced9a9d..12ddc1d 100644
 +  'utils.f90',
  )
 diff --git a/src/scc_core.f90 b/src/scc_core.f90
-index 5b29581..a995b8a 100644
+index 5b29581..65fb968 100644
 --- a/src/scc_core.f90
 +++ b/src/scc_core.f90
 @@ -29,6 +29,7 @@ module xtb_scc_core
@@ -367,13 +399,13 @@ index 5b29581..a995b8a 100644
    !$acc routine seq
     type(THamiltonianData), intent(in) :: hData
     integer, intent(in)  :: il
-@@ -642,8 +643,34 @@ subroutine h0scal(hData,il,jl,izp,jzp,valaoi,valaoj,km)
+@@ -642,8 +643,38 @@ subroutine h0scal(hData,il,jl,izp,jzp,valaoi,valaoj,km)
     endif
  
  
 -end subroutine h0scal
 +end subroutine gh0scal
-+
+ 
 +subroutine h0scal(hData,il,jl,izp,jzp,valaoi,valaoj,km)
 +  !$acc routine seq
 +   type(THamiltonianData), intent(in) :: hData
@@ -385,30 +417,34 @@ index 5b29581..a995b8a 100644
 +   logical, intent(in)  :: valaoj
 +   real(wp),intent(out) :: km
 +
- 
++   logical :: exists
 +   integer :: u
 +   character(len=200) :: path
-+   call testfile_path('h0scal', path)
 +
-+   open(newunit=u, file=trim(path), form='unformatted', access='stream')
-+   write(u) il, jl
-+   write(u) izp, jzp
-+   write(u) valaoi, valaoj
++   exists = testfile_path('h0scal', path)
++   if (.not.exists) then
++     open(newunit=u, file=trim(path), form='unformatted', access='stream')
++     write(u) il, jl
++     write(u) izp, jzp
++     write(u) valaoi, valaoj
++   end if
 +
 +   call gh0scal(hData,il,jl,izp,jzp,valaoi,valaoj,km)
 +
-+   write(u) km
-+   close(u)
++   if (.not.exists) then
++     write(u) km
++     close(u)
++   end if
 +end subroutine h0scal
  
  !! ========================================================================
  !  total energy for GFN1
 diff --git a/src/utils.f90 b/src/utils.f90
 new file mode 100644
-index 0000000..5145879
+index 0000000..532bf82
 --- /dev/null
 +++ b/src/utils.f90
-@@ -0,0 +1,52 @@
+@@ -0,0 +1,91 @@
 +module utils
 +  implicit none
 +  contains
@@ -444,20 +480,168 @@ index 0000000..5145879
 +     call system(command)
 +  end subroutine create_directory
 +
-+  subroutine testfile_path(fn_name, path)
++  logical function testfile_path(fn_name, path)
++    implicit none
 +    character(len=*), intent(in)  :: fn_name
 +    character(len=*), intent(out) :: path
 +
 +    character(len=36) :: uuid
 +    character(len=100) :: filename, dir
 +
-+    call random_seed()
-+    call random_uuid(uuid)
-+    write(filename, '(A,A)') 'args_', uuid
-+    dir = 'calls/' // trim(fn_name) // '/'
-+    write(path, '(A,A,A)') trim(dir), trim(filename), ".bin"
++    integer, parameter :: max_cached = 100
++    character(len=100), save :: cached_dirs(max_cached) = ''
++    logical, save :: cached_exists(max_cached) = .false.
++    integer :: i, slot
++    logical :: found
 +
-+    call create_directory(trim(dir))
-+  end subroutine
++    dir = 'calls/' // trim(fn_name) // '/'
++    found = .false.
++    slot = -1
++
++    ! Search for fn_name in cache
++    do i = 1, max_cached
++      if (trim(cached_dirs(i)) == trim(dir)) then
++        found = .true.
++        exit
++      elseif (cached_dirs(i) == '' .and. slot == -1) then
++        slot = i
++      end if
++    end do
++
++    if (found) then
++      ! Known dir, return cached existence
++      testfile_path = cached_exists(i)
++      return
++    end if
++
++    ! Not in cache, do the check
++    inquire(file=trim(dir)//'.', exist=testfile_path)
++
++    ! Cache it
++    if (slot > 0) then
++      cached_dirs(slot) = dir
++      cached_exists(slot) = testfile_path
++    endif
++
++    if (.not. testfile_path) then
++      call create_directory(trim(dir))
++    endif
++
++    if (.not. testfile_path) then
++      call random_seed()
++      call random_uuid(uuid)
++      write(filename, '(A,A)') 'args_', uuid
++      write(path, '(A,A,A)') trim(dir), trim(filename), ".bin"
++    endif
++  end function testfile_path
 +
 +end module utils
+diff --git a/src/xtb/hamiltonian.f90 b/src/xtb/hamiltonian.f90
+index 59ca64c..4fefd5b 100644
+--- a/src/xtb/hamiltonian.f90
++++ b/src/xtb/hamiltonian.f90
+@@ -143,7 +143,7 @@ end subroutine getSelfEnergy2D
+ 
+ !> Computes the dipole and quadrupole integrals and performs screening to
+ !  determine, which contribute to potential
+-subroutine build_SDQH0(nShell, hData, nat, at, nbf, nao, xyz, trans, selfEnergy, &
++subroutine gbuild_SDQH0(nShell, hData, nat, at, nbf, nao, xyz, trans, selfEnergy, &
+       & intcut, caoshell, saoshell, nprim, primcount, alp, cont, &
+       & sint, dpint, qpint, H0, H0_noovlp)
+    implicit none
+@@ -368,6 +368,95 @@ subroutine build_SDQH0(nShell, hData, nat, at, nbf, nao, xyz, trans, selfEnergy,
+       end do
+    end do
+ 
++end subroutine gbuild_SDQH0
++
++subroutine build_SDQH0(nShell, hData, nat, at, nbf, nao, xyz, trans, selfEnergy, &
++      & intcut, caoshell, saoshell, nprim, primcount, alp, cont, &
++      & sint, dpint, qpint, H0, H0_noovlp)
++   implicit none
++   integer, intent(in) :: nShell(:)
++   type(THamiltonianData), intent(in) :: hData
++   !> # of atoms
++   integer, intent(in)  :: nat
++   !> # of spherical AOs (SAOs)
++   integer, intent(in)  :: nao
++   !> # of Cartesian AOs (CAOs)
++   integer, intent(in)  :: nbf
++   integer, intent(in)  :: at(nat)
++   !> Cartesian coordinates
++   real(wp),intent(in)  :: xyz(3,nat)
++   real(wp),intent(in)    :: trans(:, :)
++   real(wp), intent(in) :: selfEnergy(:, :)
++   !> Integral cutoff according to prefactor from Gaussian product theorem
++   real(wp),intent(in)  :: intcut
++   !> Map shell of atom to index in CAO space (lowest Cart. component is taken)
++   integer, intent(in)  :: caoshell(:,:)
++   !> Map shell of atom to index in SAO space (lowest m_l component is taken)
++   integer, intent(in)  :: saoshell(:,:)
++   integer, intent(in)  :: nprim(:)
++   !> Index of first primitive (over entire system) of given CAO
++   integer, intent(in)  :: primcount(:)
++   real(wp),intent(in)  :: alp(:)
++   real(wp),intent(in)  :: cont(:)
++   !> Overlap integral matrix
++   real(wp),intent(out) :: sint(nao,nao)
++   !> Dipole integral matrix
++   real(wp),intent(out) :: dpint(3,nao,nao)
++   !> Quadrupole integral matrix
++   real(wp),intent(out) :: qpint(6,nao,nao)
++   !> Core Hamiltonian
++   real(wp),intent(out) :: H0(:)
++   !> Core Hamiltonian without overlap contribution
++   real(wp),intent(out) :: H0_noovlp(:)
++
++
++   integer i,j,k,l,m,ii,jj,ll,mm,kk,ki,kj,kl,mi,mj,ij
++   real(wp) tmp1,tmp2,tmp3,tmp4,step,step2
++   real(wp) dx,dy,dz,s00r,s00l,s00,alpj
++   real(wp) skj,r1,r2,tt,t1,t2,t3,t4,thr2,f,ci,cc,cj,alpi,rab2,ab,est
++
++   real(wp)  ra(3),rb(3),f1,f2,point(3)
++   real(wp) dtmp(3),qtmp(6),ss(6,6),dd(3,6,6),qq(6,6,6),tmp(6,6)
++   integer ip,jp,iat,jat,izp,jzp,ish,jsh,icao,jcao,iao,jao,jshmax
++   integer ishtyp,jshtyp,iptyp,jptyp,naoi,naoj,mli,mlj,iprim,jprim
++   integer :: il, jl, itr
++   real(wp) :: zi, zj, zetaij, km, hii, hjj, hav, shpoly
++   integer itt(0:3)
++   parameter(itt  =(/0,1,4,10/))
++   real(wp) :: saw(10)
++
++   logical :: exists
++   integer :: u
++   character(len=200) :: path
++
++   exists = testfile_path('build_SDQH0', path)
++   if (.not.exists) then
++     open(newunit=u, file=trim(path), form='unformatted', access='stream')
++     write(u) nat
++     write(u) size(at), at
++     write(u) nao
++     write(u) size(xyz, 1), size(xyz, 2), xyz
++     write(u) size(trans, 1), size(trans, 2), trans
++     write(u) size(selfEnergy, 1), size(selfEnergy, 2), selfEnergy
++     write(u) intcut
++     write(u) size(caoshell, 1), size(caoshell, 2), caoshell
++     write(u) size(saoshell, 1), size(saoshell, 2), saoshell
++     write(u) size(nprim), nprim
++     write(u) size(primcount), primcount
++     write(u) size(alp), alp
++     write(u) size(cont), cont
++   end if
++
++   call gbuild_SDQH0(nShell, hData, nat, at, nbf, nao, xyz, trans, selfEnergy, intcut, caoshell, saoshell, nprim, primcount, alp, cont, sint, dpint, qpint, H0, H0_noovlp)
++
++   if (.not.exists) then
++     write(u) size(sint, 1), size(sint, 2), sint
++     write(u) size(dpint, 1), size(dpint, 2), size(dpint, 3), dpint
++     write(u) size(qpint, 1), size(qpint, 2), size(qpint, 3), qpint
++     write(u) size(H0, 1), H0
++     write(u) size(H0_noovlp, 1), H0_noovlp
++     close(u)
++   end if
+ end subroutine build_SDQH0
+ 
+ 

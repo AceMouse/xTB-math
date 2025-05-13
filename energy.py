@@ -369,7 +369,7 @@ def build_SDQH0(nat, at, nbf, nao, xyz, trans, selfEnergy, \
             ishtyp = angShell[izp, ish]
             for iao in range(0, llao2[ishtyp]):
                 i = iao + saoshell[iat, ish]
-                ii = i * (1 + i)//2  # compute the pairing function. 
+                ii = lin(i, i)  # compute the pairing function. 
                 sint[i,i] = 1.0 + sint[i,i]
                 H0[ii] = H0[ii] + selfEnergy[iat, ish]
                 H0_noovlp[ii] = H0_noovlp[ii] + selfEnergy[iat, ish]
@@ -406,7 +406,7 @@ def build_SDQH0(nat, at, nbf, nao, xyz, trans, selfEnergy, \
     return sint, dpint, qpint, H0, H0_noovlp
 
 # a symmetric version (Cantor) paring function assigning a unique number to each unordered pair of numbers. i.e lin(a,b) = lin(x,y) iff. a = x, b = y or a = y, b = x.
-def lin(i1, i2):
+def lin(i1, i2): # TODO: Test? They duplicate this function a bunch of times
     idum1 = max(i1,i2)
     idum2 = min(i1,i2)
     return idum2 + idum1 * (idum1-1)//2
@@ -820,6 +820,10 @@ if BUILD:
     acc = 1.0
     intcut = max(20.0, 25.0-10.0*np.log10(acc))
     cn = GFN2_coordination_numbers_np(element_ids, positions)
+    # TODO compare with 'cn' from the fortran code
+    # Check the gfn path here. gfn = cn
+    # https://github.com/grimme-lab/xtb/blob/09288659551cde6d98e4514bc23892ec0dbee075/src/disp/coordinationnumber.f90#L339
+    print(cn.shape)
     selfEnergy_H_kappa_kappa = getSelfEnergy(element_ids, cn)
     S, dpint, qpint, H0, H0_noovlp = build_SDQH0(element_cnt, element_ids, \
       basis_nbf, basis_nao, positions, trans, selfEnergy_H_kappa_kappa, intcut, \
