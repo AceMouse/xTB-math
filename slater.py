@@ -727,7 +727,7 @@ def slaterToGauss(ng, n, l, zeta, norm):
 #         return
 #      end if
 #   endif
-    if (n > 5 or n <= 1):
+    if (n > 5 or n <= l):
         if not (n == 6 and ng == 6):
             info = 2
             return alpha, coeff, info
