@@ -7,7 +7,7 @@ from util import euclidian_dist, euclidian_dist_sqr, dist, print_res2, density_i
 
 DIM = True
 rand = np.random.default_rng()
-element_cnt = 1000
+element_cnt = 10
 element_ids = rand.choice(repZeff.shape[0], size=element_cnt)
 positions = rand.random((element_cnt,3))
 atoms = list(zip(element_ids, positions))
@@ -228,7 +228,6 @@ def set_d_functoin(basis,iat,ish,iao,ibf,ipr,npq,l,nprim,zeta,level,valao):
 #subroutine newBasisset(xtbData,n,at,basis,ok)
 
 def new_basis_set_simple(element_ids):
-    print(principalQuantumNumber)
     a = np.zeros(10)
     c = np.zeros(10)
     aR = np.zeros(10)
@@ -278,7 +277,6 @@ def new_basis_set_simple(element_ids):
         basis_fila2[iat,0] = iao+1
         for m in range(nShell[ati]):
             npq = principalQuantumNumber[ati,m]
-            print(npq, ati, m)
             if npq <= 0:
                 quit(1)
             l = angShell[ati,m]
@@ -348,9 +346,6 @@ def new_basis_set_simple(element_ids):
                     j_high = 20
                     j_offset = -3
                     valao = 1
-            if info != 0:
-                print(f"({ati},{m}) slaterToGauss({nprim},{npq},{l},{zeta}) = {a, c, aR, cR ,info}")
-                quit(info)
             for j in range(j_low,j_high):
                 basis_primcount[ibf] = ipr
                 basis_valao    [ibf] = valao*valao_flip
@@ -366,7 +361,7 @@ def new_basis_set_simple(element_ids):
                     ipr+=1
 
                 for p in range(0,nprim):
-                    if l == 0 and ati > 2:
+                    if l == 0 and ati >= 2:
                         basis_alp[ipr]=aS[p]
                         basis_cont[ipr]=-ss*cS[p]
                     else:
@@ -1157,9 +1152,8 @@ if BAS:
     sum2 = 0
     for idx, (output1, output2) in enumerate(zip(x1,x2)):
         close = np.allclose(output1,output2) or np.allclose(output1-1,output2)
-        print(close)
         if not close:
-            print(f"{idx+1:02} normal: {output1.tolist()}\nsimple: {output2.tolist()}")
+            print(f"{idx+1:02} normal: {output1}\nsimple: {output2}")
         allclose &= close
         sum1 += np.sum(output1)
         sum2 += np.sum(output2)
