@@ -811,14 +811,14 @@ def getSelfEnergy(element_ids, cn): # actually the H_\kappa\kappa diagonal terms
 
 
 
+trans = np.zeros((1,3))
+acc = 1.0
+intcut = max(20.0, 25.0-10.0*np.log10(acc))
 BUILD = False
 if BUILD:
-    trans = np.zeros((1,3))
     from basisset import new_basis_set_simple, dim_basis_np
     _, basis_nao, basis_nbf = dim_basis_np(element_ids)
     basis_shells, basis_sh2ao, basis_sh2bf, basis_minalp, basis_level, basis_zeta, basis_valsh, basis_hdiag, basis_alp, basis_cont, basis_hdiag2, basis_aoexp, basis_ash, basis_lsh, basis_ao2sh, basis_nprim, basis_primcount, basis_caoshell, basis_saoshell, basis_fila, basis_fila2, basis_lao, basis_aoat, basis_valao, basis_lao2, basis_aoat2, basis_valao2, ok = new_basis_set_simple(element_ids)
-    acc = 1.0
-    intcut = max(20.0, 25.0-10.0*np.log10(acc))
     cn = GFN2_coordination_numbers_np(element_ids, positions)
     # TODO compare with 'cn' from the fortran code
     # Check the gfn path here. gfn = cn

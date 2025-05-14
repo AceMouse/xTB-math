@@ -322,9 +322,9 @@ def test_h0scal():
     print("\033[0;0m", end='')
 
 
-
-def test_build_SDQH0():
-    for file_path in glob.glob(f'{directory}/build_SDQH0/*.bin'):
+# compare_args_i: compare fortran args to python for iteration i
+def test_build_SDQH0(compare_args_i = -1):
+    for i, file_path in enumerate(glob.glob(f'{directory}/build_SDQH0/*.bin')):
         with open(file_path, 'rb') as f:
             def read_ints(n=1):
                 return np.fromfile(f, dtype=np.int32, count=n)
@@ -369,6 +369,60 @@ def test_build_SDQH0():
             H0_noovlp_res = np.fromfile(f, dtype=np.float64, count=H0_noovlp_res1)
 
             sint, dpint, qpint, H0, H0_noovlp = build_SDQH0(nat, at, nbf, nao, xyz, trans, selfEnergy, intcut, caoshell, saoshell, nprim, primcount, alp, cont)
+
+            ### Print argument comparison ###
+            if (compare_args_i == i):
+                from energy import element_cnt, element_ids, positions, trans as ptrans, getSelfEnergy, GFN2_coordination_numbers_np, intcut as pintcut
+                from basisset import dim_basis_np, new_basis_set_simple
+                _, basis_nao, basis_nbf = dim_basis_np(element_ids)
+                cn = GFN2_coordination_numbers_np(element_ids, positions)
+                selfEnergy_H_kappa_kappa = getSelfEnergy(element_ids, cn)
+
+
+                basis_shells, basis_sh2ao, basis_sh2bf, basis_minalp, basis_level, basis_zeta, basis_valsh, basis_hdiag, basis_alp, basis_cont, basis_hdiag2, basis_aoexp, basis_ash, basis_lsh, basis_ao2sh, basis_nprim, basis_primcount, basis_caoshell, basis_saoshell, basis_fila, basis_fila2, basis_lao, basis_aoat, basis_valao, basis_lao2, basis_aoat2, basis_valao2, ok = new_basis_set_simple(element_ids)
+
+                print(f"🇫 | nat: {nat}")
+                print(f"🐍| nat: {element_cnt}")
+                print()
+                print(f"🇫 | at: {at}")
+                print(f"🐍| at: {element_ids}")
+                print()
+                print(f"🇫 | nbf: {nbf}")
+                print(f"🐍| nbf: {basis_nbf}")
+                print()
+                print(f"🇫 | nao: {nao}")
+                print(f"🐍| nao: {basis_nao}")
+                print()
+                print(f"🇫 | xyz: {xyz}")
+                print(f"🐍| xyz: {positions}")
+                print()
+                print(f"🇫 | trans: {trans}")
+                print(f"🐍| trans: {ptrans}")
+                print()
+                print(f"🇫 | selfEnergy: {selfEnergy}")
+                print(f"🐍| selfEnergy: {selfEnergy_H_kappa_kappa}")
+                print()
+                print(f"🇫 | intcut: {intcut}")
+                print(f"🐍| intcut: {pintcut}")
+                print()
+                print(f"🇫 | caoshell: {caoshell}")
+                print(f"🐍| caoshell: {basis_caoshell}")
+                print()
+                print(f"🇫 | saoshell: {saoshell}")
+                print(f"🐍| saoshell: {basis_saoshell}")
+                print()
+                print(f"🇫 | nprim: {nprim}")
+                print(f"🐍| nprim: {basis_nprim}")
+                print()
+                print(f"🇫 | primcount: {primcount}")
+                print(f"🐍| primcount: {basis_primcount}")
+                print()
+                print(f"🇫 | alp: {alp}")
+                print(f"🐍| alp: {basis_alp}")
+                print()
+                print(f"🇫 | cont: {cont}")
+                print(f"🐍| cont: {basis_cont}")
+
 
             sint_equal = np.array_equal(sint, sint_res)
             if (not sint_equal):
@@ -436,5 +490,5 @@ test_horizontal_shift()
 test_form_product()
 test_dtrf2()
 test_get_multiints()
-test_h0scal()
+#test_h0scal()
 test_build_SDQH0()
