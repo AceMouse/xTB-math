@@ -46,13 +46,13 @@ def compare(fo, py, label, force_equal=False):
                 for dim in range(0,py.ndim-1):
                     closing += idx[dim] != last_index[dim]
                 if closing > 0:
-                    diff += f"{']'*closing}{' '*(py.ndim-closing)}"
+                    diff += f"{']'*closing}"
                     count = 0
-                print(idx, closing)
             last_index = idx
         diff += f'{"\n"*(closing>0)}{" "*(py.ndim-closing)}{"["*closing}'
         if count == max_before_newline:
             diff += "\n"
+            diff += " "*py.ndim
             count = 0
         closing = 0
         diff_val = diff_arr[idx]
@@ -62,7 +62,7 @@ def compare(fo, py, label, force_equal=False):
             if diff_val < 0:
                 color = 31
         pos_space = " " if py[idx] >= 0 else ""
-        diff += f" \033[0;{color}m{f'{pos_space}{py[idx]}': <32}\033[0;0m"
+        diff += f"\033[0;{color}m{f'{pos_space}{py[idx]} ': <32}\033[0;0m"
 
         # Add line breaks when a major axis changes (e.g., new row in 2D, new matrix in 3D)
         count += 1
