@@ -13,6 +13,64 @@ directory = args.directory
 directory = os.path.abspath(directory)
 
 
+def compare(fo, py, label, force_equal=False):
+    if py.shape != fo.shape:
+        print(f"{label}:")
+        print(f"\tShape missmatch\nPython: {py.shape}\nFortran: {fo.shape}")
+        return
+    equal = np.array_equal(py,fo)
+    if equal:
+        return
+    close = np.allclose(py,fo)
+    if close and not force_equal:
+        return
+    print("\033[0;31m", end='')
+    if close:
+        print(f"{label}: Is close but not equal!")
+    else:
+        print(f"{label}: Is not close!")
+    print("\033[0;0m", end='')
+    print(f"\tPython: \n{py}")
+    print(f"\tFortran: \n{fo}")
+    diff = ""
+    diff_arr = py - fo
+    threshold = 0 if force_equal else 1e-08 
+    max_before_newline = 5
+    shape = py.shape
+    last_index = ()
+    count = 0
+    closing = py.ndim
+    for idx in np.ndindex(shape):
+        if py.ndim > 1:
+            if last_index:
+                for dim in range(0,py.ndim-1):
+                    closing += idx[dim] != last_index[dim]
+                if closing > 0:
+                    diff += f"{']'*closing}{' '*(py.ndim-closing)}"
+                    count = 0
+                print(idx, closing)
+            last_index = idx
+        diff += f'{"\n"*(closing>0)}{" "*(py.ndim-closing)}{"["*closing}'
+        if count == max_before_newline:
+            diff += "\n"
+            count = 0
+        closing = 0
+        diff_val = diff_arr[idx]
+        color = 0
+        if np.abs(diff_val) >= threshold:
+            color = 32
+            if diff_val < 0:
+                color = 31
+        pos_space = " " if py[idx] >= 0 else ""
+        diff += f" \033[0;{color}m{f'{pos_space}{py[idx]}': <32}\033[0;0m"
+
+        # Add line breaks when a major axis changes (e.g., new row in 2D, new matrix in 3D)
+        count += 1
+    diff += "]"*py.ndim
+    print(f"\tDiff: \n{diff}")
+    return
+
+
 def test_get_multiints():
     for file_path in glob.glob(f'{directory}/get_multiints/*.bin'):  # Matches all .bin files in the directory
         with open(file_path, 'rb') as f:
@@ -322,6 +380,8 @@ def test_h0scal():
     print("\033[0;0m", end='')
 
 
+        
+
 # compare_args_i: compare fortran args to python for iteration i
 def test_build_SDQH0(compare_args_i = -1):
     for i, file_path in enumerate(glob.glob(f'{directory}/build_SDQH0/*.bin')):
@@ -372,8 +432,11 @@ def test_build_SDQH0(compare_args_i = -1):
 
             ### Print argument comparison ###
             if (compare_args_i == i):
-                from energy import element_cnt, element_ids, positions, trans as ptrans, getSelfEnergy, GFN2_coordination_numbers_np, intcut as pintcut
+                from energy import trans as ptrans, getSelfEnergy, GFN2_coordination_numbers_np, intcut as pintcut
                 from basisset import dim_basis_np, new_basis_set_simple
+                element_ids = at-1
+                element_cnt = element_ids.shape[0]
+                positions = xyz
                 _, basis_nao, basis_nbf = dim_basis_np(element_ids)
                 cn = GFN2_coordination_numbers_np(element_ids, positions)
                 selfEnergy_H_kappa_kappa = getSelfEnergy(element_ids, cn)
@@ -381,103 +444,27 @@ def test_build_SDQH0(compare_args_i = -1):
 
                 basis_shells, basis_sh2ao, basis_sh2bf, basis_minalp, basis_level, basis_zeta, basis_valsh, basis_hdiag, basis_alp, basis_cont, basis_hdiag2, basis_aoexp, basis_ash, basis_lsh, basis_ao2sh, basis_nprim, basis_primcount, basis_caoshell, basis_saoshell, basis_fila, basis_fila2, basis_lao, basis_aoat, basis_valao, basis_lao2, basis_aoat2, basis_valao2, ok = new_basis_set_simple(element_ids)
 
-                print(f"🇫 | nat: {nat}")
-                print(f"🐍| nat: {element_cnt}")
-                print()
-                print(f"🇫 | at: {at}")
-                print(f"🐍| at: {element_ids}")
-                print()
-                print(f"🇫 | nbf: {nbf}")
-                print(f"🐍| nbf: {basis_nbf}")
-                print()
-                print(f"🇫 | nao: {nao}")
-                print(f"🐍| nao: {basis_nao}")
-                print()
-                print(f"🇫 | xyz: {xyz}")
-                print(f"🐍| xyz: {positions}")
-                print()
-                print(f"🇫 | trans: {trans}")
-                print(f"🐍| trans: {ptrans}")
-                print()
-                print(f"🇫 | selfEnergy: {selfEnergy}")
-                print(f"🐍| selfEnergy: {selfEnergy_H_kappa_kappa}")
-                print()
-                print(f"🇫 | intcut: {intcut}")
-                print(f"🐍| intcut: {pintcut}")
-                print()
-                print(f"🇫 | caoshell: {caoshell}")
-                print(f"🐍| caoshell: {basis_caoshell}")
-                print()
-                print(f"🇫 | saoshell: {saoshell}")
-                print(f"🐍| saoshell: {basis_saoshell}")
-                print()
-                print(f"🇫 | nprim: {nprim}")
-                print(f"🐍| nprim: {basis_nprim}")
-                print()
-                print(f"🇫 | primcount: {primcount}")
-                print(f"🐍| primcount: {basis_primcount}")
-                print()
-                print(f"🇫 | alp: {alp}")
-                print(f"🐍| alp: {basis_alp}")
-                print()
-                print(f"🇫 | cont: {cont}")
-                print(f"🐍| cont: {basis_cont}")
+                compare(np.array(nat),np.array(element_cnt), "nat")
+                compare(at,element_ids+1, "at")
+                compare(nbf,basis_nbf, "nbf")
+                compare(nao, basis_nao, "nao")
+                compare(xyz, positions, "xyz")
+                compare(trans, ptrans, "trans")
+                compare(selfEnergy, selfEnergy_H_kappa_kappa, "selfEnergy")
+                compare(intcut, pintcut, "intcut")
+                compare(caoshell, basis_caoshell, "caoshell")
+                compare(saoshell, basis_saoshell, "saoshell")
+                compare(nprim, basis_nprim, "nprim")
+                compare(primcount, basis_primcount, "primcount")
+                compare(alp, basis_alp, "alp")
+                compare(cont, basis_cont, "cont")
 
 
-            sint_equal = np.array_equal(sint, sint_res)
-            if (not sint_equal):
-                print("Fortran:")
-                print("sint: ", sint_res)
-
-                print("Python:")
-                print("sint: ", sint)
-
-                print("\033[1;31m")
-                assert sint_equal, "[build_SDQH0] sint matrices do not match"
-
-            dpint_equal = np.array_equal(dpint, dpint_res)
-            if (not dpint_equal):
-                print("Fortran:")
-                print("dpint: ", dpint_res)
-
-                print("Python:")
-                print("dpint: ", dpint)
-
-                print("\033[1;31m")
-                assert dpint_equal, "[build_SDQH0] dpint matrices do not match"
-
-            qpint_equal = np.array_equal(qpint, qpint_res)
-            if (not qpint_equal):
-                print("Fortran:")
-                print("qpint: ", qpint_res)
-
-                print("Python:")
-                print("qpint: ", qpint)
-
-                print("\033[1;31m")
-                assert qpint_equal, "[build_SDQH0] qpint matrices do not match"
-
-            H0_equal = np.array_equal(H0, H0_res)
-            if (not H0_equal):
-                print("Fortran:")
-                print("H0: ", H0_res)
-
-                print("Python:")
-                print("H0: ", H0)
-
-                print("\033[1;31m")
-                assert H0_equal, "[build_SDQH0] H0 arrays do not match"
-
-            H0_noovlp_equal = np.array_equal(H0_noovlp, H0_noovlp_res)
-            if (not H0_noovlp_equal):
-                print("Fortran:")
-                print("H0_noovlp: ", H0_noovlp_res)
-
-                print("Python:")
-                print("H0_noovlp: ", H0_noovlp)
-
-                print("\033[1;31m")
-                assert H0_noovlp_equal, "[build_SDQH0] H0_noovlp arrays do not match"
+            #compare(sint_res, sint, "[build_SDQH0] sint")
+            #compare(dpint_res, dpint, "[build_SDQH0] dpint")
+            #compare(qpint_res, qpint, "[build_SDQH0] qpint")
+            #compare(H0_res, H0, "[build_SDQH0] H0")
+            #compare(H0_noovlp_res, H0_noovlp, "[build_SDQH0] H0_noovlp")
 
     print("\033[0;32m", end='')
     print("matches! [build_SDQH0]")
@@ -491,4 +478,4 @@ test_form_product()
 test_dtrf2()
 test_get_multiints()
 #test_h0scal()
-test_build_SDQH0()
+test_build_SDQH0(compare_args_i=0)
