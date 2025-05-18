@@ -521,6 +521,207 @@ index 0000000..aaf4ae3
 +  end function testfile_path
 +
 +end module utils
+diff --git a/src/xtb/basisset.f90 b/src/xtb/basisset.f90
+index ad99d35..9bf1389 100644
+--- a/src/xtb/basisset.f90
++++ b/src/xtb/basisset.f90
+@@ -22,6 +22,7 @@ module xtb_basis
+    use xtb_type_basisset
+    use xtb_xtb_data
+    use xtb_slater
++   use utils
+    implicit none
+    private
+ 
+@@ -30,7 +31,7 @@ module xtb_basis
+ 
+ contains
+ 
+-subroutine newBasisset(xtbData,n,at,basis,ok)
++subroutine gnewBasisset(xtbData,n,at,basis,ok)
+    type(TxTBData), intent(in) :: xtbData
+    type(TBasisset),intent(inout) :: basis
+    integer, intent(in)  :: n
+@@ -141,8 +142,8 @@ subroutine newBasisset(xtbData,n,at,basis,ok)
+                basis%cont(ipr)=-ss*c(p)
+             enddo
+             call atovlp(0,basis%nprim(ibf),basis%nprim(ibf), &
+-               &        basis%alp(idum),basis%alp(idum), &
+-               &        basis%cont(idum),basis%cont(idum),ss)
++               &        basis%alp,basis%alp, &
++               &        basis%cont,basis%cont,ss)
+             do p=1,basis%nprim(ibf)
+                basis%cont(idum-1+p)=basis%cont(idum-1+p)/sqrt(ss)
+             enddo
+@@ -268,8 +269,8 @@ subroutine newBasisset(xtbData,n,at,basis,ok)
+                basis%cont(ipr)=-ss*cs(p)
+             enddo
+             call atovlp(0,basis%nprim(ibf),basis%nprim(ibf), &
+-               &        basis%alp(idum),basis%alp(idum), &
+-               &        basis%cont(idum),basis%cont(idum),ss)
++               &        basis%alp,basis%alp, &
++               &        basis%cont,basis%cont,ss)
+             do p=1,basis%nprim(ibf)
+                basis%cont(idum-1+p)=basis%cont(idum-1+p)/sqrt(ss)
+             enddo
+@@ -305,6 +306,65 @@ subroutine newBasisset(xtbData,n,at,basis,ok)
+ 
+    ok = all(basis%alp(:ipr) > 0.0_wp) .and. basis%nbf == ibf .and. basis%nao == iao
+ 
++end subroutine gnewBasisset
++
++subroutine newBasisset(xtbData,n,at,basis,ok)
++   type(TxTBData), intent(in) :: xtbData
++   type(TBasisset),intent(inout) :: basis
++   integer, intent(in)  :: n
++   integer, intent(in)  :: at(n)
++   logical, intent(out) :: ok
++
++   integer  :: elem,valao
++   integer  :: i,j,m,l,iat,ati,ish,ibf,iao,ipr,p,nprim,thisprimR,idum,npq,npqR,pqn
++   real(wp) :: a(10),c(10),zeta,k1,k2,split1,pp,zqfR,zcnfR,qi,level
++   real(wp) :: aR(10),cR(10),ss
++   real(wp) :: as(10),cs(10)
++   integer :: info
++
++   logical :: exists
++   integer :: u
++   character(len=200) :: path
++
++   exists = testfile_path('newBasisset', path)
++   if (.not.exists) then
++     open(newunit=u, file=trim(path), form='unformatted', access='stream')
++     write(u) size(at), at
++   end if
++
++   call gnewBasisset(xtbData,n,at,basis,ok)
++
++   if (.not.exists) then
++     write(u) size(basis%shells, 1), size(basis%shells, 2), basis%shells
++     write(u) size(basis%sh2ao, 1), size(basis%sh2ao, 2), basis%sh2ao
++     write(u) size(basis%sh2bf, 1), size(basis%sh2bf, 2), basis%sh2bf
++     write(u) size(basis%minalp), basis%minalp
++     write(u) size(basis%level), basis%level
++     write(u) size(basis%zeta), basis%zeta
++     write(u) size(basis%valsh), basis%valsh
++     write(u) size(basis%hdiag), basis%hdiag
++     write(u) size(basis%alp), basis%alp
++     write(u) size(basis%cont), basis%cont
++     write(u) size(basis%hdiag2), basis%hdiag2
++     write(u) size(basis%aoexp), basis%aoexp
++     write(u) size(basis%ash), basis%ash
++     write(u) size(basis%lsh), basis%lsh
++     write(u) size(basis%ao2sh), basis%ao2sh
++     write(u) size(basis%nprim), basis%nprim
++     write(u) size(basis%primcount), basis%primcount
++     write(u) size(basis%caoshell, 1), size(basis%caoshell, 2), basis%caoshell
++     write(u) size(basis%saoshell, 1), size(basis%saoshell, 2), basis%saoshell
++     write(u) size(basis%fila, 1), size(basis%fila, 2), basis%fila
++     write(u) size(basis%fila2, 1), size(basis%fila2, 2), basis%fila2
++     write(u) size(basis%lao), basis%lao
++     write(u) size(basis%aoat), basis%aoat
++     write(u) size(basis%valao), basis%valao
++     write(u) size(basis%lao2), basis%lao2
++     write(u) size(basis%aoat2), basis%aoat2
++     write(u) size(basis%valao2), basis%valao2
++     write(u) ok
++     close(u)
++   end if
+ end subroutine newBasisset
+ 
+ 
+@@ -327,7 +387,7 @@ subroutine xbasis0(xtbData,n,at,basis)
+ 
+ end subroutine xbasis0
+ 
+-subroutine dim_basis(xtbData,n,at,nshell,nao,nbf)
++subroutine gdim_basis(xtbData,n,at,nshell,nao,nbf)
+    type(TxTBData), intent(in) :: xtbData
+    integer,intent(in)  :: n
+    integer,intent(in)  :: at(n)
+@@ -371,13 +431,42 @@ subroutine dim_basis(xtbData,n,at,nshell,nao,nbf)
+       endif
+    enddo
+ 
+-end subroutine dim_basis
++end subroutine gdim_basis
+ 
++subroutine dim_basis(xtbData,n,at,nshell,nao,nbf)
++   type(TxTBData), intent(in) :: xtbData
++   integer,intent(in)  :: n
++   integer,intent(in)  :: at(n)
++   integer,intent(out) :: nshell
++   integer,intent(out) :: nao
++   integer,intent(out) :: nbf
++
++   integer i,j,k,l
++
++   logical :: exists
++   integer :: u
++   character(len=200) :: path
++
++   exists = testfile_path('dim_basis', path)
++   if (.not.exists) then
++     open(newunit=u, file=trim(path), form='unformatted', access='stream')
++     write(u) size(at), at
++   end if
++
++   call gdim_basis(xtbData,n,at,nshell,nao,nbf)
++
++   if (.not.exists) then
++     write(u) nshell
++     write(u) nao
++     write(u) nbf
++     close(u)
++   end if
++ end subroutine dim_basis
+ 
+ ! ------------------------------------------------------------------------
+ !  Helper functions
+ 
+-subroutine atovlp(l,npri,nprj,alpa,alpb,conta,contb,ss)
++subroutine gatovlp(l,npri,nprj,alpa,alpb,conta,contb,ss)
+    integer l,npri,nprj
+    real(wp) alpa(*),alpb(*)
+    real(wp) conta(*),contb(*)
+@@ -402,6 +491,37 @@ subroutine atovlp(l,npri,nprj,alpa,alpb,conta,contb,ss)
+       enddo
+    enddo
+ 
++end subroutine gatovlp
++
++subroutine atovlp(l,npri,nprj,alpa,alpb,conta,contb,ss)
++   integer l,npri,nprj
++   real(wp) alpa(:),alpb(:)
++   real(wp) conta(:),contb(:)
++   real(wp) ss
++
++   integer ii,jj
++   real(wp) ab,s00,sss,ab05
++
++   logical :: exists
++   integer :: u
++   character(len=200) :: path
++
++   exists = testfile_path('atovlp', path)
++   if (.not.exists) then
++     open(newunit=u, file=trim(path), form='unformatted', access='stream')
++     write(u) l, npri, nprj
++     write(u) size(alpa), alpa
++     write(u) size(alpb), alpb
++     write(u) size(conta), conta
++     write(u) size(contb), contb
++   end if
++
++   call gatovlp(l,npri,nprj,alpa,alpb,conta,contb,ss)
++
++   if (.not.exists) then
++     write(u) ss
++     close(u)
++   end if
+ end subroutine atovlp
+ 
+ subroutine set_s_function(basis,iat,ish,iao,ibf,ipr,npq,l,nprim,zeta,level,valao)
 diff --git a/src/xtb/hamiltonian.f90 b/src/xtb/hamiltonian.f90
 index 59ca64c..29114bb 100644
 --- a/src/xtb/hamiltonian.f90

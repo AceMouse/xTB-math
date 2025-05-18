@@ -1,4 +1,5 @@
 import numpy as np
+from basisset import atovlp, dim_basis, new_basis_set
 from energy import build_SDQH0, dtrf2, form_product, get_multiints, h0scal, horizontal_shift, multipole_3d, olapp
 import glob
 import argparse
@@ -12,6 +13,33 @@ args = parser.parse_args()
 directory = args.directory
 directory = os.path.abspath(directory)
 
+def assert_compare(val, val_res, val_name, fn_name):
+    print("\033[1;31m")
+    print("Fortran:")
+    print(f"{val_name}: ", val_res)
+
+    print("Python:")
+    print(f"{val_name}: ", val)
+
+    assert False, f"[{fn_name}] {val_name} do not match"
+
+def is_equal(val, val_res, val_name, fn_name):
+    eq = val == val_res
+    if (not eq):
+        assert_compare(val, val_res, val_name, fn_name)
+    return True
+
+def is_array_equal(val, val_res, val_name, fn_name):
+    eq = np.array_equal(val, val_res)
+    if (not eq):
+        assert_compare(val, val_res, val_name, fn_name)
+    return True
+
+def is_array_close(val, val_res, val_name, fn_name):
+    eq = np.allclose(val, val_res)
+    if (not eq):
+        assert_compare(val, val_res, val_name, fn_name)
+    return True
 
 def compare(fo, py, label, force_equal=False):
     if py.shape != fo.shape:
@@ -471,11 +499,184 @@ def test_build_SDQH0(compare_args_i = -1):
     print("\033[0;0m", end='')
 
 
+def test_dim_basis():
+    fn_name = "dim_basis"
+    for i, file_path in enumerate(glob.glob(f'{directory}/{fn_name}/*.bin')):
+        with open(file_path, 'rb') as f:
+            def read_ints(n=1):
+                return np.fromfile(f, dtype=np.int32, count=n)
+
+            at1 = read_ints(1)[0]
+            at = np.fromfile(f, dtype=np.int32, count=at1)
+
+            nshell_res = read_ints(1)[0]
+            nao_res = read_ints(1)[0]
+            nbf_res = read_ints(1)[0]
+
+            nshell, nao, nbf = dim_basis(at)
+
+            is_array_equal(nshell, nshell_res, "nshell", fn_name)
+            is_equal(nao, nao_res, "nao", fn_name)
+            is_equal(nbf, nbf_res, "nbf", fn_name)
+
+    print("\033[0;32m", end='')
+    print(f"matches! [{fn_name}]")
+    print("\033[0;0m", end='')
+
+def test_atovlp():
+    fn_name = "atovlp"
+    for i, file_path in enumerate(glob.glob(f'{directory}/{fn_name}/*.bin')):
+        with open(file_path, 'rb') as f:
+            def read_ints(n=1):
+                return np.fromfile(f, dtype=np.int32, count=n)
+
+            def read_reals(n=1):
+                return np.fromfile(f, dtype=np.float64, count=n)
+
+            l, npri, nprj = read_ints(3)
+            alpa1 = read_ints(1)[0]
+            alpa = np.fromfile(f, dtype=np.float64, count=alpa1)
+            alpb1 = read_ints(1)[0]
+            alpb = np.fromfile(f, dtype=np.float64, count=alpb1)
+            conta1 = read_ints(1)[0]
+            conta = np.fromfile(f, dtype=np.float64, count=conta1)
+            contb1 = read_ints(1)[0]
+            contb = np.fromfile(f, dtype=np.float64, count=contb1)
+
+            ss_res = read_reals(1)[0]
+
+            ss = atovlp(l, npri, nprj, alpa, alpb, conta, contb)
+
+            is_equal(ss, ss_res, "ss", fn_name)
+
+    print("\033[0;32m", end='')
+    print(f"matches! [{fn_name}]")
+    print("\033[0;0m", end='')
+
+def test_new_basis_set():
+    fn_name = "new_basis_set"
+    for i, file_path in enumerate(glob.glob(f'{directory}/{fn_name}/*.bin')):
+        with open(file_path, 'rb') as f:
+            def read_ints(n=1):
+                return np.fromfile(f, dtype=np.int32, count=n)
+
+            def read_logicals(n=1):
+                return np.fromfile(f, dtype=np.int32, count=n).astype(bool)
+
+
+            m = read_ints(1)[0]
+            at = np.fromfile(f, dtype=np.int32, count=m)
+
+
+            m, n = read_ints(2)
+            shells = np.fromfile(f, dtype=np.int32, count=m * n).reshape((n, m))
+            m, n = read_ints(2)
+            sh2ao = np.fromfile(f, dtype=np.int32, count=m * n).reshape((n, m))
+            m, n = read_ints(2)
+            sh2bf = np.fromfile(f, dtype=np.int32, count=m * n).reshape((n, m))
+
+            m = read_ints(1)[0]
+            minalp = np.fromfile(f, dtype=np.float64, count=m)
+            m = read_ints(1)[0]
+            level = np.fromfile(f, dtype=np.float64, count=m)
+            m = read_ints(1)[0]
+            zeta = np.fromfile(f, dtype=np.float64, count=m)
+
+            m = read_ints(1)[0]
+            valsh = np.fromfile(f, dtype=np.int32, count=m)
+            m = read_ints(1)[0]
+            hdiag = np.fromfile(f, dtype=np.float64, count=m)
+            m = read_ints(1)[0]
+            alp = np.fromfile(f, dtype=np.float64, count=m)
+            m = read_ints(1)[0]
+            cont = np.fromfile(f, dtype=np.float64, count=m)
+            m = read_ints(1)[0]
+            hdiag2 = np.fromfile(f, dtype=np.float64, count=m)
+            m = read_ints(1)[0]
+            aoexp = np.fromfile(f, dtype=np.float64, count=m)
+            m = read_ints(1)[0]
+            ash = np.fromfile(f, dtype=np.int32, count=m)
+            m = read_ints(1)[0]
+            lsh = np.fromfile(f, dtype=np.int32, count=m)
+            m = read_ints(1)[0]
+            ao2sh = np.fromfile(f, dtype=np.int32, count=m)
+            m = read_ints(1)[0]
+            nprim = np.fromfile(f, dtype=np.int32, count=m)
+            m = read_ints(1)[0]
+            primcount = np.fromfile(f, dtype=np.int32, count=m)
+
+            m, n = read_ints(2)
+            caoshell = np.fromfile(f, dtype=np.int32, count=m * n).reshape((n, m))
+            m, n = read_ints(2)
+            saoshell = np.fromfile(f, dtype=np.int32, count=m * n).reshape((n, m))
+            m, n = read_ints(2)
+            fila = np.fromfile(f, dtype=np.int32, count=m * n).reshape((n, m))
+            m, n = read_ints(2)
+            fila2 = np.fromfile(f, dtype=np.int32, count=m * n).reshape((n, m))
+
+            m = read_ints(1)[0]
+            lao = np.fromfile(f, dtype=np.int32, count=m)
+            m = read_ints(1)[0]
+            aoat = np.fromfile(f, dtype=np.int32, count=m)
+            m = read_ints(1)[0]
+            valao = np.fromfile(f, dtype=np.int32, count=m)
+            m = read_ints(1)[0]
+            lao2 = np.fromfile(f, dtype=np.int32, count=m)
+            m = read_ints(1)[0]
+            aoat2 = np.fromfile(f, dtype=np.int32, count=m)
+            m = read_ints(1)[0]
+            valao2 = np.fromfile(f, dtype=np.int32, count=m)
+
+            ok_res = read_logicals(1)[0]
+
+            basis_shells, basis_sh2ao, basis_sh2bf, basis_minalp, basis_level, basis_zeta, basis_valsh,\
+            basis_hdiag, basis_alp, basis_cont, basis_hdiag2, basis_aoexp, basis_ash, basis_lsh, basis_ao2sh, \
+            basis_nprim, basis_primcount, basis_caoshell, basis_saoshell, basis_fila, basis_fila2, basis_lao, \
+            basis_aoat, basis_valao, basis_lao2, basis_aoat2, basis_valao2, ok = new_basis_set(at)
+
+            is_array_equal(shells, basis_shells, "shells", fn_name)
+            is_array_equal(sh2ao, basis_sh2ao, "sh2ao", fn_name)
+            is_array_equal(sh2bf, basis_sh2bf, "sh2bf", fn_name)
+            is_array_equal(minalp, basis_minalp, "minalp", fn_name)
+            is_array_equal(level, basis_level, "level", fn_name)
+            is_array_equal(zeta, basis_zeta, "zeta", fn_name)
+            is_array_equal(valsh, basis_valsh, "valsh", fn_name)
+            is_array_equal(hdiag, basis_hdiag, "hdiag", fn_name)
+            is_array_equal(alp, basis_alp, "alp", fn_name)
+            is_array_equal(cont, basis_cont, "cont", fn_name)
+            is_array_equal(hdiag2, basis_hdiag2, "hdiag2", fn_name)
+            is_array_equal(aoexp, basis_aoexp, "aoexp", fn_name)
+            is_array_equal(ash, basis_ash, "ash", fn_name)
+            is_array_equal(lsh, basis_lsh, "lsh", fn_name)
+            is_array_equal(ao2sh, basis_ao2sh, "ao2sh", fn_name)
+            is_array_equal(nprim, basis_nprim, "nprim", fn_name)
+            is_array_equal(primcount, basis_primcount, "primcount", fn_name)
+            is_array_equal(caoshell, basis_caoshell, "caoshell", fn_name)
+            is_array_equal(saoshell, basis_saoshell, "saoshell", fn_name)
+            is_array_equal(fila, basis_fila, "fila", fn_name)
+            is_array_equal(fila2, basis_fila2, "fila2", fn_name)
+            is_array_equal(lao, basis_lao, "lao", fn_name)
+            is_array_equal(aoat, basis_aoat, "aoat", fn_name)
+            is_array_equal(valao, basis_valao, "valao", fn_name)
+            is_array_equal(lao2, basis_lao2, "lao2", fn_name)
+            is_array_equal(aoat2, basis_aoat2, "aoat2", fn_name)
+            is_array_equal(valao2, basis_valao2, "valao2", fn_name)
+
+            is_equal(ok_res, ok, "ok", fn_name)
+
+    print("\033[0;32m", end='')
+    print(f"matches! [{fn_name}]")
+    print("\033[0;0m", end='')
+
+
 test_olapp()
 test_multipole_3d()
 test_horizontal_shift()
 test_form_product()
 test_dtrf2()
 test_get_multiints()
-#test_h0scal()
+test_h0scal()   # TODO: FAILS
 test_build_SDQH0(compare_args_i=0)
+test_dim_basis()    # TODO: FAILS
+test_atovlp()
+test_new_basis_set()

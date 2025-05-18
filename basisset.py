@@ -98,8 +98,9 @@ if DIM:
 #
 #end subroutine atovlp
 
-def atovlp(l, npri,nprj, alpa, alpb, conta, contb):
+def atovlp(l, npri, nprj, alpa, alpb, conta, contb):
     ss = 0.0
+    sss = 0.0
     for ii in range(0,npri):
         for jj in range(0,nprj):
             ab = 1./(alpa[ii]+alpb[jj])
