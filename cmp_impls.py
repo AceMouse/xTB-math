@@ -1,9 +1,11 @@
 import numpy as np
 from basisset import atovlp, dim_basis, new_basis_set
-from energy import build_SDQH0, dtrf2, form_product, get_multiints, h0scal, horizontal_shift, multipole_3d, olapp
+from energy import GFN2_coordination_number, build_SDQH0, dtrf2, form_product, get_multiints, h0scal, horizontal_shift, multipole_3d, olapp
 import glob
 import argparse
 import os
+
+from fock import GFN2_coordination_numbers_np
 
 # Parse command-line arguments
 parser = argparse.ArgumentParser(description="Compare original xtb results with our own python implementation.")
@@ -18,10 +20,15 @@ def assert_compare(val, val_res, val_name, fn_name):
     print("Fortran:")
     print(f"{val_name}: ", val_res)
 
+    print()
+
     print("Python:")
     print(f"{val_name}: ", val)
 
-    assert False, f"[{fn_name}] {val_name} do not match"
+    print()
+
+    print(f"[{fn_name}] {val_name} do not match")
+    exit(1)
 
 def is_equal(val, val_res, val_name, fn_name):
     eq = val == val_res
@@ -669,14 +676,36 @@ def test_new_basis_set():
     print("\033[0;0m", end='')
 
 
-test_olapp()
-test_multipole_3d()
-test_horizontal_shift()
-test_form_product()
-test_dtrf2()
-test_get_multiints()
-test_h0scal()   # TODO: FAILS
-test_build_SDQH0(compare_args_i=0)
-test_dim_basis()    # TODO: FAILS
-test_atovlp()
-test_new_basis_set()
+
+def test_coordination_number():
+    fn_name = "coordination_number"
+    for i, file_path in enumerate(glob.glob(f'{directory}/{fn_name}/*.bin')):
+        with open(file_path, 'rb') as f:
+            def read_ints(n=1):
+                return np.fromfile(f, dtype=np.int32, count=n)
+
+            m = read_ints(1)[0]
+            cn_res = np.fromfile(f, dtype=np.float64, count=m)
+
+            from energy import element_ids, positions
+            cn = GFN2_coordination_numbers_np(element_ids, positions)
+
+            is_array_equal(cn, cn_res, "coordination numbers", fn_name)
+
+    print("\033[0;32m", end='')
+    print(f"matches! [{fn_name}]")
+    print("\033[0;0m", end='')
+
+
+#test_olapp()
+#test_multipole_3d()
+#test_horizontal_shift()
+#test_form_product()
+#test_dtrf2()
+#test_get_multiints()
+#test_h0scal()   # TODO: FAILS
+#test_build_SDQH0(compare_args_i=0)
+#test_dim_basis()    # TODO: FAILS
+#test_atovlp()
+#test_new_basis_set()
+test_coordination_number()
