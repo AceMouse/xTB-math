@@ -43,7 +43,8 @@ def GFN2_coordination_numbers_np(element_ids, positions):
     R_cov_stack = np.broadcast_to(R_cov, (R_cov.shape[0], R_cov.shape[0])) 
     R_covs = R_cov_stack + R_cov_stack.transpose()
     distances = euclidian_dist(positions)**2
-    res = (1 + np.exp(-10 * (4 * R_covs/3 * distances - 1)))**-1 * (1 + np.exp(-20 * (4 * (R_covs+2)/3 * distances - 1)))**-1
+#    res = (1 + np.exp(-10 * (4 * R_covs/3 * distances - 1)))**-1 * (1 + np.exp(-20 * (4 * (R_covs+2)/3 * distances - 1)))**-1
+    res = 1.0/(1.0+np.exp(-10*(R_covs/distances-1.0)))*1.0/(1.0+np.exp(-2*10.0*((R_covs+2)/distances-1.0)))
     np.fill_diagonal(res,0)
     coordination_numbers = np.sum(res, axis=1)
     return coordination_numbers
@@ -59,9 +60,93 @@ def GFN2_coordination_number(A_idx, element_ids, positions):
             v2 = positions[B_idx]
             R_Bcov = atomicRadii[B]
             R_AB = dist(v1,v2)**2
-            CNp_A += (1 + exp(-10 * (4 * (R_Acov + R_Bcov)/3 * R_AB - 1)))**-1 * (1 + exp(-20 * (4 * (R_Acov + R_Bcov + 2)/3 * R_AB - 1)))**-1
+            #CNp_A += (1 + exp(-10 * (4 * (R_Acov + R_Bcov)/3 * R_AB - 1)))**-1 * (1 + exp(-20 * (4 * (R_Acov + R_Bcov + 2)/3 * R_AB - 1)))**-1
+            CNp_A += 1.0/(1.0+np.exp(-10*((R_Acov+R_Bcov)/R_AB-1.0)))*1.0/(1.0+np.exp(-2*10.0*((R_Acov+R_Bcov+2)/R_AB-1.0)))
     return CNp_A
 
+def ncoordLatP(element_ids, positions):
+    rcov = np.array([0.80628307170014579, 1.1590319155689597, 3.0235615188755465, 2.3684565231191779, 1.9401186412784759, 1.8897259492972165, 1.7889405653346984, 1.5873697974096619, 1.6125661434002916, 1.6881551813721805, 3.5274884386881378, 3.1495432488286945, 2.8471870969411395, 2.6204199830254740, 2.7715980589692513, 2.5700272910442146, 2.4944382530723259, 2.4188492151004373, 4.4345568943508020, 3.8802372825569518, 3.3511140167537312, 3.0739542108568059, 3.0487578648661766, 2.7715980589692513, 2.6960090209973626, 2.6204199830254740, 2.5196345990629556, 2.4944382530723259, 2.5448309450535853, 2.7464017129786220, 2.8219907509505107, 2.7464017129786220, 2.8975797889223984, 2.7715980589692513, 2.8723834429317692, 2.9479724809036578, 4.7621093922289859, 4.2077897804351361, 3.7038628606225448, 3.5022920926975076, 3.3259176707631020, 3.1243469028380648, 2.8975797889223984, 2.8471870969411395, 2.8471870969411395, 2.7212053669879919, 2.8975797889223984, 3.0991505568474356, 3.2251322868005832, 3.1747395948193238, 3.1747395948193238, 3.0991505568474356, 3.3259176707631020, 3.3007213247724718, 5.2660363120415772, 4.4345568943508020, 4.0818080504819880, 3.7038628606225448, 3.9810226665194701, 3.9558263205288404, 3.9306299745382112, 3.9054336285475810, 3.8046482445850631, 3.8298445905756928, 3.8046482445850631, 3.7794518985944330, 3.7542555526038037, 3.7542555526038037, 3.7290592066131740, 3.8550409365663221, 3.6786665146319151, 3.4518994007162491, 3.3007213247724718, 3.0991505568474356, 2.9731688268942875, 2.9227761349130286, 2.7967944049598810, 2.8219907509505107, 2.8471870969411395, 3.3259176707631020, 3.2755249787818421, 3.2755249787818421, 3.4267030547256199, 3.3007213247724718, 3.4770957467068784, 3.5778811306693967, 5.0644655441165405, 4.5605386243039501, 4.2077897804351361, 3.9810226665194701, 3.8298445905756928, 3.8550409365663221, 3.8802372825569518, 3.9054336285475810, 3.7542555526038037, 3.7542555526038037, 3.8046482445850631, 3.8046482445850631, 3.7290592066131740, 3.7794518985944330, 3.9306299745382112, 3.9810226665194701, 3.6534701686412858, 3.5526847846787675, 3.3763103627443609, 3.2503286327912129, 3.1999359408099539, 3.0487578648661766, 2.9227761349130286, 2.8975797889223984, 2.7464017129786220, 3.0739542108568059, 3.4267030547256199, 3.6030774766600264, 3.6786665146319151, 3.9810226665194701, 3.7290592066131740, 3.9558263205288404], dtype = np.float64)
+    cutoff = 40.0
+#   cn = 0.0_wp
+    cn = np.zeros(element_ids.shape[0])
+#   dcndr = 0.0_wp
+#   dcndL = 0.0_wp
+#   cutoff2 = cutoff**2
+    cutoff2 = cutoff**2
+#
+#   !$omp parallel do default(none) private(den) shared(enscale, rcov, en)&
+#   !$omp reduction(+:cn, dcndr, dcndL) shared(mol, kcn, trans, cutoff2) &
+#   !$omp private(jat, itr, ati, atj, r2, rij, r1, rc, countf, countd, stress)
+    
+#   !> Parameter for electronegativity scaling
+    k4=4.10451
+
+#   !> Parameter for electronegativity scaling
+    k5=19.08857
+
+#   !> Parameter for electronegativity scaling
+    k6=2*11.28174**2
+#   do iat = 1, len(mol)
+    for iat in range(element_ids.shape[0]):
+#      ati = mol%at(iat)
+        ati = element_ids[iat]
+#      do jat = 1, iat
+        for jat in range(iat+1):
+#         atj = mol%at(jat)
+            atj = element_ids[jat]
+#
+#         if (enscale) then
+#            den = k4*exp(-(abs(en(ati)-en(atj)) + k5)**2/k6)
+#            den = k4*np.exp(-(np.abs(paulingEN[ati]-paulingEN[atj]) + k5)**2/k6)
+            den = 1
+#         else
+#            den = 1.0_wp
+#         end if
+#
+#         do itr = 1, size(trans, dim=2)
+#            rij = mol%xyz(:, iat) - (mol%xyz(:, jat) + trans(:, itr))
+            rij = positions[iat, :] - positions[jat, :]
+#            r2 = sum(rij**2)
+            r2 = np.sum(rij**2)
+#            if (r2 > cutoff2 .or. r2 < 1.0e-12_wp) cycle
+            if (r2 > cutoff2 or r2 < 1.0e-12):
+                continue
+#            r1 = sqrt(r2)
+            r1 = np.sqrt(r2)
+#
+#            rc = rcov(ati) + rcov(atj)
+            rc = rcov[ati] + rcov[atj]
+            
+#
+#            countf = den * cfunc(kcn, r1, rc)
+            kcn = 10.0
+            countf = den * (1.0/(1.0+np.exp(-kcn*(rc/r1-1.0))))*(1.0/(1.0+np.exp(-2*kcn*((rc+2)/r1-1.0))))
+#            countd = den * dfunc(kcn, r1, rc) * rij/r1
+#
+#            cn(iat) = cn(iat) + countf
+            cn[iat] += countf
+#            if (iat /= jat) then
+#               cn(jat) = cn(jat) + countf
+#            end if
+            if iat != jat:
+                cn[jat] += countf
+    return cn
+#
+#            dcndr(:, iat, iat) = dcndr(:, iat, iat) + countd
+#            dcndr(:, jat, jat) = dcndr(:, jat, jat) - countd
+#            dcndr(:, iat, jat) = dcndr(:, iat, jat) + countd
+#            dcndr(:, jat, iat) = dcndr(:, jat, iat) - countd
+#
+#            stress = spread(countd, 1, 3) * spread(rij, 2, 3)
+#
+#            dcndL(:, :, iat) = dcndL(:, :, iat) + stress
+#            if (iat /= jat) then
+#               dcndL(:, :, jat) = dcndL(:, :, jat) + stress
+#            end if
+#
+#         end do
+#      end do
+#   end do
 def fock_isotropic_electrostatic_and_exchange_correlation(element_ids, positions, overlap_matrix, partial_mulliken_charges):
     fock_matrix = [[0]*len(overlap_matrix[0])]*len(overlap_matrix)
     for i,A in enumerate(element_ids):

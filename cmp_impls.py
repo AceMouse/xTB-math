@@ -5,7 +5,7 @@ import glob
 import argparse
 import os
 
-from fock import GFN2_coordination_numbers_np
+from fock import GFN2_coordination_numbers_np, ncoordLatP
 
 # Parse command-line arguments
 parser = argparse.ArgumentParser(description="Compare original xtb results with our own python implementation.")
@@ -52,13 +52,13 @@ def compare(fo, py, label, force_equal=False):
     if py.shape != fo.shape:
         print(f"{label}:")
         print(f"\tShape missmatch\nPython: {py.shape}\nFortran: {fo.shape}")
-        return
+        return False
     equal = np.array_equal(py,fo)
     if equal:
-        return
+        return True
     close = np.allclose(py,fo)
     if close and not force_equal:
-        return
+        return True
     print("\033[0;31m", end='')
     if close:
         print(f"{label}: Is close but not equal!")
@@ -103,7 +103,7 @@ def compare(fo, py, label, force_equal=False):
         count += 1
     diff += "]"*py.ndim
     print(f"\tDiff: \n{diff}")
-    return
+    return False
 
 
 def test_get_multiints():
@@ -689,9 +689,12 @@ def test_coordination_number():
 
             from xyz_reader import parse_xyz
             element_ids, positions = parse_xyz("./caffeine.xyz")
-            cn = GFN2_coordination_numbers_np(element_ids, positions)
+            #cn = GFN2_coordination_numbers_np(element_ids, positions)
+            cn = ncoordLatP(element_ids, positions)
 
-            is_array_equal(cn, cn_res, "coordination numbers", fn_name)
+            #is_array_equal(cn, cn_res, "coordination numbers", fn_name)
+            if not compare(cn_res,cn, "coordination numbers"):
+                quit(0)
 
     print("\033[0;32m", end='')
     print(f"matches! [{fn_name}]")
