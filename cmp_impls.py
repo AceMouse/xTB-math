@@ -513,7 +513,7 @@ def test_dim_basis():
             nao_res = read_ints(1)[0]
             nbf_res = read_ints(1)[0]
 
-            nshell, nao, nbf = dim_basis(at)
+            nshell, nao, nbf = dim_basis(at-1)
 
             is_array_equal(nshell, nshell_res, "nshell", fn_name)
             is_equal(nao, nao_res, "nao", fn_name)
