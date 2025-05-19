@@ -1,40 +1,3 @@
-diff --git a/src/disp/coordinationnumber.f90 b/src/disp/coordinationnumber.f90
-index c759739..f38eb8d 100644
---- a/src/disp/coordinationnumber.f90
-+++ b/src/disp/coordinationnumber.f90
-@@ -25,6 +25,7 @@ module xtb_disp_coordinationnumber
-    use xtb_type_molecule, only : TMolecule, len
-    use xtb_type_neighbourlist, only : TNeighbourList
-    use xtb_type_latticepoint, only : TLatticePoint, init_l
-+   use utils
-    implicit none
-    private
- 
-@@ -326,6 +327,10 @@ subroutine getCoordinationNumberLP(mol, trans, cutoff, cf, cn, dcndr, dcndL)
-    real(wp), parameter :: kcn_erf = 7.5_wp
-    real(wp), parameter :: kcn_gfn = 10.0_wp
- 
-+   logical :: exists
-+   integer :: u
-+   character(len=200) :: path
-+
-    select case(cf)
-    case(cnType%exp)
-       call ncoordLatP(mol, trans, cutoff, kcn_exp, expCount, dexpCount, &
-@@ -339,6 +344,13 @@ subroutine getCoordinationNumberLP(mol, trans, cutoff, cf, cn, dcndr, dcndL)
-    case(cnType%gfn)
-       call ncoordLatP(mol, trans, cutoff, kcn_gfn, gfnCount, dgfnCount, &
-          & .false., covalentRadD3, paulingEN, cn, dcndr, dcndL)
-+
-+      exists = testfile_path('coordination_number', path)
-+      if (.not.exists) then
-+        open(newunit=u, file=trim(path), form='unformatted', access='stream')
-+        write(u) cn
-+        close(u)
-+      end if
-    end select
- 
- end subroutine getCoordinationNumberLP
 diff --git a/src/intgrad.f90 b/src/intgrad.f90
 index 44f8f7e..10ee35b 100644
 --- a/src/intgrad.f90
@@ -476,6 +439,45 @@ index 5b29581..65fb968 100644
  
  !! ========================================================================
  !  total energy for GFN1
+diff --git a/src/scf_module.F90 b/src/scf_module.F90
+index 7166f76..57c789f 100644
+--- a/src/scf_module.F90
++++ b/src/scf_module.F90
+@@ -53,6 +53,7 @@ module xtb_scf
+    use xtb_hlex
+    use xtb_local
+    use xtb_dipole
++   use utils
+    implicit none
+    private
+ 
+@@ -231,6 +232,11 @@ subroutine scf(env, mol, wfn, basis, pcem, xtbData, solvation, &
+ !  broyden stuff
+    logical  :: broy
+ 
++
++   logical :: exists
++   integer :: u
++   character(len=200) :: path
++
+ ! ------------------------------------------------------------------------
+ !  initialization
+ ! ------------------------------------------------------------------------
+@@ -545,6 +551,14 @@ subroutine scf(env, mol, wfn, basis, pcem, xtbData, solvation, &
+       &     qpint(6,basis%nao,basis%nao), &
+       &     source = 0.0_wp)
+ 
++
++   exists = testfile_path('coordination_number', path)
++   if (.not.exists) then
++     open(newunit=u, file=trim(path), form='unformatted', access='stream')
++     write(u) size(cn), cn
++     close(u)
++   end if
++
+    call getSelfEnergy(xtbData%hamiltonian, xtbData%nShell, mol%at, cn=cn, &
+       & selfEnergy=selfEnergy, dSEdcn=dSEdcn)
+    ! compute integrals and prescreen to set up list arrays
 diff --git a/src/utils.f90 b/src/utils.f90
 new file mode 100644
 index 0000000..aaf4ae3
