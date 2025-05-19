@@ -657,6 +657,79 @@ pCoeff6p = np.array([
     2.782723680e-3,-1.282887780e-1,-2.266255943e-1,
     4.682259383e-1, 6.752048848e-1, 1.091534212e-1
 ])
+def slaterToGauss_simple(ng, n, l, zeta, norm):
+#
+    global pAlpha1
+    global pAlpha2
+    global pAlpha3
+    global pAlpha4
+    global pAlpha5
+    global pAlpha6
+
+    global pCoeff1
+    global pCoeff2
+    global pCoeff3
+    global pCoeff4
+    global pCoeff5
+    global pCoeff6
+
+    global pCoeff6s
+    global pAlpha6s
+
+    global pCoeff6p
+    global pAlpha6p
+
+    top = 2./np.pi
+    dfactorial = np.array([1.0,1.0,3.0,15.0,105.0,945.0,10395.0,135135.0], dtype = np.float64)
+    alpha = np.zeros(10)
+    coeff = np.zeros(10)
+    if (n > 5 or n <= l):
+        if not (n == 6 and ng == 6):
+            return alpha, coeff, 2
+
+    if ng == 6 and l > 1:
+        return alpha, coeff, 2
+
+    if l > 4:
+        return alpha, coeff, 3
+
+    if zeta <= 0:
+        return alpha, coeff, 4
+
+    ityp = n-1 + [0,4,7,9,10][l]
+    
+    match ng:
+        case 1:
+            alpha[0] = pAlpha1[ityp] * zeta**2
+            coeff[0] = 1
+        case 2:
+            alpha[:ng] = pAlpha2[ityp,:] * zeta**2
+            coeff[:ng] = pCoeff2[ityp,:]
+        case 3:
+            alpha[:ng] = pAlpha3[ityp,:] * zeta**2
+            coeff[:ng] = pCoeff3[ityp,:]
+        case 4:
+            alpha[:ng] = pAlpha4[ityp,:] * zeta**2
+            coeff[:ng] = pCoeff4[ityp,:]
+        case 5:
+            alpha[:ng] = pAlpha5[ityp,:] * zeta**2
+            coeff[:ng] = pCoeff5[ityp,:]
+        case 6:
+            if n == 6:
+                if l == 0:
+                    alpha[:ng] = pAlpha6s[:] * zeta**2
+                    coeff[:ng] = pCoeff6s[:]
+                elif l == 1:
+                    alpha[:ng] = pAlpha6p[:] * zeta**2
+                    coeff[:ng] = pCoeff6p[:]
+            else:
+                alpha[:ng] = pAlpha6[ityp,:] * zeta**2
+                coeff[:ng] = pCoeff6[ityp,:]
+
+    if norm:
+        coeff[:ng] *= (top*alpha[:ng])**0.75 * np.sqrt(4*alpha[:ng])**l/ np.sqrt(dfactorial[l])
+
+    return alpha, coeff, 0
 #
 #
 #contains
@@ -810,7 +883,7 @@ def slaterToGauss(ng, n, l, zeta, norm):
     match ng:
         case 1:
             alpha[0] = pAlpha1[ityp-1] * zeta**2
-            coeff[0] = 1
+            coeff[0] = 1.0
         case 2:
             alpha[:ng] = pAlpha2[ityp-1,:] * zeta**2
             coeff[:ng] = pCoeff2[ityp-1,:]
@@ -848,7 +921,7 @@ def slaterToGauss(ng, n, l, zeta, norm):
 #         & * sqrt(4*alpha(:ng))**l / sqrt(dfactorial(l+1))
 #   endif
     if norm:
-        coeff[:ng] *= (top*alpha[:ng])**0.75 * np.sqrt(4*alpha[:ng])**l/ np.sqrt(dfactorial[l+1])
+        coeff[:ng] *= (top*alpha[:ng])**0.75 * np.sqrt(4*alpha[:ng])**l/ np.sqrt(dfactorial[l])
 #
 #   !> success
 #   info = 0

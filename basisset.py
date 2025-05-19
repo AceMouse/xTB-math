@@ -2,7 +2,7 @@ from gfn2 import angShell, nShell, repZeff, valenceShell, slaterExponent, selfEn
 import numpy as np
 import time
 
-from slater import slaterToGauss
+from slater import slaterToGauss_simple as slaterToGauss
 from util import euclidian_dist, euclidian_dist_sqr, dist, print_res2, density_initial_guess, overlap_initial_guess, get_partial_mulliken_charges
 
 DIM = True
