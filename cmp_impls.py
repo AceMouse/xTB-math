@@ -390,7 +390,7 @@ def test_h0scal():
 
             km_res = read_reals(1)[0]
 
-            km = h0scal(il, jl, izp, jzp, valaoi, valaoj)
+            km = h0scal(il, jl, izp-1, jzp-1, valaoi, valaoj)
 
             km_equal = np.array_equal(km, km_res)
             if (not km_equal):
