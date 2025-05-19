@@ -820,9 +820,6 @@ if BUILD:
     _, basis_nao, basis_nbf = dim_basis_np(element_ids)
     basis_shells, basis_sh2ao, basis_sh2bf, basis_minalp, basis_level, basis_zeta, basis_valsh, basis_hdiag, basis_alp, basis_cont, basis_hdiag2, basis_aoexp, basis_ash, basis_lsh, basis_ao2sh, basis_nprim, basis_primcount, basis_caoshell, basis_saoshell, basis_fila, basis_fila2, basis_lao, basis_aoat, basis_valao, basis_lao2, basis_aoat2, basis_valao2, ok = new_basis_set_simple(element_ids)
     cn = GFN2_coordination_numbers_np(element_ids, positions)
-    # TODO compare with 'cn' from the fortran code
-    # Check the gfn path here. gfn = cn
-    # https://github.com/grimme-lab/xtb/blob/09288659551cde6d98e4514bc23892ec0dbee075/src/disp/coordinationnumber.f90#L339
     print(cn.shape)
     selfEnergy_H_kappa_kappa = getSelfEnergy(element_ids, cn)
     S, dpint, qpint, H0, H0_noovlp = build_SDQH0(element_cnt, element_ids, \

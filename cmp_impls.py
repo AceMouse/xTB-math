@@ -1,6 +1,6 @@
 import numpy as np
 from basisset import atovlp, dim_basis, new_basis_set
-from energy import GFN2_coordination_number, build_SDQH0, dtrf2, form_product, get_multiints, h0scal, horizontal_shift, multipole_3d, olapp
+from energy import build_SDQH0, dtrf2, form_product, get_multiints, h0scal, horizontal_shift, multipole_3d, olapp
 import glob
 import argparse
 import os
@@ -687,7 +687,8 @@ def test_coordination_number():
             m = read_ints(1)[0]
             cn_res = np.fromfile(f, dtype=np.float64, count=m)
 
-            from energy import element_ids, positions
+            from xyz_reader import parse_xyz
+            element_ids, positions = parse_xyz("./caffeine.xyz")
             cn = GFN2_coordination_numbers_np(element_ids, positions)
 
             is_array_equal(cn, cn_res, "coordination numbers", fn_name)
@@ -697,15 +698,15 @@ def test_coordination_number():
     print("\033[0;0m", end='')
 
 
-#test_olapp()
-#test_multipole_3d()
-#test_horizontal_shift()
-#test_form_product()
-#test_dtrf2()
-#test_get_multiints()
-#test_h0scal()   # TODO: FAILS
-#test_build_SDQH0(compare_args_i=0)
-#test_dim_basis()    # TODO: FAILS
-#test_atovlp()
-#test_new_basis_set()
+test_olapp()
+test_multipole_3d()
+test_horizontal_shift()
+test_form_product()
+test_dtrf2()
+test_get_multiints()
+test_h0scal()
+test_build_SDQH0(compare_args_i=0)
+test_dim_basis()
+test_atovlp()
+test_new_basis_set()
 test_coordination_number()
