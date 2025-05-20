@@ -1,5 +1,6 @@
 import math
 import numpy as np
+from dftd4_reference import hcount, alphaiw, ascale, refh, sscale, refsys, secaiw, refn
 
 thopi = 3.0/math.pi
 ootpi = 0.5/math.pi
@@ -149,30 +150,21 @@ def C6_AB():
     for j in range(2,23):
         return NotImplementedError
 
-max_elem = 118
-refn = np.zeros(max_elem)
-refh = np.zeros((7, max_elem), dtype=np.float64)
-refsys = np.zeros((7, max_elem))
-hcount = np.zeros((7, max_elem), dtype=np.float64)
-ascale = np.zeros((7, max_elem), dtype=np.float64)
-sscale = np.zeros(17, dtype=np.float64)
-secaiw = np.zeros((23, 17), dtype=np.float64)
-alphaiw = np.zeros((23, 17, max_elem), dtype=np.float64)
 # https://github.com/dftd4/dftd4/blob/502d7c59bf88beec7c90a71c4ecf80029794bd5e/src/dftd4/reference.f90#L285
 # Set the reference polarizibility for an atomic number
-def set_refalpha_eeq_num(alpha, ga, gc, atomic_number):
-    aiw = np.zeros(23)
-
-    if (atomic_number > 0 and atomic_number <= len(refn)):
+# TODO: Add proper test
+def set_refalpha_gfn2_num(alpha, ga, gc, atomic_number):
+    if (atomic_number >= 0 and atomic_number < len(refn)):
         ref = int(refn[atomic_number])
+        print(f"ref: {ref}")
         for ir in range(ref):
-            _is = refsys[atomic_number, ir] # NOTE: Bro where is refsys populated frfr?
-            if (abs(_is) < 1e-12):
+            _is = refsys[atomic_number, ir] - 1
+            if (abs(_is+1) < 1e-12):
                 continue
 
-            iz = get_effective_charge_num(atomic_number)
-            aiw = sscale[_is] * secaiw[_is, :] * zeta(ga, get_hardness_num(_is)*gc, iz, refh[atomic_number, ir]+iz)  # NOTE: Bruh where is sscale and refh populated :sob:
-            alpha[ir, :] = max(ascale[atomic_number, ir] * (alphaiw[atomic_number, ir, :] - hcount[atomic_number, ir] * aiw), 0.0) # NOTE: Where is ascale, alphaiw and hcount populated?
+            iz = get_effective_charge_num(_is)
+            aiw = sscale[_is] * secaiw[_is, :] * zeta(ga, get_hardness_num(_is)*gc, iz, refh[atomic_number, ir]+iz)
+            alpha[ir, :] = np.maximum(ascale[atomic_number, ir] * (alphaiw[atomic_number, ir, :] - hcount[atomic_number, ir] * aiw), 0.0)
 
 def zeta(a, c, qref, qmod):
     if (qmod < 0.0):
@@ -180,12 +172,12 @@ def zeta(a, c, qref, qmod):
     return math.exp(a * (1.0 - math.exp(c * (1.0 - qref/qmod))))
 
 def get_effective_charge_num(atomic_number):
-    if (atomic_number > 0 and atomic_number <= len(effective_nuclear_charge)):
+    if (atomic_number >= 0 and atomic_number < len(effective_nuclear_charge)):
         return effective_nuclear_charge[atomic_number]
     return 0.0
 
 def get_hardness_num(atomic_number):
-    if (atomic_number > 0 and atomic_number <= len(chemical_hardness)):
+    if (atomic_number >= 0 and atomic_number < len(chemical_hardness)):
         return chemical_hardness[atomic_number]
     return 0.0
 
@@ -203,7 +195,7 @@ effective_nuclear_charge = np.array([
     # just copy & paste from above
      9,10,11,30,31,32,33,34,35,36,37,38,39,40,41,42,43, # Fr-Lr
     12,13,14,15,16,17,18,19,20,21,22,23,24,25,26 # Rf-Og
-])
+], dtype=np.float64)
 
 
 # Element-specific chemical hardnesses for the charge scaling function used
