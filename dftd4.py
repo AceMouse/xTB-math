@@ -226,3 +226,133 @@ chemical_hardness = np.array([
     0.00000000, 0.00000000, 0.00000000, 0.00000000, 0.00000000, # Rg-Mc
     0.00000000, 0.00000000, 0.00000000 # Lv,Ts,Og 
 ])
+
+
+#!> Create new D4 dispersion model from molecular structure input
+#subroutine new_d4_model_with_checks(error, d4, mol, ga, gc, wf, ref)
+def new_d4_model():
+    # Number of symbols. For caffeine this is 24
+    sym = np.zeros(24)
+    # Cartesian coordinates. Each of the 24 symbols has 3 coords(xyz)
+    xyz = np.zeros((24, 3))
+    ndim = min(sym.shape[0], xyz.shape[0]) # I think we do shape[0] on xyz instead of shape[1] because we swapped the dims. Do we really need to take min? NOTE: Are they not always equal?
+    for isp in range():
+
+
+    for isp in range(nid):
+        izp = num[isp]
+        aiw = np.zeros((nid, mref, 23))
+        set_refalpha_gfn2(aiw, ga, gc, izp)
+
+# Get chemical identity from a list of element symbols
+# Mutates identity and returns nid
+#def get_identity_symbol(identity, symbol):
+#    nat = len(identity)
+#    stmp = []
+#    for iat in range(nat):
+#        if symbol[iat] in stmp:
+#            identity[iat] = stmp.index(symbol[iat])
+#            continue
+#        stmp.append(symbol[iat])
+#        identity[iat] = len(stmp)-1
+#    # Number of unique species
+#    nid = len(stmp)
+#    return nid
+
+
+def new_structure(xyz, sym):
+    ndim = min(sym.shape[0], xyz.shape[0])
+    num = np.zeros(ndim)
+    for iat in range(ndim):
+        num[iat] = symbol_to_number(sym[iat])
+
+
+    ndim = min(num.shape[0], xyz.shape[0], sym.shape[0])
+
+    _nat = ndim
+    _id = np.zeros(ndim)
+    _xyz = np.zeros((ndim, 3))
+    _nid = get_identity_symbol(_id, sym)
+    _map = np.zeros(_nid)
+    collect_identical(_id, _map)
+
+    _num = np.zeros(_nid)
+    _sym = np.zeros(_nid)
+    for iid in range(_nid):
+        _num[iid] = num[_map[iid]]
+        _sym[iid] = sym[_map[iid]]
+
+    _xyz[:, :] = xyz[:, :ndim]
+
+    return _nat, _id, _xyz, _nid, _map, _num, _sym
+
+# Get chemical identity from a list of element symbols
+# Mutates identity and returns nid
+def get_identity_symbol(identity, symbol):
+    stmp = {}
+    identity[:] = [stmp.setdefault(s, len(stmp)) for s in symbol]
+    # return number of unique species (nid)
+    return len(stmp)
+
+def collect_identical(identity, mapping):
+    for iid in range(mapping):
+        for iat in range(identity):
+            if (identity[iat] == iid):
+                mapping[iid] = iat
+                break
+
+
+# Lower case version of the periodic system of elements
+lcpse = np.array([
+'h ','he', 
+'li','be','b ','c ','n ','o ','f ','ne', 
+'na','mg','al','si','p ','s ','cl','ar', 
+'k ','ca', 
+'sc','ti','v ','cr','mn','fe','co','ni','cu','zn', 
+          'ga','ge','as','se','br','kr', 
+'rb','sr', 
+'y ','zr','nb','mo','tc','ru','rh','pd','ag','cd', 
+          'in','sn','sb','te','i ','xe', 
+'cs','ba','la', 
+'ce','pr','nd','pm','sm','eu','gd','tb','dy','ho','er','tm','yb', 
+'lu','hf','ta','w ','re','os','ir','pt','au','hg', 
+          'tl','pb','bi','po','at','rn', 
+'fr','ra','ac', 
+'th','pa','u ','np','pu','am','cm','bk','cf','es','fm','md','no', 
+'lr','rf','db','sg','bh','hs','mt','ds','rg','cn', 
+          'nh','fl','mc','lv','ts','og'])
+
+# ASCII offset between lowercase and uppercase letters
+offset = ord('a') - ord('A')
+
+def symbol_to_number(symbol):
+    number = 0
+    lcsymbol = np.zeros(2)
+
+    k = 0
+    for j in range(symbol.strip()):
+        if (k > 2):
+            break
+        l = ord(symbol[j]) # They do symbol[j:j] but I think that's the same as symbol[j]?
+        if (k >= 1 and l == ord(' ')):
+            break
+        if (k >= 1 and l == 9):
+            break
+        if (l >= ord('A') and l <= ord('Z')):
+            l += offset
+        if (l >= ord('a') and l <= ord('z')):
+            k += 1
+            if (k > 2):
+                break
+            lcsymbol[k] = chr(l)
+
+    for i in range(lcpse):
+        if (lcsymbol == lcpse[i]):
+            number = i
+            break
+
+    if (number == 0):
+        if lcsymbol in ('d ', 't '):    # I am not sure this is the same as in fortran?
+            number = 1
+
+    return number
