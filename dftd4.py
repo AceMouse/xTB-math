@@ -227,22 +227,52 @@ chemical_hardness = np.array([
     0.00000000, 0.00000000, 0.00000000 # Lv,Ts,Og 
 ])
 
+thopi = 3.0/math.pi
 
 #!> Create new D4 dispersion model from molecular structure input
 #subroutine new_d4_model_with_checks(error, d4, mol, ga, gc, wf, ref)
-def new_d4_model():
+def new_d4_model(ga=3.0, gc=2.0, wf=6.0):
     # Number of symbols. For caffeine this is 24
-    sym = np.zeros(24)
+    #sym = np.zeros(24) # TODO: CHANGE this constant!
     # Cartesian coordinates. Each of the 24 symbols has 3 coords(xyz)
-    xyz = np.zeros((24, 3))
-    ndim = min(sym.shape[0], xyz.shape[0]) # I think we do shape[0] on xyz instead of shape[1] because we swapped the dims. Do we really need to take min? NOTE: Are they not always equal?
-    for isp in range():
+    #xyz = np.zeros((24, 3))
+    #ndim = min(sym.shape[0], xyz.shape[0]) # I think we do shape[0] on xyz instead of shape[1] because we swapped the dims. Do we really need to take min? NOTE: Are they not always equal?
+    
+    #for isp in range():
 
+    from xyz_reader import parse_xyz_with_symbols
+    symbols, positions = parse_xyz_with_symbols('/home/maroka/Documents/xTB-math/caffeine.xyz')
+    nat, id, xyz, nid, map, num, sym = new_structure(positions, symbols)
 
+    ref = np.zeros(nid, dtype=np.int32)
     for isp in range(nid):
         izp = num[isp]
-        aiw = np.zeros((nid, mref, 23))
-        set_refalpha_gfn2(aiw, ga, gc, izp)
+        ref[isp] = get_nref_num(izp)
+
+    mref = np.max(ref)
+    #cn = np.zeros((nid, mref), dtype=np.int32) # NOTE: are these ints?
+    #for isp in range(nid):
+    #    izp = num[isp]
+    #    set_refcn()
+
+    d4_aiw = np.zeros((nid, mref, 23))
+    for isp in range(nid):
+        izp = num[isp]
+        set_refalpha_gfn2_num(d4_aiw[isp, :, :], ga, gc, izp)
+
+    aiw = np.zeros(23)
+    d4_c6 = np.zeros((nid, nid, mref, mref))
+    for isp in range(nid):
+        izp = num[isp]
+        for jsp in range(isp):
+            for iref in range(ref[isp]):
+                for jref in range(ref[jsp]):
+                    aiw[:] = d4_aiw[isp, iref, :] * d4_aiw[jsp, jref, :]
+                    c6 = thopi * trapzd(aiw)
+                    d4_c6[isp, jsp, iref, jref] = c6
+                    d4_c6[jsp, isp, jref, iref] = c6
+
+    return d4_c6
 
 # Get chemical identity from a list of element symbols
 # Mutates identity and returns nid
@@ -356,3 +386,48 @@ def symbol_to_number(symbol):
             number = 1
 
     return number
+
+def get_nref_num(num):
+    if (num >= 0 and num < len(refn)):
+        return refn[num]
+    return 0
+
+def trapzd(pol):
+   freq = np.array([
+       0.000001, 0.050000, 0.100000, 
+       0.200000, 0.300000, 0.400000, 
+       0.500000, 0.600000, 0.700000, 
+       0.800000, 0.900000, 1.000000, 
+       1.200000, 1.400000, 1.600000, 
+       1.800000, 2.000000, 2.500000, 
+       3.000000, 4.000000, 5.000000, 
+       7.500000, 10.00000
+    ])
+
+   weights = 0.5 * np.array([
+        ( freq [2] - freq [1] ),  
+        ( freq [2] - freq [1] ) + ( freq [3] - freq [2] ),  
+        ( freq [3] - freq [2] ) + ( freq [4] - freq [3] ),  
+        ( freq [4] - freq [3] ) + ( freq [5] - freq [4] ),  
+        ( freq [5] - freq [4] ) + ( freq [6] - freq [5] ),  
+        ( freq [6] - freq [5] ) + ( freq [7] - freq [6] ),  
+        ( freq [7] - freq [6] ) + ( freq [8] - freq [7] ),  
+        ( freq [8] - freq [7] ) + ( freq [9] - freq [8] ),  
+        ( freq [9] - freq [8] ) + ( freq[10] - freq [9] ),  
+        ( freq[10] - freq [9] ) + ( freq[11] - freq[10] ),  
+        ( freq[11] - freq[10] ) + ( freq[12] - freq[11] ),  
+        ( freq[12] - freq[11] ) + ( freq[13] - freq[12] ),  
+        ( freq[13] - freq[12] ) + ( freq[14] - freq[13] ),  
+        ( freq[14] - freq[13] ) + ( freq[15] - freq[14] ),  
+        ( freq[15] - freq[14] ) + ( freq[16] - freq[15] ),  
+        ( freq[16] - freq[15] ) + ( freq[17] - freq[16] ),  
+        ( freq[17] - freq[16] ) + ( freq[18] - freq[17] ),  
+        ( freq[18] - freq[17] ) + ( freq[19] - freq[18] ),  
+        ( freq[19] - freq[18] ) + ( freq[20] - freq[19] ),  
+        ( freq[20] - freq[19] ) + ( freq[21] - freq[20] ),  
+        ( freq[21] - freq[20] ) + ( freq[22] - freq[21] ),  
+        ( freq[22] - freq[21] ) + ( freq[23] - freq[22] ),  
+        ( freq[23] - freq[22] )
+    ])
+
+   return np.sum(pol*weights)

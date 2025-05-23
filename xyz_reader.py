@@ -22,6 +22,22 @@ def parse_xyz(file):
     positions = np.array(positions, dtype=float)
     return element_ids, positions
 
-element_ids, positions = parse_xyz("./caffeine.xyz")
-print(f"element_ids: {element_ids}")
-print(f"positions: {positions}")
+
+def parse_xyz_with_symbols(file):
+    symbols = []
+    positions = []
+    with open(file, "r") as f:
+        f.readline()
+        f.readline()
+
+        for line in f:
+            e = line.split()
+            symbols.append(e[0])
+            positions.append([float(e[1]), float(e[2]), float(e[3])])
+    symbols = np.array(symbols)
+    positions = np.array(positions, dtype=float)
+    return symbols, positions
+
+#element_ids, positions = parse_xyz("./caffeine.xyz")
+#print(f"element_ids: {element_ids}")
+#print(f"positions: {positions}")
