@@ -244,13 +244,9 @@ chemical_hardness = np.array([
 
 def new_structure(xyz, sym):
     ndim = min(sym.shape[0], xyz.shape[0])
-    print(f"ndim: {ndim}")
     num = np.zeros(ndim, dtype=np.int64)
     for iat in range(ndim):
         num[iat] = symbol_to_number(sym[iat])
-
-    print(f"sym: {sym}")
-    print(f"num: {num}")
 
     ndim = min(num.shape[0], xyz.shape[0], sym.shape[0])
 
@@ -394,33 +390,15 @@ thopi = 3.0/math.pi
 
 #!> Create new D4 dispersion model from molecular structure input
 #subroutine new_d4_model_with_checks(error, d4, mol, ga, gc, wf, ref)
-def new_d4_model(ga=3.0, gc=2.0, wf=6.0):
-    # Number of symbols. For caffeine this is 24
-    #sym = np.zeros(24) # TODO: CHANGE this constant!
-    # Cartesian coordinates. Each of the 24 symbols has 3 coords(xyz)
-    #xyz = np.zeros((24, 3))
-    #ndim = min(sym.shape[0], xyz.shape[0]) # I think we do shape[0] on xyz instead of shape[1] because we swapped the dims. Do we really need to take min? NOTE: Are they not always equal?
-    
-    #for isp in range():
-
-    from xyz_reader import parse_xyz_with_symbols
-    symbols, positions = parse_xyz_with_symbols('/home/maroka/Documents/xTB-math/caffeine.xyz')
+def new_d4_model(symbols, positions, ga=3.0, gc=2.0, wf=6.0):
     nat, id, xyz, nid, map, num, sym = new_structure(positions, symbols)
-
-    print(f"num: {num}")
 
     ref = np.zeros(nid, dtype=np.int32)
     for isp in range(nid):
         izp = num[isp]
         ref[isp] = get_nref_num(izp)
 
-    print(f"ref: {ref}")
-
     mref = np.max(ref)
-    #cn = np.zeros((nid, mref), dtype=np.int32) # NOTE: are these ints?
-    #for isp in range(nid):
-    #    izp = num[isp]
-    #    set_refcn()
 
     d4_aiw = np.zeros((nid, mref, 23))
     for isp in range(nid):
@@ -428,8 +406,6 @@ def new_d4_model(ga=3.0, gc=2.0, wf=6.0):
         set_refalpha_gfn2_num(d4_aiw[isp, :, :], ga, gc, izp)
 
     aiw = np.zeros(23)
-    print(f"nid: {nid}")
-    print(f"mref: {mref}")
     d4_c6 = np.zeros((nid, nid, mref, mref))
     for isp in range(nid):
         izp = num[isp]
@@ -442,6 +418,3 @@ def new_d4_model(ga=3.0, gc=2.0, wf=6.0):
                     d4_c6[jsp, isp, jref, iref] = c6
 
     return d4_c6
-
-c6 = new_d4_model()
-print(f"c6: {c6}")

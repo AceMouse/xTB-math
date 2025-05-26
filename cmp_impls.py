@@ -1,5 +1,6 @@
 import numpy as np
 from basisset import atovlp, dim_basis, new_basis_set
+from dftd4 import new_d4_model
 from energy import build_SDQH0, dtrf2, form_product, get_multiints, h0scal, horizontal_shift, multipole_3d, olapp
 import glob
 import argparse
@@ -676,7 +677,6 @@ def test_new_basis_set():
     print("\033[0;0m", end='')
 
 
-
 def test_coordination_number():
     fn_name = "coordination_number"
     for i, file_path in enumerate(glob.glob(f'{directory}/{fn_name}/*.bin')):
@@ -701,6 +701,38 @@ def test_coordination_number():
     print("\033[0;0m", end='')
 
 
+def test_new_d4_model_with_checks():
+    fn_name = "new_d4_model_with_checks"
+    for i, file_path in enumerate(glob.glob(f'{directory}/{fn_name}/*.bin')):
+        with open(file_path, 'rb') as f:
+            def read_ints(n=1):
+                return np.fromfile(f, dtype=np.int32, count=n)
+
+            m, n, j, k = read_ints(4)
+            c6_res = np.fromfile(f, dtype=np.float64, count=m*n*j*k).reshape((k, j, n, m))
+
+            from xyz_reader import parse_xyz_with_symbols
+            symbols, positions = parse_xyz_with_symbols("./caffeine.xyz")
+
+            c6 = new_d4_model(symbols, positions)
+
+            if not np.allclose(c6, c6_res):
+                # Create a boolean mask of where the arrays differ significantly
+                diff_mask = ~np.isclose(c6, c6_res)
+
+                # Print the indices and differing values
+                for index in np.argwhere(diff_mask):
+                    idx = tuple(index)
+                    print(f"Different at index {idx}: a={c6[idx]}, b={c6_res[idx]}")
+
+            is_array_close(c6, c6_res, "c6 coefficients", fn_name)
+
+    print("\033[0;32m", end='')
+    print(f"matches! [{fn_name}]")
+    print("\033[0;0m", end='')
+
+
+
 test_olapp()
 test_multipole_3d()
 test_horizontal_shift()
@@ -712,4 +744,5 @@ test_build_SDQH0(compare_args_i=0)
 test_dim_basis()
 test_atovlp()
 test_new_basis_set()
+test_new_d4_model_with_checks()
 test_coordination_number()
