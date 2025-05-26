@@ -155,16 +155,15 @@ def C6_AB():
 # TODO: Add proper test
 def set_refalpha_gfn2_num(alpha, ga, gc, atomic_number):
     if (atomic_number >= 0 and atomic_number < len(refn)):
-        ref = int(refn[atomic_number])
-        print(f"ref: {ref}")
+        ref = int(refn[atomic_number-1])
         for ir in range(ref):
-            _is = refsys[atomic_number, ir] - 1
-            if (abs(_is+1) < 1e-12):
+            _is = refsys[atomic_number-1, ir]
+            if (abs(_is) < 1e-12):
                 continue
 
-            iz = get_effective_charge_num(_is)
-            aiw = sscale[_is] * secaiw[_is, :] * zeta(ga, get_hardness_num(_is)*gc, iz, refh[atomic_number, ir]+iz)
-            alpha[ir, :] = np.maximum(ascale[atomic_number, ir] * (alphaiw[atomic_number, ir, :] - hcount[atomic_number, ir] * aiw), 0.0)
+            iz = get_effective_charge_num(_is-1)
+            aiw = sscale[_is-1] * secaiw[_is-1, :] * zeta(ga, get_hardness_num(_is-1)*gc, iz, refh[atomic_number-1, ir]+iz)
+            alpha[ir, :] = np.maximum(ascale[atomic_number-1, ir] * (alphaiw[atomic_number-1, ir, :] - hcount[atomic_number-1, ir] * aiw), 0.0)
 
 def zeta(a, c, qref, qmod):
     if (qmod < 0.0):
@@ -227,53 +226,6 @@ chemical_hardness = np.array([
     0.00000000, 0.00000000, 0.00000000 # Lv,Ts,Og 
 ])
 
-thopi = 3.0/math.pi
-
-#!> Create new D4 dispersion model from molecular structure input
-#subroutine new_d4_model_with_checks(error, d4, mol, ga, gc, wf, ref)
-def new_d4_model(ga=3.0, gc=2.0, wf=6.0):
-    # Number of symbols. For caffeine this is 24
-    #sym = np.zeros(24) # TODO: CHANGE this constant!
-    # Cartesian coordinates. Each of the 24 symbols has 3 coords(xyz)
-    #xyz = np.zeros((24, 3))
-    #ndim = min(sym.shape[0], xyz.shape[0]) # I think we do shape[0] on xyz instead of shape[1] because we swapped the dims. Do we really need to take min? NOTE: Are they not always equal?
-    
-    #for isp in range():
-
-    from xyz_reader import parse_xyz_with_symbols
-    symbols, positions = parse_xyz_with_symbols('/home/maroka/Documents/xTB-math/caffeine.xyz')
-    nat, id, xyz, nid, map, num, sym = new_structure(positions, symbols)
-
-    ref = np.zeros(nid, dtype=np.int32)
-    for isp in range(nid):
-        izp = num[isp]
-        ref[isp] = get_nref_num(izp)
-
-    mref = np.max(ref)
-    #cn = np.zeros((nid, mref), dtype=np.int32) # NOTE: are these ints?
-    #for isp in range(nid):
-    #    izp = num[isp]
-    #    set_refcn()
-
-    d4_aiw = np.zeros((nid, mref, 23))
-    for isp in range(nid):
-        izp = num[isp]
-        set_refalpha_gfn2_num(d4_aiw[isp, :, :], ga, gc, izp)
-
-    aiw = np.zeros(23)
-    d4_c6 = np.zeros((nid, nid, mref, mref))
-    for isp in range(nid):
-        izp = num[isp]
-        for jsp in range(isp):
-            for iref in range(ref[isp]):
-                for jref in range(ref[jsp]):
-                    aiw[:] = d4_aiw[isp, iref, :] * d4_aiw[jsp, jref, :]
-                    c6 = thopi * trapzd(aiw)
-                    d4_c6[isp, jsp, iref, jref] = c6
-                    d4_c6[jsp, isp, jref, iref] = c6
-
-    return d4_c6
-
 # Get chemical identity from a list of element symbols
 # Mutates identity and returns nid
 #def get_identity_symbol(identity, symbol):
@@ -292,10 +244,13 @@ def new_d4_model(ga=3.0, gc=2.0, wf=6.0):
 
 def new_structure(xyz, sym):
     ndim = min(sym.shape[0], xyz.shape[0])
-    num = np.zeros(ndim)
+    print(f"ndim: {ndim}")
+    num = np.zeros(ndim, dtype=np.int64)
     for iat in range(ndim):
         num[iat] = symbol_to_number(sym[iat])
 
+    print(f"sym: {sym}")
+    print(f"num: {num}")
 
     ndim = min(num.shape[0], xyz.shape[0], sym.shape[0])
 
@@ -303,11 +258,11 @@ def new_structure(xyz, sym):
     _id = np.zeros(ndim)
     _xyz = np.zeros((ndim, 3))
     _nid = get_identity_symbol(_id, sym)
-    _map = np.zeros(_nid)
+    _map = np.zeros(_nid, dtype=np.int64)
     collect_identical(_id, _map)
 
-    _num = np.zeros(_nid)
-    _sym = np.zeros(_nid)
+    _num = np.zeros(_nid, dtype=np.int64)
+    _sym = np.zeros(_nid, dtype='U1')
     for iid in range(_nid):
         _num[iid] = num[_map[iid]]
         _sym[iid] = sym[_map[iid]]
@@ -325,8 +280,8 @@ def get_identity_symbol(identity, symbol):
     return len(stmp)
 
 def collect_identical(identity, mapping):
-    for iid in range(mapping):
-        for iat in range(identity):
+    for iid in range(len(mapping)):
+        for iat in range(len(identity)):
             if (identity[iat] == iid):
                 mapping[iid] = iat
                 break
@@ -357,39 +312,41 @@ offset = ord('a') - ord('A')
 
 def symbol_to_number(symbol):
     number = 0
-    lcsymbol = np.zeros(2)
+    lcsymbol = [' '] * 2
 
     k = 0
-    for j in range(symbol.strip()):
+    trimmed = symbol.strip()
+    for j in range(len(trimmed)):
         if (k > 2):
             break
-        l = ord(symbol[j]) # They do symbol[j:j] but I think that's the same as symbol[j]?
-        if (k >= 1 and l == ord(' ')):
+
+        l = ord(trimmed[j-1])
+        if (k >= 1 and l == ord(' ') or k >= 1 and l == 9):
             break
-        if (k >= 1 and l == 9):
-            break
-        if (l >= ord('A') and l <= ord('Z')):
+
+        if (ord('A') <= l <= ord('Z')):
             l += offset
-        if (l >= ord('a') and l <= ord('z')):
+
+        if (ord('a') <= l <= ord('z')):
             k += 1
             if (k > 2):
                 break
-            lcsymbol[k] = chr(l)
+            lcsymbol[k-1] = chr(l)
 
-    for i in range(lcpse):
-        if (lcsymbol == lcpse[i]):
-            number = i
+    lcsymbol_joined = ''.join(lcsymbol)
+    for i in range(len(lcpse)):
+        if (lcsymbol_joined == lcpse[i]):
+            number = i + 1
             break
 
-    if (number == 0):
-        if lcsymbol in ('d ', 't '):    # I am not sure this is the same as in fortran?
-            number = 1
+    if (number == 0 and lcsymbol in ('d ', 't ')):
+        number = 1
 
     return number
 
 def get_nref_num(num):
     if (num >= 0 and num < len(refn)):
-        return refn[num]
+        return refn[num-1]
     return 0
 
 def trapzd(pol):
@@ -405,16 +362,17 @@ def trapzd(pol):
     ])
 
    weights = 0.5 * np.array([
-        ( freq [2] - freq [1] ),  
+        ( freq [1] - freq [0] ),  
+        ( freq [1] - freq [0] ) + ( freq [2] - freq [1] ),  
         ( freq [2] - freq [1] ) + ( freq [3] - freq [2] ),  
         ( freq [3] - freq [2] ) + ( freq [4] - freq [3] ),  
         ( freq [4] - freq [3] ) + ( freq [5] - freq [4] ),  
         ( freq [5] - freq [4] ) + ( freq [6] - freq [5] ),  
         ( freq [6] - freq [5] ) + ( freq [7] - freq [6] ),  
         ( freq [7] - freq [6] ) + ( freq [8] - freq [7] ),  
-        ( freq [8] - freq [7] ) + ( freq [9] - freq [8] ),  
-        ( freq [9] - freq [8] ) + ( freq[10] - freq [9] ),  
-        ( freq[10] - freq [9] ) + ( freq[11] - freq[10] ),  
+        ( freq [8] - freq [7] ) + ( freq[9] - freq [8] ),  
+        ( freq[9] - freq [8] ) + ( freq[10] - freq[9] ),  
+        ( freq[10] - freq[9] ) + ( freq[11] - freq[10] ),  
         ( freq[11] - freq[10] ) + ( freq[12] - freq[11] ),  
         ( freq[12] - freq[11] ) + ( freq[13] - freq[12] ),  
         ( freq[13] - freq[12] ) + ( freq[14] - freq[13] ),  
@@ -426,8 +384,64 @@ def trapzd(pol):
         ( freq[19] - freq[18] ) + ( freq[20] - freq[19] ),  
         ( freq[20] - freq[19] ) + ( freq[21] - freq[20] ),  
         ( freq[21] - freq[20] ) + ( freq[22] - freq[21] ),  
-        ( freq[22] - freq[21] ) + ( freq[23] - freq[22] ),  
-        ( freq[23] - freq[22] )
+        ( freq[22] - freq[21] )
     ])
 
    return np.sum(pol*weights)
+
+
+thopi = 3.0/math.pi
+
+#!> Create new D4 dispersion model from molecular structure input
+#subroutine new_d4_model_with_checks(error, d4, mol, ga, gc, wf, ref)
+def new_d4_model(ga=3.0, gc=2.0, wf=6.0):
+    # Number of symbols. For caffeine this is 24
+    #sym = np.zeros(24) # TODO: CHANGE this constant!
+    # Cartesian coordinates. Each of the 24 symbols has 3 coords(xyz)
+    #xyz = np.zeros((24, 3))
+    #ndim = min(sym.shape[0], xyz.shape[0]) # I think we do shape[0] on xyz instead of shape[1] because we swapped the dims. Do we really need to take min? NOTE: Are they not always equal?
+    
+    #for isp in range():
+
+    from xyz_reader import parse_xyz_with_symbols
+    symbols, positions = parse_xyz_with_symbols('/home/maroka/Documents/xTB-math/caffeine.xyz')
+    nat, id, xyz, nid, map, num, sym = new_structure(positions, symbols)
+
+    print(f"num: {num}")
+
+    ref = np.zeros(nid, dtype=np.int32)
+    for isp in range(nid):
+        izp = num[isp]
+        ref[isp] = get_nref_num(izp)
+
+    print(f"ref: {ref}")
+
+    mref = np.max(ref)
+    #cn = np.zeros((nid, mref), dtype=np.int32) # NOTE: are these ints?
+    #for isp in range(nid):
+    #    izp = num[isp]
+    #    set_refcn()
+
+    d4_aiw = np.zeros((nid, mref, 23))
+    for isp in range(nid):
+        izp = num[isp]
+        set_refalpha_gfn2_num(d4_aiw[isp, :, :], ga, gc, izp)
+
+    aiw = np.zeros(23)
+    print(f"nid: {nid}")
+    print(f"mref: {mref}")
+    d4_c6 = np.zeros((nid, nid, mref, mref))
+    for isp in range(nid):
+        izp = num[isp]
+        for jsp in range(isp+1):
+            for iref in range(ref[isp]):
+                for jref in range(ref[jsp]):
+                    aiw[:] = d4_aiw[isp, iref, :] * d4_aiw[jsp, jref, :]
+                    c6 = thopi * trapzd(aiw)
+                    d4_c6[isp, jsp, iref, jref] = c6
+                    d4_c6[jsp, isp, jref, iref] = c6
+
+    return d4_c6
+
+c6 = new_d4_model()
+print(f"c6: {c6}")
