@@ -145,11 +145,6 @@ sqrt_z_r4_over_r2 = np.sqrt(
     np.array([0.5 * math.sqrt(z) for z in range(0, 119)]) * r4_over_r2
 )
 
-def C6_AB():
-    a = 3 / math.pi
-    for j in range(2,23):
-        return NotImplementedError
-
 # https://github.com/dftd4/dftd4/blob/502d7c59bf88beec7c90a71c4ecf80029794bd5e/src/dftd4/reference.f90#L285
 # Set the reference polarizibility for an atomic number
 # TODO: Add proper test
@@ -226,21 +221,6 @@ chemical_hardness = np.array([
     0.00000000, 0.00000000, 0.00000000 # Lv,Ts,Og 
 ])
 
-# Get chemical identity from a list of element symbols
-# Mutates identity and returns nid
-#def get_identity_symbol(identity, symbol):
-#    nat = len(identity)
-#    stmp = []
-#    for iat in range(nat):
-#        if symbol[iat] in stmp:
-#            identity[iat] = stmp.index(symbol[iat])
-#            continue
-#        stmp.append(symbol[iat])
-#        identity[iat] = len(stmp)-1
-#    # Number of unique species
-#    nid = len(stmp)
-#    return nid
-
 
 def new_structure(xyz, sym):
     ndim = min(sym.shape[0], xyz.shape[0])
@@ -265,7 +245,23 @@ def new_structure(xyz, sym):
 
     _xyz[:, :] = xyz[:, :ndim]
 
-    return _nat, _id, _xyz, _nid, _map, _num, _sym
+
+    #if (present(periodic)) then
+    #   self%periodic = periodic
+    #else
+    #   if (present(lattice)) then
+    #      allocate(self%periodic(3))
+    #      self%periodic(:) = .true.
+    #   else
+    #      allocate(self%periodic(1))
+    #      self%periodic(:) = .false.
+    #   end if
+    #end if
+
+    _lattice = np.zeros((1, 1))
+    _periodic = np.full(1, False, dtype=bool)
+
+    return _nat, _id, _xyz, _nid, _map, _num, _sym, _lattice, _periodic
 
 # Get chemical identity from a list of element symbols
 # Mutates identity and returns nid
@@ -390,9 +386,7 @@ thopi = 3.0/math.pi
 
 #!> Create new D4 dispersion model from molecular structure input
 #subroutine new_d4_model_with_checks(error, d4, mol, ga, gc, wf, ref)
-def new_d4_model(symbols, positions, ga=3.0, gc=2.0, wf=6.0):
-    nat, id, xyz, nid, map, num, sym = new_structure(positions, symbols)
-
+def new_d4_model(nid, num, ga=3.0, gc=2.0, wf=6.0):
     ref = np.zeros(nid, dtype=np.int32)
     for isp in range(nid):
         izp = num[isp]
@@ -405,6 +399,7 @@ def new_d4_model(symbols, positions, ga=3.0, gc=2.0, wf=6.0):
         izp = num[isp]
         set_refalpha_gfn2_num(d4_aiw[isp, :, :], ga, gc, izp)
 
+    # NOTE: c6 coefficients
     aiw = np.zeros(23)
     d4_c6 = np.zeros((nid, nid, mref, mref))
     for isp in range(nid):
@@ -413,8 +408,369 @@ def new_d4_model(symbols, positions, ga=3.0, gc=2.0, wf=6.0):
             for iref in range(ref[isp]):
                 for jref in range(ref[jsp]):
                     aiw[:] = d4_aiw[isp, iref, :] * d4_aiw[jsp, jref, :]
-                    c6 = thopi * trapzd(aiw)
+                    c6 = thopi * trapzd(aiw) # NOTE: trapzd are the integration weights
                     d4_c6[isp, jsp, iref, jref] = c6
                     d4_c6[jsp, isp, jref, iref] = c6
 
-    return d4_c6
+    return d4_c6, ref
+
+
+
+#!> Coordination number cutoff
+#real(wp), parameter :: cn_default = 30.0_wp
+
+#!> Two-body interaction cutoff
+#real(wp), parameter :: disp2_default = 60.0_wp
+
+#!> Three-body interaction cutoff
+#real(wp), parameter :: disp3_default = 40.0_wp
+
+
+#!> Collection of real space cutoffs
+#type :: realspace_cutoff
+#   sequence
+
+#   !> Coordination number cutoff
+#   real(wp) :: cn = cn_default
+
+#   !> Two-body interaction cutoff
+#   real(wp) :: disp2 = disp2_default
+
+#   !> Three-body interaction cutoff
+#   real(wp) :: disp3 = disp3_default
+
+#end type realspace_cutoff
+
+# Defaults
+realspace_cutoff_cn = 30.0
+realspace_cutoff_disp2 = 60.0
+realspace_cutoff_disp3 = 40.0
+
+
+# !> Wrapper to handle the evaluation of dispersion energy and derivatives
+def get_dispersion(ref, lattice, periodic, gradient=None, sigma=None):
+    mref = np.max(ref)
+    grad = gradient is not None or sigma is not None
+
+    lattr = get_lattice_points_cutoff(periodic, lattice, realspace_cutoff_cn)
+    get_coordination_number()
+
+    print(f"coordination numbers: {cn}")
+
+    if (grad):
+        allocate(gwdcn(mref, mol%nat, disp%ncoup), gwdq(mref, mol%nat, disp%ncoup))
+
+    weight_references()
+
+    if (grad):
+       allocate(dc6dcn(mol%nat, mol%nat), dc6dq(mol%nat, mol%nat))
+
+    get_atomic_c6()
+
+    energies[:] = 0.0
+    if (grad):
+      allocate(dEdcn(mol%nat), dEdq(mol%nat))
+      dEdcn[:] = 0.0
+      dEdq[:] = 0.0
+      gradient[:, :] = 0.0
+      sigma[:, :] = 0.0
+
+    get_lattice_points()
+    get_dispersion2()
+
+    if (grad):
+        d4_gemv(gradient)
+        d4_gemv(sigma)
+
+    q[:] = 0.0
+    weight_references()
+    get_atomic_c6()
+
+    get_lattice_points()
+    get_dispersion3()
+
+    if (grad):
+        add_coordination_number_derivs()
+
+    energy = np.sum(energies)
+
+
+
+
+#!> Create lattice points within a given cutoff
+def get_lattice_points_cutoff(periodic, lat, rthr):
+    #!> Periodic dimensions
+    #logical, intent(in) :: periodic(:)
+
+    #!> Real space cutoff
+    #real(wp), intent(in) :: rthr
+
+    #!> Lattice parameters
+    #real(wp), intent(in) :: lat(:, :)
+
+    #!> Generated lattice points
+    #real(wp), allocatable, intent(out) :: trans(:, :)
+
+    if (not np.any(periodic)):
+        trans = np.zeros((1, 3))
+        trans[:, :] = 0.0
+    else:
+        rep = get_translations(lat, rthr)
+        trans = get_lattice_points_rep_3d(lat, rep, True)
+
+    return trans
+
+
+#!> Generate lattice points from repeatitions
+def get_lattice_points_rep_3d(lat, rep, origin):
+    #!> Lattice vectors
+    #real(wp), intent(in) :: lat(:, :)
+
+    #!> Repeatitions of lattice points to generate
+    #integer, intent(in) :: rep(:)
+
+    #!> Include the origin in the generated lattice points
+    #logical, intent(in) :: origin
+
+    #!> Generated lattice points
+    #real(wp), allocatable, intent(out) :: trans(:, :)
+
+    itr = 0
+    if (origin):
+        trans = np.zeros((np.prod(2*rep+1), 3))
+        for ix in range(rep[0]+1):
+            for iy in range(rep[1]+1):
+                for iz in range(rep[2]+1):
+                    for jx in range(1, int(np.where(ix > 0, -1, 1)) - 1, -2):
+                        for jy in range(1, int(np.where(iy > 0, -1, 1)) - 1, -2):
+                            for jz in range(1, int(np.where(iz > 0, -1, 1)) - 1, -2):
+                                itr += 1
+                                trans[itr, :] = lat[1, :] * ix * jx + lat[2, :] * iy * jy + lat[3, :] * iz * jz
+    else:
+        trans = np.zeros((np.prod(2*rep+1)-1, 3))
+        for ix in range(rep[0]+1):
+            for iy in range(rep[1]+1):
+                for iz in range(rep[2]+1):
+                    if (ix == 0 and iy == 0 and iz == 0):
+                        continue
+                    for jx in range(1, int(np.where(ix > 0, -1, 1)) - 1, -2):
+                        for jy in range(1, int(np.where(iy > 0, -1, 1)) - 1, -2):
+                            for jz in range(1, int(np.where(iz > 0, -1, 1)) - 1, -2):
+                                itr += 1
+                                trans[itr, :] = lat[1, :] * ix * jx + lat[2, :] * iy * jy + lat[3, :] * iz * jz
+
+    return trans
+
+
+#!> Generate a supercell based on a realspace cutoff, this subroutine
+#!> doesn't know anything about the convergence behaviour of the
+#!> associated property.
+def get_translations(lat , rthr):
+   #! find normal to the plane...
+   normx = crossproduct(lat[2, :], lat[3, :])
+   normy = crossproduct(lat[3, :], lat[1, :])
+   normz = crossproduct(lat[1, :], lat[2, :])
+   #! ...normalize it...
+   normx = normx/np.linalg.norm(normx)
+   normy = normy/np.linalg.norm(normy)
+   normz = normz/np.linalg.norm(normz)
+   #! cos angles between normals and lattice vectors
+   cos10 = sum(normx*lat[1, :])
+   cos21 = sum(normy*lat[2, :])
+   cos32 = sum(normz*lat[3, :])
+
+   rep = np.zeros(3)
+   rep[0] = np.ceil(abs(rthr/cos10))
+   rep[1] = np.ceil(abs(rthr/cos21))
+   rep[2] = np.ceil(abs(rthr/cos32))
+   return rep
+
+
+def crossproduct(a, b):
+    c = np.zeros(3)
+    c[0] = a[1]*b[2]-b[1]*a[2]
+    c[1] = a[2]*b[0]-b[2]*a[0]
+    c[2] = a[0]*b[1]-b[0]*a[1]
+    return c
+
+
+#subroutine get_coordination_number(mol, trans, cutoff, rcov, en, cn, dcndr, dcndL)
+#!> Geometric fractional coordination number, supports error function counting.
+#def get_coordination_number(mol, trans, cutoff, rcov, en, cn, dcndr, dcndL):
+#    new_ncoord(ncoord, mol, cn_count%dftd4, kcn=default_kcn, cutoff, rcow, en, error):
+#    if error:
+#        print error
+#        error stop (exit?)
+#
+#    ncoord%get_coordination_number(cut, mol, trans, cn, dcndr, dcndL)
+
+
+
+#!> Geometric fractional coordination number
+def get_coordination_number(cut, nat, id, xyz, trans, cn, dcndr, dcndL):
+    #!> Coordination number container
+    #class(ncoord_type), intent(in) :: self
+    #
+    #!> Molecular structure data
+    #type(structure_type), intent(in) :: mol
+    #
+    #!> Lattice points
+    #real(wp), intent(in) :: trans(:, :)
+    #
+    #!> Error function coordination number.
+    #real(wp), intent(out) :: cn(:)
+    #
+    #!> Derivative of the CN with respect to the Cartesian coordinates.
+    #real(wp), intent(out), optional :: dcndr(:, :, :)
+    #
+    #!> Derivative of the CN with respect to strain deformations.
+    #real(wp), intent(out), optional :: dcndL(:, :, :)
+
+    ncoord_d(cut, nat, id, xyz, trans, cn, dcndr, dcndL)
+
+    if (cut > 0.0):
+        cut_coordination_number(cut, cn, dcndr, dcndL)
+
+
+
+#!> Factor determining whether the CN is evaluated with direction
+#!> if +1 the CN contribution is added equally to both partners
+#!> if -1 (i.e. with the EN-dep.) it is added to one and subtracted from the other
+#real(wp)  :: directed_factor
+directed_factor = 1.0
+
+
+#subroutine ncoord_d(self, mol, trans, cn, dcndr, dcndL)
+#   !> Coordination number container
+#   class(ncoord_type), intent(in) :: self
+#   !> Molecular structure data
+#   type(structure_type), intent(in) :: mol
+#   !> Lattice points
+#   real(wp), intent(in) :: trans(:, :)
+#   !> Error function coordination number.
+#   real(wp), intent(out) :: cn(:)
+#   !> Derivative of the CN with respect to the Cartesian coordinates.
+#   real(wp), intent(out) :: dcndr(:, :, :)
+#   !> Derivative of the CN with respect to strain deformations.
+#   real(wp), intent(out) :: dcndL(:, :, :)
+
+#   integer :: iat, jat, izp, jzp, itr
+#   real(wp) :: r2, r1, rij(3), countf, countd(3), sigma(3, 3), cutoff2, den
+
+#   ! Thread-private arrays for reduction
+#   real(wp), allocatable :: cn_local(:)
+#   real(wp), allocatable :: dcndr_local(:, :, :), dcndL_local(:, :, :)
+def ncoord_d(cutoff, nat, id, xyz, trans, cn, dcndr, dcndL):
+    cn[:] = 0.0
+    dcndr[:, :, :] = 0.0
+    dcndL[:, :, :] = 0.0
+    cutoff2 = cutoff**2
+
+    for iat in range(1, nat+1):
+        izp = id[iat]
+        for jat in range(1, iat+1):
+            jzp = id[jat]
+            den = get_en_factor[jzp, izp]
+
+            for itr in range(1, trans.shape[1]+1):
+                rij = xyz[iat, :] - (xyz[jat, :] + trans[itr, :])
+                r2 = np.sum(rij**2)
+                if (r2 > cutoff2 or r2 < 1.0e-12.0):
+                    continue
+                r1 = sqrt(r2)
+
+                countf = den * ncoord_count[r1, jzp, izp]
+                countd = den * ncoord_dcount[r1, jzp, izp] * rij/r1
+
+                cn_local[iat] += countf
+                if (iat != jat):
+                    cn_local[jat] += countf * directed_factor
+
+                dcndr_local[iat, iat, :] += countd
+                dcndr_local[jat, jat, :] -= countd * directed_factor
+                dcndr_local[jat, iat, :] += countd * directed_factor
+                dcndr_local[iat, jat, :] -= countd
+
+                sigma = np.outer(rij, countd)
+                dcndL_local[iat, :, :] += sigma
+                if (iat != jat):
+                    dcndL_local[jat, :, :] += sigma * directed_factor
+
+    cn[:] += cn_local[:]
+    dcndr[:, :, :] += dcndr_local[:, :, :]
+    dcndL[:, :, :] += dcndL_local[:, :, :]
+
+
+# NOTE: Bro fr just returns 1. wtf
+#!> Evaluates pairwise electronegativity factor if non applies
+def get_en_factor(izp, jzp):
+    return 1.0
+
+
+# !> Cutoff function for large coordination numbers
+def cut_coordination_number(cn_max, cn, dcndr, dcndL):
+    #!> Maximum CN (not strictly obeyed)
+    #real(wp), intent(in) :: cn_max
+
+    #!> On input coordination number, on output modified CN
+    #real(wp), intent(inout) :: cn(:)
+
+    #!> On input derivative of CN w.r.t. cartesian coordinates,
+    #!> on output derivative of modified CN
+    #real(wp), intent(inout), optional :: dcndr(:, :, :)
+
+    #!> On input derivative of CN w.r.t. strain deformation,
+    #!> on output derivative of modified CN
+    #real(wp), intent(inout), optional :: dcndL(:, :, :)
+
+    # NOTE: This function has some checks for whether args are set.
+    # For now we only have 1 call with all args, so the checks are removed
+    # This is also true for some of the other functions, but forgot to document it
+
+    for iat in range(len(cn)):
+        dcnpdcn = math.exp(cn_max) / (math.exp(cn_max) + math.exp(cn[iat]))
+        dcndL[iat, :, :] = dcnpdcn * dcndL[iat, :, :]
+
+    for iat in range(len(cn)):
+        dcnpdcn = math.exp(cn_max) / (math.exp(cn_max) + math.exp(cn[iat]))
+        dcndL[iat, :, :] = dcnpdcn * dcndr[iat, :, :]
+
+    for iat in range(len(cn)):
+        cn[iat] = math.log(1.0 + math.exp(cn_max)) - math.log(1.0 + math.exp(cn_max - cn))
+
+
+#!> Create a new dftd4 coordination number container
+#subroutine new_erf_dftd4_ncoord(self, mol, kcn, cutoff, rcov, en, cut, norm_exp)
+#   !> Coordination number container
+#   type(erf_dftd4_ncoord_type), intent(out) :: self
+#   !> Molecular structure data
+#   type(structure_type), intent(in) :: mol
+#   !> Steepness of counting function
+#   real(wp), optional :: kcn
+#   !> Real space cutoff
+#   real(wp), intent(in), optional :: cutoff
+#   !> Covalent radii
+#   real(wp), intent(in), optional :: rcov(:)
+#   !> Electronegativity
+#   real(wp), intent(in), optional :: en(:)
+#   !> Cutoff for the maximum coordination number
+#   real(wp), intent(in), optional :: cut
+#   !> Exponent of the distance normalization
+#   real(wp), intent(in), optional :: norm_exp
+def new_erf_dftd4_ncoord(mol, kcn, cutoff, rcov, en, cut, norm_exp):
+    # This function just collects all the args in a class object
+
+
+
+
+
+from xyz_reader import parse_xyz_with_symbols
+symbols, positions = parse_xyz_with_symbols("./caffeine.xyz")
+nat, id, xyz, nid, map, num, sym, _lattice, _periodic = new_structure(positions, symbols)
+c6, ref = new_d4_model(nid, num)
+
+#from energy import GFN2_coordination_numbers_np
+#from xyz_reader import parse_xyz
+#element_ids, positions = parse_xyz("./caffeine.xyz")
+#cns = GFN2_coordination_numbers_np(element_ids, positions)
+#print(f"coordination numbers: {cns}")
