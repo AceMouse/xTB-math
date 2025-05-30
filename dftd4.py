@@ -412,7 +412,9 @@ def new_d4_model(nid, num, ga=3.0, gc=2.0, wf=6.0):
                     d4_c6[isp, jsp, iref, jref] = c6
                     d4_c6[jsp, isp, jref, iref] = c6
 
-    return d4_c6, ref
+    ncoup = 1
+
+    return d4_c6, ref, ncoup
 
 
 
@@ -448,17 +450,20 @@ realspace_cutoff_disp3 = 40.0
 
 
 # !> Wrapper to handle the evaluation of dispersion energy and derivatives
-def get_dispersion(ref, lattice, periodic, gradient=None, sigma=None):
+def get_dispersion(ref, rcov, kcn, norm_exp, ncoup, lattice, periodic, gradient=None, sigma=None):
     mref = np.max(ref)
     grad = gradient is not None or sigma is not None
 
     lattr = get_lattice_points_cutoff(periodic, lattice, realspace_cutoff_cn)
-    get_coordination_number()
+    cn = get_coordination_number(realspace_cutoff_cn, nat, id, xyz, lattr, rcov, kcn, norm_exp, None, None)
 
     print(f"coordination numbers: {cn}")
 
     if (grad):
-        allocate(gwdcn(mref, mol%nat, disp%ncoup), gwdq(mref, mol%nat, disp%ncoup))
+        # !> Number of atoms coupled to by pairwise parameters
+        # integer :: ncoup
+        gwdcn = np.zeros((mref, nat, ncoup))
+        gwdq = np.zeros((mref, nat, ncoup))
 
     weight_references()
 
@@ -495,6 +500,116 @@ def get_dispersion(ref, lattice, periodic, gradient=None, sigma=None):
     energy = np.sum(energies)
 
 
+#!> Calculate the weights of the reference system and the derivatives w.r.t.
+#!> coordination number for later use.
+def weight_references(zeff, eta, gc, wf, ngw, cn, q, gwvec, gwdcn, gwdq):
+    #!> Instance of the dispersion model
+    #class(d4_model), intent(in) :: self
+
+    #!> Molecular structure data
+    #class(structure_type), intent(in) :: mol
+
+    #!> Coordination number of every atom
+    #real(wp), intent(in) :: cn(:)
+
+    #!> Partial charge of every atom
+    #real(wp), intent(in) :: q(:)
+
+    #!> weighting for the atomic reference systems
+    #real(wp), intent(out) :: gwvec(:, :, :)
+
+    #!> derivative of the weighting function w.r.t. the coordination number
+    #real(wp), intent(out), optional :: gwdcn(:, :, :)
+
+    #!> derivative of the weighting function w.r.t. the charge scaling
+    #real(wp), intent(out), optional :: gwdq(:, :, :)
+
+    if (gwdcn != None and gwdq != None):
+        gwvec[:, :, :] = 0.0
+        gwdcn[:, :, :] = 0.0
+        gwdq[:, :, :] = 0.0
+
+        for iat in range(nat):
+            izp = id[iat]
+            zi = zeff[izp]
+            gi = eta[izp] * gc
+            norm = 0.0
+            dnorm = 0.0
+
+            for iref in range(ref[izp]):
+                for igw in range(ngw[izp, iref]):
+                    wf = igw * wf
+                    gw = weight_cn(wf, cn[iat], d4_cn[izp, iref])
+                    norm += gw
+                    dnorm += 2*wf * (d4_cn[izp, iref] - cn[iat]) * gw
+
+            norm = 1.0 / norm
+
+            for iref in range(ref[izp]):
+                expw = 0.0
+                expd = 0.0
+                for igw in range(ngw[izp, iref]):
+                    wf = igw * wf
+                    gw = weight_cn(wf, cn[iat], d4_cn[izp, iref])
+                    expw += gw
+                    expd += 2*wf * (d4_cn[izp, iref] - cn[iat]) * gw
+
+                gwk = expw * norm
+                if (is_exceptional(gwk)):
+                    maxcn = np.max(d4_cn[izp, :ref[izp]])
+                    if (abs(maxcn - d4_cn[izp, iref]) < 1e-12):
+                        gwk = 1.0
+                    else
+                        gwk = 0.0
+
+                gwvec[1, iat, iref] = gwk * zeta[q[iat]+zi, q[izp, iref]+zi, gi, ga]
+                gwdq[1, iat, iref] = gwk * dzeta[q[iat]+zi, q[izp, iref]+zi, gi, ga]
+
+                dgwk = norm * (expd - expw * dnorm * norm)
+                if (is_exceptional(dgwk)):
+                    dgwk = 0.0
+
+                gwdcn[1, iat, iref] = dgwk * zeta[q[iat]+zi, q[izp, iref]+zi, gi, ga]
+
+    else:
+        gwvec[:, :, :] = 0.0
+
+        for iat in range(nat):
+            izp = id[iat]
+            zi = zeff[izp]
+            gi = eta[izp] * gc
+            norm = 0.0
+            for iref in range(ref[izp]):
+                for igw in range(ngw[izp, iref]):
+                    wf = igw * wf
+                    norm += weight_cn(wf, cn[iat], d4_cn[izp, iref])
+
+            norm = 1.0 / norm
+            for iref in range(ref[izp]):
+                expw = 0.0
+                for igw in range(ngw[izp, iref]):
+                    wf = igw * wf
+                    expw += weight_cn(wf, cn[iat], d4_cn[izp, iref])
+
+                gwk = expw * norm
+                if (is_exceptional(gwk)):
+                    maxcn = np.max(d4_cn[izp, :ref[izp]])
+                    if (abs(maxcn - d4_cn[izp, iref]) < 1e-12):
+                        gwk = 1.0
+                    else
+                        gwk = 0.0
+
+                gwvec[1, iat, iref] = gwk * zeta[q[iat]+zi, q[izp, iref]+zi, gi, ga]
+
+
+
+
+def weight_cn(wf, cn, cnref):
+    return math.exp(-wf * (cn - cnref)**2)
+
+def is_exceptional(val):
+    import sys
+    return math.isnan(val) or abs(val) > sys.float_info.max
 
 
 #!> Create lattice points within a given cutoff
@@ -607,7 +722,7 @@ def crossproduct(a, b):
 
 
 #!> Geometric fractional coordination number
-def get_coordination_number(cut, nat, id, xyz, trans, cn, dcndr, dcndL):
+def get_coordination_number(cut, nat, id, xyz, trans, rcov, kcn, norm_exp, dcndr, dcndL):
     #!> Coordination number container
     #class(ncoord_type), intent(in) :: self
     #
@@ -626,11 +741,71 @@ def get_coordination_number(cut, nat, id, xyz, trans, cn, dcndr, dcndL):
     #!> Derivative of the CN with respect to strain deformations.
     #real(wp), intent(out), optional :: dcndL(:, :, :)
 
-    ncoord_d(cut, nat, id, xyz, trans, cn, dcndr, dcndL)
+    if (dcndr != None and dcndL != None):
+        cn = ncoord_d(cut, nat, id, xyz, trans, dcndr, dcndL)
+    else:
+        cn = ncoord(rcov, kcn, norm_exp, trans)
 
     if (cut > 0.0):
-        cut_coordination_number(cut, cn, dcndr, dcndL)
+        cn = cut_coordination_number(cut, cn, dcndr, dcndL)
 
+    return cn
+
+
+
+
+
+def ncoord(rcov, kcn, norm_exp, trans):
+    #!> Coordination number container
+    #class(ncoord_type), intent(in) :: self
+    #!> Molecular structure data
+    #type(structure_type), intent(in) :: mol
+    #!> Lattice points
+    #real(wp), intent(in) :: trans(:, :)
+    #!> Error function coordination number.
+    #real(wp), intent(out) :: cn(:)
+
+    cutoff2 = realspace_cutoff_cn**2
+
+    cn_local = np.zeros(nat)
+    for iat in range(nat):
+        izp = id[iat]
+        for jat in range(iat):
+            jzp = id[jat]
+            den = get_en_factor(izp, jzp)
+
+            for itr in range(trans.shape[1]):
+                rij = xyz[iat, :] - (xyz[jat, :] + trans[itr, :])
+                r2 = np.sum(rij**2)
+                if (r2 > cutoff2 or r2 < 1e-12):
+                    continue
+                r1 = math.sqrt(r2)
+
+                countf = den * ncoord_count(rcov, kcn, norm_exp, izp, jzp, r1)
+
+                cn_local[iat] += countf
+                if (iat != jat):
+                    cn_local[jat] += countf * directed_factor
+
+    return cn_local
+
+
+
+
+#!> Error counting function for coordination number contributions.
+def ncoord_count(rcov, kcn, norm_exp, izp, jzp, r):
+    #!> Coordination number container
+    #class(erf_ncoord_type), intent(in) :: self
+    #!> Atom i index
+    #integer, intent(in)  :: izp
+    #!> Atom j index
+    #integer, intent(in)  :: jzp
+    #!> Current distance.
+    #real(wp), intent(in) :: r
+
+    rc = (rcov[izp] + rcov[jzp])
+    count = 0.5 * (1.0 + math.erf(-kcn * (r-rc)/rc)**norm_exp)
+    return count
 
 
 #!> Factor determining whether the CN is evaluated with direction
@@ -660,7 +835,7 @@ directed_factor = 1.0
 #   ! Thread-private arrays for reduction
 #   real(wp), allocatable :: cn_local(:)
 #   real(wp), allocatable :: dcndr_local(:, :, :), dcndL_local(:, :, :)
-def ncoord_d(cutoff, nat, id, xyz, trans, cn, dcndr, dcndL):
+def ncoord_d(cutoff, nat, id, xyz, trans, dcndr, dcndL):
     cn[:] = 0.0
     dcndr[:, :, :] = 0.0
     dcndL[:, :, :] = 0.0
@@ -670,14 +845,14 @@ def ncoord_d(cutoff, nat, id, xyz, trans, cn, dcndr, dcndL):
         izp = id[iat]
         for jat in range(1, iat+1):
             jzp = id[jat]
-            den = get_en_factor[jzp, izp]
+            den = get_en_factor(jzp, izp)
 
             for itr in range(1, trans.shape[1]+1):
                 rij = xyz[iat, :] - (xyz[jat, :] + trans[itr, :])
                 r2 = np.sum(rij**2)
-                if (r2 > cutoff2 or r2 < 1.0e-12.0):
+                if (r2 > cutoff2 or r2 < 1e-12):
                     continue
-                r1 = sqrt(r2)
+                r1 = math.sqrt(r2)
 
                 countf = den * ncoord_count[r1, jzp, izp]
                 countd = den * ncoord_dcount[r1, jzp, izp] * rij/r1
@@ -757,10 +932,10 @@ def cut_coordination_number(cn_max, cn, dcndr, dcndL):
 #   real(wp), intent(in), optional :: cut
 #   !> Exponent of the distance normalization
 #   real(wp), intent(in), optional :: norm_exp
-def new_erf_dftd4_ncoord(mol, kcn, cutoff, rcov, en, cut, norm_exp):
+def new_erf_dftd4_ncoord(mol, rcov, en, cut, kcn=7.5, cutoff=25.0, norm_exp=1.0):
     # This function just collects all the args in a class object
 
-
+    return NotImplemented
 
 
 
