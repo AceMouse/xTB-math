@@ -16,18 +16,18 @@ Let us first rewrite the inner expression a bit given our new definition and kno
     \sum_{\mu\in A} (q_{A,\mu})^3\Gamma_{A,\mu} = \sum_{\mu = 1}^2 (q_{A,\mu})^3\varGamma_{\mu}
 \end{equation}
 
-We now need a unitary which computes this function on a given state $\ket{q_{A,\mu}}\ket{\Gamma_\mu}\ket{0} \to \ket{q_{A,\mu}}\ket{\Gamma_\mu}\ket{(q_{A,\mu})^3\varGamma_{\mu}}$. 
+We now need a unitary which computes this function on a given state $\ket{q_{A,\mu}}\ket{\Gamma_\mu}\ket{acc} \to \ket{q_{A,\mu}}\ket{\Gamma_\mu}\ket{acc+(q_{A,\mu})^3\varGamma_{\mu}}$. 
 Consider having access to the following addition (multiplication) unitary $\ket{A}\ket{B} \to \ket{A}\ket{A+(*)B}$ as well as the unitary taking $\ket{A} \to \ket{A^2}$. 
 We can now apply the following to get our desired unitary.  
 \begin{align}
-    &\text{MULT}^\dagger_{x,y}\text{SQR}^\dagger_x\text{MULT}^\dagger_{x,y}\text{ADD}_{y,z}\text{MULT}_{x,y}\text{SQR}_x\text{MULT}_{x,y}\ket{q_{A,\mu}}_x\ket{\Gamma_\mu}_y\ket{0}_z\\ 
-    = &\text{MULT}^\dagger_{x,y}\text{SQR}^\dagger_x\text{MULT}^\dagger_{x,y}\text{ADD}_{y,z}\text{MULT}_{x,y}\text{SQR}_x\ket{q_{A,\mu}}_x\ket{\Gamma_\mu q_{A,\mu}}_y\ket{0}_z\\ 
-    = &\text{MULT}^\dagger_{x,y}\text{SQR}^\dagger_x\text{MULT}^\dagger_{x,y}\text{ADD}_{y,z}\text{MULT}_{x,y}\ket{(q_{A,\mu})^2}_x\ket{\Gamma_\mu q_{A,\mu}}_y\ket{0}_z\\ 
-    = &\text{MULT}^\dagger_{x,y}\text{SQR}^\dagger_x\text{MULT}^\dagger_{x,y}\text{ADD}_{y,z}\ket{(q_{A,\mu})^2}_x\ket{(q_{A,\mu})^3\Gamma_\mu}_y\ket{0}_z\\ 
-    = &\text{MULT}^\dagger_{x,y}\text{SQR}^\dagger_x\text{MULT}^\dagger_{x,y}\ket{(q_{A,\mu})^2}_x\ket{(q_{A,\mu})^3\Gamma_\mu }_y\ket{(q_{A,\mu})^3\Gamma_\mu}_z\\ 
-    = &\text{MULT}^\dagger_{x,y}\text{SQR}^\dagger_x\ket{(q_{A,\mu})^2}_x\ket{\Gamma_\mu q_{A,\mu}}_y\ket{(q_{A,\mu})^3\Gamma_\mu}_z\\ 
-    = &\text{MULT}^\dagger_{x,y}\ket{q_{A,\mu}}_x\ket{\Gamma_\mu q_{A,\mu}}_y\ket{(q_{A,\mu})^3\Gamma_\mu}_z\\ 
-    = &\ket{q_{A,\mu}}_x\ket{\Gamma_\mu}_y\ket{(q_{A,\mu})^3\Gamma_\mu }_z\\ 
+    &\text{MULT}^\dagger_{x,y}\text{SQR}^\dagger_x\text{MULT}^\dagger_{x,y}\text{ADD}_{y,z}\text{MULT}_{x,y}\text{SQR}_x\text{MULT}_{x,y}\ket{q_{A,\mu}}_x\ket{\Gamma_\mu}_y\ket{acc}_z\\ 
+    = &\text{MULT}^\dagger_{x,y}\text{SQR}^\dagger_x\text{MULT}^\dagger_{x,y}\text{ADD}_{y,z}\text{MULT}_{x,y}\text{SQR}_x\ket{q_{A,\mu}}_x\ket{\Gamma_\mu q_{A,\mu}}_y\ket{acc}_z\\ 
+    = &\text{MULT}^\dagger_{x,y}\text{SQR}^\dagger_x\text{MULT}^\dagger_{x,y}\text{ADD}_{y,z}\text{MULT}_{x,y}\ket{(q_{A,\mu})^2}_x\ket{\Gamma_\mu q_{A,\mu}}_y\ket{acc}_z\\ 
+    = &\text{MULT}^\dagger_{x,y}\text{SQR}^\dagger_x\text{MULT}^\dagger_{x,y}\text{ADD}_{y,z}\ket{(q_{A,\mu})^2}_x\ket{(q_{A,\mu})^3\Gamma_\mu}_y\ket{acc}_z\\ 
+    = &\text{MULT}^\dagger_{x,y}\text{SQR}^\dagger_x\text{MULT}^\dagger_{x,y}\ket{(q_{A,\mu})^2}_x\ket{(q_{A,\mu})^3\Gamma_\mu }_y\ket{acc+(q_{A,\mu})^3\Gamma_\mu}_z\\ 
+    = &\text{MULT}^\dagger_{x,y}\text{SQR}^\dagger_x\ket{(q_{A,\mu})^2}_x\ket{\Gamma_\mu q_{A,\mu}}_y\ket{acc+(q_{A,\mu})^3\Gamma_\mu}_z\\ 
+    = &\text{MULT}^\dagger_{x,y}\ket{q_{A,\mu}}_x\ket{\Gamma_\mu q_{A,\mu}}_y\ket{acc+(q_{A,\mu})^3\Gamma_\mu}_z\\ 
+    = &\ket{q_{A,\mu}}_x\ket{\Gamma_\mu}_y\ket{acc+(q_{A,\mu})^3\Gamma_\mu }_z\\ 
 \end{align}
 This circuit to compute the inner sum in $E^\Gamma$ could be called ${E_i^\Gamma}_{(x,y,z)}$. Let us say we are given the following state $$\bigotimes_A(\ket{q_{A,1}}_a\ket{q_{A,2}}_b)\otimes(\ket{\Gamma_1}_c\ket{\Gamma_2}_d\ket{0}_e)$$ 
 we can now apply $\prod_{a} {E_i^\Gamma}_{(a,c,e)}\prod_{b} {E_i^\Gamma}_{(b,d,e)}$ to get 
