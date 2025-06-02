@@ -165,6 +165,11 @@ def zeta(a, c, qref, qmod):
         return math.exp(a)
     return math.exp(a * (1.0 - math.exp(c * (1.0 - qref/qmod))))
 
+def dzeta(a, c, qref, qmod):
+    if (qmod < 0.0):
+        return 0.0
+    return -a * c * math.exp(c * (1.0 - qref/qmod)) * zeta(a, c, qref, qmod) * qref/(qmod**2)
+
 def get_effective_charge_num(atomic_number):
     if (atomic_number >= 0 and atomic_number < len(effective_nuclear_charge)):
         return effective_nuclear_charge[atomic_number]
@@ -450,7 +455,7 @@ realspace_cutoff_disp3 = 40.0
 
 
 # !> Wrapper to handle the evaluation of dispersion energy and derivatives
-def get_dispersion(ref, rcov, kcn, norm_exp, ncoup, lattice, periodic, gradient=None, sigma=None):
+def get_dispersion(zeff, eta, ga, gc, wf, ngw, d4_cn, ref, rcov, kcn, norm_exp, ncoup, lattice, periodic, gradient=None, sigma=None):
     mref = np.max(ref)
     grad = gradient is not None or sigma is not None
 
@@ -460,12 +465,18 @@ def get_dispersion(ref, rcov, kcn, norm_exp, ncoup, lattice, periodic, gradient=
     print(f"coordination numbers: {cn}")
 
     if (grad):
+        dqdr = np.zeros((nat, nat, 3))
+        dqdL = np.zeros((nat, 3, 3))
+
+    get_charges()
+
+    if (grad):
         # !> Number of atoms coupled to by pairwise parameters
         # integer :: ncoup
         gwdcn = np.zeros((mref, nat, ncoup))
         gwdq = np.zeros((mref, nat, ncoup))
 
-    weight_references()
+    weight_references(zeff, eta, ga, gc, wf, ngw, d4_cn, cn, q, gwvec, gwdcn, gwdq)
 
     if (grad):
        allocate(dc6dcn(mol%nat, mol%nat), dc6dq(mol%nat, mol%nat))
@@ -500,9 +511,281 @@ def get_dispersion(ref, rcov, kcn, norm_exp, ncoup, lattice, periodic, gradient=
     energy = np.sum(energies)
 
 
+
+#!> Obtain charges from electronegativity equilibration model
+def get_charges(mol, num, qvec, dqdr, dqdL):
+   #!DEC$ ATTRIBUTES DLLEXPORT :: get_charges
+
+   #!> Molecular structure data
+   #type(structure_type), intent(in) :: mol
+
+   #!> Atomic partial charges
+   #real(wp), intent(out), contiguous :: qvec(:)
+
+   #!> Derivative of the partial charges w.r.t. the Cartesian coordinates
+   #real(wp), intent(out), contiguous, optional :: dqdr(:, :, :)
+
+   #!> Derivative of the partial charges w.r.t. strain deformations
+   #real(wp), intent(out), contiguous, optional :: dqdL(:, :, :)
+
+    cn_max = 8.0
+    cutoff = 25.0
+
+    grad = dqdr != None and dqdL != None
+
+    rad, chi, eta, kcn, rcov, cutoff, cn_exp, cn_max = new_eeq2019_model(num)
+    #if(allocated(error)) then
+    #   write(error_unit, '("[Error]:", 1x, a)') error%message
+    #   error stop
+    #end if
+
+    if (grad):
+       dcndr = np.zeros((nat, nat, 3))
+       dcndL = np.zeros((nat, 3, 3))
+
+    get_cn(periodic, lattice, cutoff, rcov, kcn, norm_exp, dcndr, dcndL)
+    solve(mol, error, cn, dcndr, dcndL, qvec=qvec, dqdr=dqdr, dqdL=dqdL)
+
+    #if(allocated(error)) then
+    #  write(error_unit, '("[Error]:", 1x, a)') error%message
+    #  error stop
+    #end if
+
+
+def get_cn(periodic, lattice, cutoff, rcov, kcn, norm_exp, dcndr, dcndL):
+    # lattr
+    trans = get_lattice_points_cutoff(periodic, lattice, cutoff)
+    # NOTE: Should the cutoff of the two functions be the same?
+    cn = get_coordination_number(cutoff, nat, id, xyz, trans, rcov, kcn, norm_exp, dcndr, dcndL)
+    return cn
+
+
+def new_eeq2019_model(num):
+    cutoff = 25.0
+    cn_exp = 7.5
+    cn_max = 8.0
+
+    chi = get_eeq_chi_num(num)
+    eta = get_eeq_eta_num(num)
+    kcn = get_eeq_kcn_num(num)
+    rad = get_eeq_rad_num(num)
+    rcov = get_covalent_rad_num(num)
+
+    # This just wraps the values in a class.
+    #new_mchrg_model(model, mol, error, chi, rad, eta, kcn, cutoff, cn_exp, rcov, cn_max)
+
+    return rad, chi, eta, kcn, rcov, cutoff, cn_exp, cn_max
+
+
+
+#!> Element-specific electronegativity for the electronegativity equilibration charges.
+eeq_chi = np.array([
+    1.23695041, 1.26590957, 0.54341808, 0.99666991, 1.26691604,
+    1.40028282, 1.55819364, 1.56866440, 1.57540015, 1.15056627,
+    0.55936220, 0.72373742, 1.12910844, 1.12306840, 1.52672442,
+    1.40768172, 1.48154584, 1.31062963, 0.40374140, 0.75442607,
+    0.76482096, 0.98457281, 0.96702598, 1.05266584, 0.93274875,
+    1.04025281, 0.92738624, 1.07419210, 1.07900668, 1.04712861,
+    1.15018618, 1.15388455, 1.36313743, 1.36485106, 1.39801837,
+    1.18695346, 0.36273870, 0.58797255, 0.71961946, 0.96158233,
+    0.89585296, 0.81360499, 1.00794665, 0.92613682, 1.09152285,
+    1.14907070, 1.13508911, 1.08853785, 1.11005982, 1.12452195,
+    1.21642129, 1.36507125, 1.40340000, 1.16653482, 0.34125098,
+    0.58884173, 0.68441115, 0.56999999, 0.56999999, 0.56999999,
+    0.56999999, 0.56999999, 0.56999999, 0.56999999, 0.56999999,
+    0.56999999, 0.56999999, 0.56999999, 0.56999999, 0.56999999,
+    0.56999999, 0.87936784, 1.02761808, 0.93297476, 1.10172128,
+    0.97350071, 1.16695666, 1.23997927, 1.18464453, 1.14191734,
+    1.12334192, 1.01485321, 1.12950808, 1.30804834, 1.33689961,
+    1.27465977, 1.06598299, 0.68184178, 1.04581665, 1.09888688, 
+    1.07206461, 1.09821942, 1.10900303, 1.01039812, 1.00095966,
+    1.11003303, 1.16831853, 1.00887482, 1.05928842, 1.07672363,
+    1.11308426, 1.14340090, 1.13714110
+])
+
+
+def get_eeq_chi_num(number):
+    if (number >= 0 and number < eeq_chi.shape[0]):
+        return eeq_chi[number]
+    return -1.0
+
+
+
+#!> Element-specific chemical hardnesses for the electronegativity equilibration charges.
+eeq_eta = np.array([
+    -0.35015861, 1.04121227, 0.09281243, 0.09412380, 0.26629137,
+     0.19408787, 0.05317918, 0.03151644, 0.32275132, 1.30996037,
+     0.24206510, 0.04147733, 0.11634126, 0.13155266, 0.15350650,
+     0.15250997, 0.17523529, 0.28774450, 0.42937314, 0.01896455,
+     0.07179178,-0.01121381,-0.03093370, 0.02716319,-0.01843812,
+    -0.15270393,-0.09192645,-0.13418723,-0.09861139, 0.18338109,
+     0.08299615, 0.11370033, 0.19005278, 0.10980677, 0.12327841,
+     0.25345554, 0.58615231, 0.16093861, 0.04548530,-0.02478645,
+     0.01909943, 0.01402541,-0.03595279, 0.01137752,-0.03697213,
+     0.08009416, 0.02274892, 0.12801822,-0.02078702, 0.05284319,
+     0.07581190, 0.09663758, 0.09547417, 0.07803344, 0.64913257,
+     0.15348654, 0.05054344, 0.11000000, 0.11000000, 0.11000000,
+     0.11000000, 0.11000000, 0.11000000, 0.11000000, 0.11000000,
+     0.11000000, 0.11000000, 0.11000000, 0.11000000, 0.11000000,
+     0.11000000,-0.02786741, 0.01057858,-0.03892226,-0.04574364,
+    -0.03874080,-0.03782372,-0.07046855, 0.09546597, 0.21953269,
+     0.02522348, 0.15263050, 0.08042611, 0.01878626, 0.08715453,
+     0.10500484, 0.10034731, 0.15801991,-0.00071039,-0.00170887, 
+    -0.00133327,-0.00104386,-0.00094936,-0.00111390,-0.00125257,
+    -0.00095936,-0.00102814,-0.00104450,-0.00112666,-0.00101529, 
+    -0.00059592,-0.00012585,-0.00140896
+])
+
+def get_eeq_eta_num(number):
+    if (number >= 0 and number < eeq_eta.shape[0]):
+        return eeq_eta[number]
+    return -1.0
+
+
+#!> Element-specific CN scaling constant for the electronegativity equilibration charges.
+eeq_kcn = np.array([
+    0.04916110, 0.10937243,-0.12349591,-0.02665108,-0.02631658,
+    0.06005196, 0.09279548, 0.11689703, 0.15704746, 0.07987901,
+    0.10002962,-0.07712863,-0.02170561,-0.04964052, 0.14250599,
+    0.07126660, 0.13682750, 0.14877121,-0.10219289,-0.08979338,
+    0.08273597,-0.01754829,-0.02765460,-0.02558926,-0.08010286,
+    0.04163215,-0.09369631,-0.03774117,-0.05759708, 0.02431998,
+    0.01056270,-0.02692862, 0.07657769, 0.06561608, 0.08006749,
+    0.14139200,-0.05351029,-0.06701705,-0.07377246,-0.02927768,
+    0.03867291,-0.06929825,-0.04485293,-0.04800824,-0.01484022,
+    0.07917502, 0.06619243, 0.02434095,-0.01505548,-0.03030768,
+    0.01418235, 0.08953411, 0.08967527, 0.07277771,-0.02129476,
+    0.06188828,-0.06568203,-0.11000000,-0.11000000,-0.11000000,
+    0.11000000,-0.11000000,-0.11000000,-0.11000000,-0.11000000,
+    0.11000000,-0.11000000,-0.11000000,-0.11000000,-0.11000000,
+    0.11000000,-0.03585873,-0.03132400,-0.05902379,-0.02827592,
+    0.07606260,-0.02123839, 0.03814822, 0.02146834, 0.01580538,
+    0.00894298,-0.05864876,-0.01817842, 0.07721851, 0.07936083,
+    0.05849285, 0.00013506,-0.00020631, 0.00473118, 0.01590519,
+    0.00369763, 0.00417543, 0.00706682, 0.00488679, 0.00505103,
+    0.00710682, 0.00463050, 0.00387799, 0.00296795, 0.00400648, 
+    0.00548481, 0.01350400, 0.00675380
+])
+
+def get_eeq_kcn_num(number):
+    if (number >= 0 and number < eeq_kcn.shape[0]):
+        return eeq_kcn[number]
+    return -1.0
+
+
+#!> Element-specific charge widths for the electronegativity equilibration charges.
+eeq_rad = np.array([
+    0.55159092, 0.66205886, 0.90529132, 1.51710827, 2.86070364,
+    1.88862966, 1.32250290, 1.23166285, 1.77503721, 1.11955204,
+    1.28263182, 1.22344336, 1.70936266, 1.54075036, 1.38200579,
+    2.18849322, 1.36779065, 1.27039703, 1.64466502, 1.58859404,
+    1.65357953, 1.50021521, 1.30104175, 1.46301827, 1.32928147,
+    1.02766713, 1.02291377, 0.94343886, 1.14881311, 1.47080755,
+    1.76901636, 1.98724061, 2.41244711, 2.26739524, 2.95378999,
+    1.20807752, 1.65941046, 1.62733880, 1.61344972, 1.63220728,
+    1.60899928, 1.43501286, 1.54559205, 1.32663678, 1.37644152,
+    1.36051851, 1.23395526, 1.65734544, 1.53895240, 1.97542736,
+    1.97636542, 2.05432381, 3.80138135, 1.43893803, 1.75505957,
+    1.59815118, 1.76401732, 1.63999999, 1.63999999, 1.63999999,
+    1.63999999, 1.63999999, 1.63999999, 1.63999999, 1.63999999,
+    1.63999999, 1.63999999, 1.63999999, 1.63999999, 1.63999999,
+    1.63999999, 1.47055223, 1.81127084, 1.40189963, 1.54015481,
+    1.33721475, 1.57165422, 1.04815857, 1.78342098, 2.79106396,
+    1.78160840, 2.47588882, 2.37670734, 1.76613217, 2.66172302,
+    2.82773085, 1.04059593, 0.60550051, 1.22262145, 1.28736399,
+    1.44431317, 1.29032833, 1.41009404, 1.25501213, 1.15181468,
+    1.42010424, 1.43955530, 1.28565237, 1.35017463, 1.33011749, 
+    1.30745135, 1.26526071, 1.34071499
+])
+
+def get_eeq_rad_num(number):
+    if (number >= 0 and number < eeq_rad.shape[0]):
+        return eeq_rad[number]
+    return -1.0
+
+## Values from 2018 CODATA NIST file ##
+
+#!> Planck's constant
+planck_constant = 6.62607015e-34
+h = planck_constant
+
+#!> Speed of light in vacuum
+speed_of_light_in_vacuum = 299792458e0
+c = speed_of_light_in_vacuum
+
+#!> electron rest mass
+electron_mass = 9.1093837015e-31
+me = electron_mass
+
+#!> fine structure constant (CODATA2018)
+fine_structure_constant = 7.2973525693e-3
+alpha = fine_structure_constant
+
+#######################################
+
+
+#!> Reduced Planck's constant
+hbar = h/(2.0*math.pi) # J·s = kg·m²·s⁻¹
+
+#!> Bohr radius
+bohr = hbar/(me*c*alpha) # m
+
+#!> Conversion factor from bohr to Ångström
+autoaa = bohr * 1e10
+
+#!> Conversion factor from Ångström to bohr
+aatoau = 1.0/autoaa
+
+#!> Covalent radii (taken from Pyykko and Atsumi, Chem. Eur. J. 15, 2009,
+#!> 188-197), values for metals decreased by 10 %
+covalent_rad_2009 = aatoau * np.array([
+0.32,0.46, # H,He
+1.20,0.94,0.77,0.75,0.71,0.63,0.64,0.67, # Li-Ne
+1.40,1.25,1.13,1.04,1.10,1.02,0.99,0.96, # Na-Ar
+1.76,1.54, # K,Ca
+                1.33,1.22,1.21,1.10,1.07, # Sc-
+                1.04,1.00,0.99,1.01,1.09, # -Zn
+                1.12,1.09,1.15,1.10,1.14,1.17, # Ga-Kr
+1.89,1.67, # Rb,Sr
+                1.47,1.39,1.32,1.24,1.15, # Y-
+                1.13,1.13,1.08,1.15,1.23, # -Cd
+                1.28,1.26,1.26,1.23,1.32,1.31, # In-Xe
+2.09,1.76, # Cs,Ba
+        1.62,1.47,1.58,1.57,1.56,1.55,1.51, # La-Eu
+        1.52,1.51,1.50,1.49,1.49,1.48,1.53, # Gd-Yb
+                1.46,1.37,1.31,1.23,1.18, # Lu-
+                1.16,1.11,1.12,1.13,1.32, # -Hg
+                1.30,1.30,1.36,1.31,1.38,1.42, # Tl-Rn
+2.01,1.81, # Fr,Ra
+     1.67,1.58,1.52,1.53,1.54,1.55,1.49, # Ac-Am
+     1.49,1.51,1.51,1.48,1.50,1.56,1.58, # Cm-No
+                1.45,1.41,1.34,1.29,1.27, # Lr-
+                1.21,1.16,1.15,1.09,1.22, # -Cn
+                1.36,1.43,1.46,1.58,1.48,1.57  # Nh-Og
+])
+
+#!> D3 covalent radii used to construct the coordination number
+covalent_rad_d3 = np.array([
+    4.0 / 3.0 * covalent_rad_2009
+])
+
+#!> Get covalent radius for a given atomic number
+def get_covalent_rad_num(num):
+   #!> Atomic number
+   #integer, intent(in) :: num
+
+   #!> Covalent radius
+   #real(wp) :: rad
+
+    if (num >= 0 and num < len(covalent_rad_d3)):
+        return covalent_rad_d3[num]
+    return  0.0
+
+
+
 #!> Calculate the weights of the reference system and the derivatives w.r.t.
 #!> coordination number for later use.
-def weight_references(zeff, eta, gc, wf, ngw, cn, q, gwvec, gwdcn, gwdq):
+def weight_references(zeff, eta, ga, gc, wf, ngw, cn, d4_cn, q, gwvec, gwdcn, gwdq):
     #!> Instance of the dispersion model
     #class(d4_model), intent(in) :: self
 
@@ -559,17 +842,17 @@ def weight_references(zeff, eta, gc, wf, ngw, cn, q, gwvec, gwdcn, gwdq):
                     maxcn = np.max(d4_cn[izp, :ref[izp]])
                     if (abs(maxcn - d4_cn[izp, iref]) < 1e-12):
                         gwk = 1.0
-                    else
+                    else:
                         gwk = 0.0
 
-                gwvec[1, iat, iref] = gwk * zeta[q[iat]+zi, q[izp, iref]+zi, gi, ga]
-                gwdq[1, iat, iref] = gwk * dzeta[q[iat]+zi, q[izp, iref]+zi, gi, ga]
+                gwvec[1, iat, iref] = gwk * zeta(ga, gi, q[izp, iref]+zi, q[iat]+zi)
+                gwdq[1, iat, iref] = gwk * dzeta(ga, gi, q[izp, iref]+zi, q[iat]+zi)
 
                 dgwk = norm * (expd - expw * dnorm * norm)
                 if (is_exceptional(dgwk)):
                     dgwk = 0.0
 
-                gwdcn[1, iat, iref] = dgwk * zeta[q[iat]+zi, q[izp, iref]+zi, gi, ga]
+                gwdcn[1, iat, iref] = dgwk * zeta(ga, gi, q[izp, iref]+zi, q[iat]+zi)
 
     else:
         gwvec[:, :, :] = 0.0
@@ -596,10 +879,10 @@ def weight_references(zeff, eta, gc, wf, ngw, cn, q, gwvec, gwdcn, gwdq):
                     maxcn = np.max(d4_cn[izp, :ref[izp]])
                     if (abs(maxcn - d4_cn[izp, iref]) < 1e-12):
                         gwk = 1.0
-                    else
+                    else:
                         gwk = 0.0
 
-                gwvec[1, iat, iref] = gwk * zeta[q[iat]+zi, q[izp, iref]+zi, gi, ga]
+                gwvec[1, iat, iref] = gwk * zeta(ga, gi, q[izp, iref]+zi, q[iat]+zi)
 
 
 
@@ -742,7 +1025,7 @@ def get_coordination_number(cut, nat, id, xyz, trans, rcov, kcn, norm_exp, dcndr
     #real(wp), intent(out), optional :: dcndL(:, :, :)
 
     if (dcndr != None and dcndL != None):
-        cn = ncoord_d(cut, nat, id, xyz, trans, dcndr, dcndL)
+        cn, dcndr, dcdnL = ncoord_d(rcov, kcn, norm_exp, cut, nat, id, xyz, trans)
     else:
         cn = ncoord(rcov, kcn, norm_exp, trans)
 
@@ -791,7 +1074,7 @@ def ncoord(rcov, kcn, norm_exp, trans):
 
 
 
-
+# TODO: There are 3 different ncoord_count. I don't know which is used. Might need to try the other ones.
 #!> Error counting function for coordination number contributions.
 def ncoord_count(rcov, kcn, norm_exp, izp, jzp, r):
     #!> Coordination number container
@@ -805,6 +1088,15 @@ def ncoord_count(rcov, kcn, norm_exp, izp, jzp, r):
 
     rc = (rcov[izp] + rcov[jzp])
     count = 0.5 * (1.0 + math.erf(-kcn * (r-rc)/rc)**norm_exp)
+    return count
+
+# TODO: Probably 3 different versions here as well
+def ncoord_dcount(rcov, kcn, norm_exp, izp, jzp, r):
+    rc = rcov[izp] + rcov[jzp]
+
+    exponent = kcn * (r-rc)/rc**norm_exp
+    expterm = math.exp(-exponent**2.0)
+    count = -(kcn * expterm)/(math.sqrt(math.pi)*rc**norm_exp)
     return count
 
 
@@ -835,11 +1127,18 @@ directed_factor = 1.0
 #   ! Thread-private arrays for reduction
 #   real(wp), allocatable :: cn_local(:)
 #   real(wp), allocatable :: dcndr_local(:, :, :), dcndL_local(:, :, :)
-def ncoord_d(cutoff, nat, id, xyz, trans, dcndr, dcndL):
-    cn[:] = 0.0
-    dcndr[:, :, :] = 0.0
-    dcndL[:, :, :] = 0.0
+def ncoord_d(rcov, kcn, norm_exp, cutoff, nat, id, xyz, trans):
+    cn = np.zeros(xyz.shape[0]) # I think we need 1 coordination number for each atom?
+    #dcndr[:, :, :] = 0.0    # TODO: Find out how large dcndr and dcndL should be
+    #dcndL[:, :, :] = 0.0
+    dcndr = np.zeros((xyz.shape[0], 3, 1))
+    dcndL = np.zeros((xyz.shape[0], 3, 1))
     cutoff2 = cutoff**2
+
+    # NOTE: I think all the local arrays are just used for openmp reduction
+    cn_local = np.array(cn, copy=True)
+    dcndr_local = np.array(dcndr, copy=True)
+    dcndL_local = np.array(dcndL, copy=True)
 
     for iat in range(1, nat+1):
         izp = id[iat]
@@ -854,8 +1153,8 @@ def ncoord_d(cutoff, nat, id, xyz, trans, dcndr, dcndL):
                     continue
                 r1 = math.sqrt(r2)
 
-                countf = den * ncoord_count[r1, jzp, izp]
-                countd = den * ncoord_dcount[r1, jzp, izp] * rij/r1
+                countf = den * ncoord_count(rcov, kcn, norm_exp, izp, jzp, r1)
+                countd = den * ncoord_dcount(rcov, kcn, norm_exp, izp, jzp, r1) * rij/r1
 
                 cn_local[iat] += countf
                 if (iat != jat):
@@ -874,6 +1173,8 @@ def ncoord_d(cutoff, nat, id, xyz, trans, dcndr, dcndL):
     cn[:] += cn_local[:]
     dcndr[:, :, :] += dcndr_local[:, :, :]
     dcndL[:, :, :] += dcndL_local[:, :, :]
+
+    return cn, dcndr, dcndL
 
 
 # NOTE: Bro fr just returns 1. wtf
