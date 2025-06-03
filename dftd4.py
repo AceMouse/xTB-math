@@ -460,7 +460,7 @@ def get_dispersion(zeff, eta, ga, gc, wf, ngw, d4_cn, ref, rcov, kcn, norm_exp, 
     grad = gradient is not None or sigma is not None
 
     lattr = get_lattice_points_cutoff(periodic, lattice, realspace_cutoff_cn)
-    cn = get_coordination_number(realspace_cutoff_cn, nat, id, xyz, lattr, rcov, kcn, norm_exp, None, None)
+    cn, _, _ = get_coordination_number(realspace_cutoff_cn, nat, id, xyz, lattr, rcov, kcn, norm_exp)
 
     print(f"coordination numbers: {cn}")
 
@@ -513,7 +513,7 @@ def get_dispersion(zeff, eta, ga, gc, wf, ngw, d4_cn, ref, rcov, kcn, norm_exp, 
 
 
 #!> Obtain charges from electronegativity equilibration model
-def get_charges(mol, num, qvec, dqdr, dqdL):
+def get_charges(periodic, lattice, num, qvec, dqdr, dqdL):
    #!DEC$ ATTRIBUTES DLLEXPORT :: get_charges
 
    #!> Molecular structure data
@@ -543,8 +543,8 @@ def get_charges(mol, num, qvec, dqdr, dqdL):
        dcndr = np.zeros((nat, nat, 3))
        dcndL = np.zeros((nat, 3, 3))
 
-    get_cn(periodic, lattice, cutoff, rcov, kcn, norm_exp, dcndr, dcndL)
-    solve(mol, error, cn, dcndr, dcndL, qvec=qvec, dqdr=dqdr, dqdL=dqdL)
+    cn, dcndr, dcndL = get_cn(periodic, lattice, cutoff, rcov, kcn, cn_exp)
+    solve(nat, periodic, lattice, cn, dcndr, dcndL, energy, gradient, sigma, qvec=qvec, dqdr=dqdr, dqdL=dqdL)
 
     #if(allocated(error)) then
     #  write(error_unit, '("[Error]:", 1x, a)') error%message
@@ -552,12 +552,123 @@ def get_charges(mol, num, qvec, dqdr, dqdL):
     #end if
 
 
-def get_cn(periodic, lattice, cutoff, rcov, kcn, norm_exp, dcndr, dcndL):
+def get_cn(periodic, lattice, cutoff, rcov, kcn, norm_exp):
     # lattr
     trans = get_lattice_points_cutoff(periodic, lattice, cutoff)
     # NOTE: Should the cutoff of the two functions be the same?
-    cn = get_coordination_number(cutoff, nat, id, xyz, trans, rcov, kcn, norm_exp, dcndr, dcndL)
-    return cn
+    cn, dcndr, dcndL = get_coordination_number(cutoff, nat, id, xyz, trans, rcov, kcn, norm_exp)
+    return cn, dcndr, dcndL
+
+
+def solve(nat, periodic, lattice, cn, dcndr, dcndL, energy, gradient, sigma, qvec, dqdr, dqdL):
+    ndim = nat + 1
+    if (any(periodic)):
+        new_wignerseitz_cell(wsc, mol)
+        get_alpha(lattice, alpha)
+
+    dcn = dcndr != None and dcndL != None
+    grad = gradient != None and sigma != None and dcn
+    cpq = dqdr != None and dqdL != None and dcn
+
+    amat = np.zeros((ndim, ndim))
+    xvec = np.zeros(ndim)
+    ipiv = np.zeros(ndim)
+    if (grad or cpq):
+        dxdcn = np.zeros(ndim)
+
+    get_vrhs(mol, cn, xvec, dxdcn)
+    if (any(periodic)):
+        get_amat_3d(mol, wsc, alpha, amat)
+    else:
+        get_amat_0d(mol, amat)
+
+    vrhs = xvec
+    ainv = amat
+
+    sytrf(ainv, ipiv, info, uplo='l')
+    if (info != 0):
+        print("Fatal Error: Bunch-Kaufman factorization failed")
+        return
+
+    if (cpq):
+        #! Inverted matrix is needed for coupled-perturbed equations
+        sytri(ainv, ipiv, info, uplo='l')
+        if (info != 0):
+            print("Fatal Error: Inversion of factorized matrix failed")
+            return
+
+        #! Solve the linear system
+        symv(ainv, xvec, vrhs, uplo='l')
+        for ic in range(ndim):
+            for jc in range(ic+1, ndim):
+                ainv[jc, ic] = ainv[ic, jc]
+    else:
+        #! Solve the linear system
+        sytrs(ainv, vrhs, ipiv, info, uplo='l')
+        if (info != 0):
+            print("Fatal Error: Solution of linear system failed")
+            return
+
+    if (qvec != None):
+        qvec[:] = vrhs[:nat]
+
+    if (energy != None):
+        symv(amat[:nat, :], vrhs[:nat], xvec[:nat], alpha=0.5, beta=-1.0, uplo='l')
+        energy[:] += vrhs[:nat] * xvec[:nat]
+
+    if (grad or cpq):
+        dadr = np.zeros((ndim, nat, 3))
+        dadL = np.zeros((ndim, 3, 3))
+        atrace = np.zeros((nat, 3))
+
+        if (any(periodic)):
+            get_damat_3d(mol, wsc, alpha, vrhs, dadr, dadL, atrace)
+        else:
+            get_damat_0d(mol, vrhs, dadr, dadL, atrace)
+
+        xvec[:] = -dxdcn * vrhs
+
+    if (grad):
+      gemv(dadr, vrhs, gradient, beta=1.0_wp)
+      gemv(dcndr, xvec[beta=1.0, gradient, :nat])
+      gemv(dadL, vrhs, sigma, beta=1.0, alpha=0.5)
+      gemv(dcndL, xvec(:nat), sigma, beta=1.0)
+
+    if (cpq):
+        for iat in range(nat):
+            dadr[iat, iat, :] = atrace[iat, :] + dadr[iat, iat, :]
+            dadr[iat, :, :] = -dcndr[iat, :, :] * dxdcn[iat] + dadr[iat, :, :]
+            dadL[iat, :, :] = -dcndr[iat, :, :] * dxdcn[iat] + dadL[iat, :, :]
+
+        gemm(dadr, ainv[:nat, :], dqdr, alpha=-1.0)
+        gemm(dadL, ainv[:nat, :], dqdL, alpha=-1.0)
+
+
+#!> Small cutoff threshold to create only closest cells
+thr = math.sqrt(np.finfo(float).eps)
+
+def new_wignerseitz_cell(periodic, lattice):
+   #!> Wigner-Seitz cell instance
+   #type(wignerseitz_cell_type), intent(out) :: self
+
+   #!> Molecular structure data
+   #type(structure_type), intent(in) :: mol
+
+   trans = get_lattice_points_cutoff(periodic, lattice, thr)
+   ntr = trans.shape[1]
+
+   nimg = np.zeros((nat, nat))
+   tridx = np.zeros((nat, nat, ntr))
+   _tridx = np.zeros(ntr)
+
+   for iat in range(nat):
+       for jat in range(nat):
+           vec[:] = xyz[iat, :] - xyz[jat, :]
+           nimg, tridx = get_pairs(nimg, trans, vec, tridx)
+           nimg[iat, jat] = nimg
+           tridx[iat, jat, :] = tridx
+
+    move_alloc(trans, self%trans)
 
 
 def new_eeq2019_model(num):
@@ -1005,7 +1116,7 @@ def crossproduct(a, b):
 
 
 #!> Geometric fractional coordination number
-def get_coordination_number(cut, nat, id, xyz, trans, rcov, kcn, norm_exp, dcndr, dcndL):
+def get_coordination_number(cut, nat, id, xyz, trans, rcov, kcn, norm_exp):
     #!> Coordination number container
     #class(ncoord_type), intent(in) :: self
     #
@@ -1024,15 +1135,17 @@ def get_coordination_number(cut, nat, id, xyz, trans, rcov, kcn, norm_exp, dcndr
     #!> Derivative of the CN with respect to strain deformations.
     #real(wp), intent(out), optional :: dcndL(:, :, :)
 
-    if (dcndr != None and dcndL != None):
-        cn, dcndr, dcdnL = ncoord_d(rcov, kcn, norm_exp, cut, nat, id, xyz, trans)
-    else:
-        cn = ncoord(rcov, kcn, norm_exp, trans)
+    #if (dcndr != None and dcndL != None):
+    #    cn, dcndr, dcdnL = ncoord_d(rcov, kcn, norm_exp, cut, nat, id, xyz, trans)
+    #else:
+    #    cn = ncoord(rcov, kcn, norm_exp, trans)
+
+    cn, dcndr, dcndL = ncoord_d(rcov, kcn, norm_exp, cut, nat, id, xyz, trans)
 
     if (cut > 0.0):
         cn = cut_coordination_number(cut, cn, dcndr, dcndL)
 
-    return cn
+    return cn, dcndr, dcndL
 
 
 
