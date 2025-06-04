@@ -455,7 +455,7 @@ realspace_cutoff_disp3 = 40.0
 
 
 # !> Wrapper to handle the evaluation of dispersion energy and derivatives
-def get_dispersion(zeff, eta, ga, gc, wf, ngw, d4_cn, ref, rcov, kcn, norm_exp, ncoup, lattice, periodic, gradient=None, sigma=None):
+def get_dispersion(zeff, eta, ga, gc, wf, ngw, d4_cn, ref, rcov, kcn, norm_exp, ncoup, energy, lattice, periodic, num, gradient=None, sigma=None):
     mref = np.max(ref)
     grad = gradient is not None or sigma is not None
 
@@ -464,12 +464,18 @@ def get_dispersion(zeff, eta, ga, gc, wf, ngw, d4_cn, ref, rcov, kcn, norm_exp, 
 
     print(f"coordination numbers: {cn}")
 
+    dqdr = None
+    dqdL = None
     if (grad):
         dqdr = np.zeros((nat, nat, 3))
         dqdL = np.zeros((nat, 3, 3))
 
-    get_charges()
+    q = np.zeros(nat)
+    get_charges(periodic, lattice, num, energy, gradient, sigma, q, dqdr, dqdL)
 
+    gwvec = np.zeros((ncoup, nat, mref))
+    gwdcn = None
+    gwdq = None
     if (grad):
         # !> Number of atoms coupled to by pairwise parameters
         # integer :: ncoup
@@ -478,21 +484,29 @@ def get_dispersion(zeff, eta, ga, gc, wf, ngw, d4_cn, ref, rcov, kcn, norm_exp, 
 
     weight_references(zeff, eta, ga, gc, wf, ngw, d4_cn, cn, q, gwvec, gwdcn, gwdq)
 
+    c6 = np.zeros((nat, nat))
+    dc6dcn = None
+    dc6dq = None
     if (grad):
-       allocate(dc6dcn(mol%nat, mol%nat), dc6dq(mol%nat, mol%nat))
+       dc6dcn = np.zeros((nat, nat))
+       dc6dq = np.zeros((nat, nat))
 
-    get_atomic_c6()
+    get_atomic_c6(gwvec, gwdcn, gwdq, c6, dc6dcn, dc6dq)
 
+    energies = np.zeros(nat)
     energies[:] = 0.0
+    dEdcn = np.zeros((nat))
+    dEdq = np.zeros((nat))
     if (grad):
-      allocate(dEdcn(mol%nat), dEdq(mol%nat))
-      dEdcn[:] = 0.0
-      dEdq[:] = 0.0
-      gradient[:, :] = 0.0
-      sigma[:, :] = 0.0
+        dEdcn[:] = 0.0
+        dEdq[:] = 0.0
+        assert gradient is not None
+        gradient[:, :] = 0.0
+        assert sigma is not None
+        sigma[:, :] = 0.0
 
-    get_lattice_points()
-    get_dispersion2()
+    trans = get_lattice_points_cutoff(periodic, lattice, realspace_cutoff_disp2)
+    get_dispersion2(nat, id, xyz, trans, realspace_cutoff_disp2, r4_over_r2, c6, dc6dcn, dc6dq,energy, dEdcn, dEdq, gradient, sigma)
 
     if (grad):
         d4_gemv(gradient)
@@ -512,8 +526,305 @@ def get_dispersion(zeff, eta, ga, gc, wf, ngw, d4_cn, ref, rcov, kcn, norm_exp, 
 
 
 
+#!> Evaluation of the dispersion energy expression
+def get_dispersion2(nat, id, xyz, trans, cutoff, r4r2, c6, dc6dcn, dc6dq,energy, dEdcn, dEdq, gradient, sigma):
+   #!DEC$ ATTRIBUTES DLLEXPORT :: get_dispersion2
+
+   #!> Damping parameters
+   #class(rational_damping_param), intent(in) :: self
+
+   #!> Molecular structure data
+   #class(structure_type), intent(in) :: mol
+
+   #!> Lattice points
+   #real(wp), intent(in) :: trans(:, :)
+
+   #!> Real space cutoff
+   #real(wp), intent(in) :: cutoff
+
+   #!> Expectation values for r4 over r2 operator
+   #real(wp), intent(in) :: r4r2(:)
+
+   #!> C6 coefficients for all atom pairs.
+   #real(wp), intent(in) :: c6(:, :)
+
+   #!> Derivative of the C6 w.r.t. the coordination number
+   #real(wp), intent(in), optional :: dc6dcn(:, :)
+
+   #!> Derivative of the C6 w.r.t. the partial charges
+   #real(wp), intent(in), optional :: dc6dq(:, :)
+
+   #!> Dispersion energy
+   #real(wp), intent(inout) :: energy(:)
+
+   #!> Derivative of the energy w.r.t. the coordination number
+   #real(wp), intent(inout), optional :: dEdcn(:)
+
+   #!> Derivative of the energy w.r.t. the partial charges
+   #real(wp), intent(inout), optional :: dEdq(:)
+
+   #!> Dispersion gradient
+   #real(wp), intent(inout), optional :: gradient(:, :)
+
+   #!> Dispersion virial
+   #real(wp), intent(inout), optional :: sigma(:, :)
+
+    if (abs(s6) < np.finfo(type(1.0)).eps and abs(s8) < np.finfo(type(1.0)).eps):
+        return
+
+    grad = dc6dcn is not None and dEdcn is not None and dc6dq is not None and dEdq is not None and gradient is not None and sigma is not None
+
+    if (grad):
+        get_dispersion_derivs(nat, id, xyz, trans, cutoff, r4r2, c6, dc6dcn, dc6dq, energy, dEdcn, dEdq, gradient, sigma)
+    else:
+        get_dispersion_energy(nat, id, xyz, trans, cutoff, r4r2, c6, energy)
+
+
+# Scaling parameters for the dispersion model
+# TODO: These values do not match any configuration in the dftd4 program. Change them?
+a1 = 0.52
+a2 = 5.0
+s6 = 1.0
+s8 = 2.7
+
+
+#!> Evaluation of the dispersion energy expression
+def get_dispersion_energy(nat, id, xyz, trans, cutoff, r4r2, c6, energy):
+   #!> Damping parameters
+   #class(rational_damping_param), intent(in) :: self
+
+   #!> Molecular structure data
+   #class(structure_type), intent(in) :: mol
+
+   #!> Lattice points
+   #real(wp), intent(in) :: trans(:, :)
+
+   #!> Real space cutoff
+   #real(wp), intent(in) :: cutoff
+
+   #!> Expectation values for r4 over r2 operator
+   #real(wp), intent(in) :: r4r2(:)
+
+   #!> C6 coefficients for all atom pairs.
+   #real(wp), intent(in) :: c6(:, :)
+
+   #!> Dispersion energy
+   #real(wp), intent(inout) :: energy(:)
+
+    vec = np.zeros(3)
+    cutoff2 = cutoff**2
+
+    energy_local = np.zeros(energy.shape[0])
+    for iat in range(nat):
+        izp = id[iat]
+        for jat in range(iat):
+            jzp = id[iat]
+            rrij = 3*r4r2[izp]*r4r2[jzp]
+            r0ij = a1 * math.sqrt(rrij) + a2
+            c6ij = c6[iat, jat]
+            for jtr in range(trans.shape[1]):
+                vec[:] = xyz[iat, :] - (xyz[jat, :] + trans[jtr, :])
+                r2 = vec[0]**2 + vec[1]**2 + vec[2]**2
+                if (r2 > cutoff2 or r2 < np.finfo(type(1.0)).eps):
+                    continue
+
+                t6 = 1.0/(r2**3 + r0ij**6)
+                t8 = 1.0/(r2**4 + r0ij**8)
+
+                edisp = s6*t6 + s8*rrij*t8
+
+                dE = -c6ij*edisp * 0.5
+
+                energy_local[iat] += dE
+                if (iat != jat):
+                    energy_local[jat] += dE
+
+    energy[:] += energy_local[:]
+
+
+
+#!> Evaluation of the dispersion energy expression
+def get_dispersion_derivs(nat, id, xyz, trans, cutoff, r4r2, c6, dc6dcn, dc6dq, energy, dEdcn, dEdq, gradient, sigma):
+   #!> Damping parameters
+   #class(rational_damping_param), intent(in) :: self
+
+   #!> Molecular structure data
+   #class(structure_type), intent(in) :: mol
+
+   #!> Lattice points
+   #real(wp), intent(in) :: trans(:, :)
+
+   #!> Real space cutoff
+   #real(wp), intent(in) :: cutoff
+
+   #!> Expectation values for r4 over r2 operator
+   #real(wp), intent(in) :: r4r2(:)
+
+   #!> C6 coefficients for all atom pairs.
+   #real(wp), intent(in) :: c6(:, :)
+
+   #!> Derivative of the C6 w.r.t. the coordination number
+   #real(wp), intent(in) :: dc6dcn(:, :)
+
+   #!> Derivative of the C6 w.r.t. the partial charges
+   #real(wp), intent(in) :: dc6dq(:, :)
+
+   #!> Dispersion energy
+   #real(wp), intent(inout) :: energy(:)
+
+   #!> Derivative of the energy w.r.t. the coordination number
+   #real(wp), intent(inout) :: dEdcn(:)
+
+   #!> Derivative of the energy w.r.t. the partial charges
+   #real(wp), intent(inout) :: dEdq(:)
+
+   #!> Dispersion gradient
+   #real(wp), intent(inout) :: gradient(:, :)
+
+   #!> Dispersion virial
+   #real(wp), intent(inout) :: sigma(:, :)
+
+    vec = np.zeros(3)
+    dG = np.zeros(3)
+    dS = np.zeros((3, 3))
+
+    cutoff2 = cutoff**2
+
+    energy_local = np.zeros(energy.shape[0])
+    dEdcn_local = np.zeros(dEdcn.shape[0])
+    dEdq_local = np.zeros(dEdq.shape[0])
+    gradient_local = np.zeros((gradient.shape[0], gradient.shape[1]))
+    sigma_local = np.zeros((sigma.shape[0], sigma.shape[1]))
+
+    for iat in range(nat):
+        izp = id[iat]
+        for jat in range(iat):
+            jzp = id[jat]
+            rrij = 3*r4r2[izp] * r4r2[jzp]
+            r0ij = a1 * math.sqrt(rrij) + a2
+            c6ij = c6[iat, jat]
+            for jtr in range(trans.shape[1]):
+                vec[:] = xyz[iat, :] - (xyz[jat, :] + trans[jtr, :])
+                r2 = vec[0]**2 + vec[1]**2 + vec[2]**2
+                if (r2 > cutoff2 or r2 < np.finfo(type(1.0)).eps):
+                    continue
+
+                t6 = 1.0/(r2**3 + r0ij**6)
+                t8 = 1.0/(r2**4 + r0ij**8)
+
+                d6 = -6*r2**2*t6**2
+                d8 = -8*r2**3*t8**2
+
+                edisp = s6 * t6 + s8 * rrij * t8
+                gdisp = s6 * d6 + s8 * rrij * d8
+
+                dE = -c6ij * edisp * 0.5
+                dG[:] = -c6ij * gdisp * vec
+                dS[:, :] = 0.5 * dG[:, np.newaxis] * vec[np.newaxis, :] # NOTE: Is this correct?
+
+                energy_local[iat] += dE
+                dEdcn_local[iat] -= dc6dcn[jat, iat] * edisp
+                dEdq_local[iat] -= dc6dq[jat, iat] * edisp
+                sigma_local[:, :] += dS
+
+                if (iat != jat):
+                    energy_local[jat] += dE
+                    dEdcn_local[jat] -= dc6dcn[iat, jat] * edisp
+                    dEdq_local[jat] -= dc6dq[iat, jat] * edisp
+                    gradient_local[iat, :] += dG
+                    gradient_local[jat, :] -= dG
+                    sigma_local[:, :] += dS
+
+    energy[:] += energy_local[:]
+    dEdcn[:] += dEdcn_local[:]
+    dEdq[:] += dEdq_local[:]
+    gradient[:, :] += gradient_local[:, :]
+    sigma[:, :] += sigma_local[:, :]
+
+
+
+
+
+#!> Calculate atomic dispersion coefficients and their derivatives w.r.t.
+#!> the coordination numbers and atomic partial charges.
+def get_atomic_c6(gwvec, gwdcn, gwdq, c6, dc6dcn, dc6dq):
+   #!DEC$ ATTRIBUTES DLLEXPORT :: get_atomic_c6
+
+   #!> Instance of the dispersion model
+   #class(d4_model), intent(in) :: self
+
+   #!> Molecular structure data
+   #class(structure_type), intent(in) :: mol
+
+   #!> Weighting function for the atomic reference systems
+   #real(wp), intent(in) :: gwvec(:, :, :)
+
+   #!> Derivative of the weighting function w.r.t. the coordination number
+   #real(wp), intent(in), optional :: gwdcn(:, :, :)
+
+   #!> Derivative of the weighting function w.r.t. the partial charge
+   #real(wp), intent(in), optional :: gwdq(:, :, :)
+
+   #!> C6 coefficients for all atom pairs.
+   #real(wp), intent(out) :: c6(:, :)
+
+   #!> Derivative of the C6 w.r.t. the coordination number
+   #real(wp), intent(out), optional :: dc6dcn(:, :)
+
+   #!> Derivative of the C6 w.r.t. the partial charge
+   #real(wp), intent(out), optional :: dc6dq(:, :)
+
+    if (gwdcn != None and dc6dcn != None and gwdq != None and dc6dq != None):
+        c6[:, :] = 0.0
+        dc6dcn[:, :] = 0.0
+        dc6dq[:, :] = 0.0
+
+        for iat in range(nat):
+            izp = id[iat]
+            for jat in range(iat):
+                jzp = id[jat]
+                dc6 = 0.0
+                dc6dcni = 0.0
+                dc6dcnj = 0.0
+                dc6dqi = 0.0
+                dc6dqj = 0.0
+                for iref in range(ref[izp]):
+                    for jref in range(ref[jzp]):
+                        refc6 = c6[jzp, izp, jref, iref]
+                        dc6 += gwvec[1, iat, iref] * gwvec[1, jat, jref] * refc6
+                        dc6dcni += gwdcn[1, iat, iref] * gwvec[1, jat, iref] * refc6
+                        dc6dcnj += gwvec[1, iat, iref] * gwdcn[1, jat, iref] * refc6
+                        dc6dqi += gwdq[1, iat, iref] * gwvec[1, jat, jref] * refc6
+                        dc6dqj += gwvec[1, iat, iref] * gwdq[1, jat, jref] * refc6
+
+                c6[jat, iat] = dc6
+                c6[iat, jat] = dc6
+                dc6dcn[jat, iat] = dc6dcni
+                dc6dcn[iat, jat] = dc6dcnj
+                dc6dq[jat, iat] = dc6dqi
+                dc6dq[iat, jat] = dc6dqj
+    else:
+        c6[:, :] = 0.0
+
+        for iat in range(nat):
+            izp = id[iat]
+            for jat in range(iat):
+                jzp = id[jat]
+                dc6 = 0.0
+                for iref in range(ref[izp]):
+                    for jref in range(ref[jzp]):
+                        refc6 = c6[jzp, izp, jref, iref]
+                        dc6 += gwvec[1, iat, iref] * gwvec[1, jat, jref] * refc6
+
+                c6[jat, iat] = dc6
+                c6[iat, jat] = dc6
+
+
+    
+
+
 #!> Obtain charges from electronegativity equilibration model
-def get_charges(periodic, lattice, num, qvec, dqdr, dqdL):
+def get_charges(periodic, lattice, num, energy, gradient, sigma, qvec, dqdr, dqdL):
    #!DEC$ ATTRIBUTES DLLEXPORT :: get_charges
 
    #!> Molecular structure data
@@ -528,10 +839,8 @@ def get_charges(periodic, lattice, num, qvec, dqdr, dqdL):
    #!> Derivative of the partial charges w.r.t. strain deformations
    #real(wp), intent(out), contiguous, optional :: dqdL(:, :, :)
 
-    cn_max = 8.0
+    #cn_max = 8.0
     cutoff = 25.0
-
-    grad = dqdr != None and dqdL != None
 
     rad, chi, eta, kcn, rcov, cutoff, cn_exp, cn_max = new_eeq2019_model(num)
     #if(allocated(error)) then
@@ -539,9 +848,9 @@ def get_charges(periodic, lattice, num, qvec, dqdr, dqdL):
     #   error stop
     #end if
 
-    if (grad):
-       dcndr = np.zeros((nat, nat, 3))
-       dcndL = np.zeros((nat, 3, 3))
+    #if (grad):
+    #   dcndr = np.zeros((nat, nat, 3))
+    #   dcndL = np.zeros((nat, 3, 3))
 
     cn, dcndr, dcndL = get_cn(periodic, lattice, cutoff, rcov, kcn, cn_exp)
     solve(nat, periodic, lattice, cn, dcndr, dcndL, energy, gradient, sigma, qvec=qvec, dqdr=dqdr, dqdL=dqdL)
