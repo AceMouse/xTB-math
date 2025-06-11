@@ -1,5 +1,6 @@
 import math
 import numpy as np
+from blas import mchrg_dsymv, mchrg_dsytrs1
 from dftd4_reference import hcount, alphaiw, ascale, refh, sscale, refsys, secaiw, refn
 
 thopi = 3.0/math.pi
@@ -869,10 +870,13 @@ def get_cn(periodic, lattice, cutoff, rcov, kcn, norm_exp):
     return cn, dcndr, dcndL
 
 
-def solve(nat, periodic, lattice, cn, dcndr, dcndL, energy, gradient, sigma, qvec, dqdr, dqdL):
+def solve(nat, periodic, lattice, cn, kcn, chi, charge, rad, eta, dcndr, dcndL, energy, gradient, sigma, qvec, dqdr, dqdL):
     ndim = nat + 1
+    nimg = None
+    tridx = None
+    trans = None
     if (any(periodic)):
-        new_wignerseitz_cell(wsc, mol)
+        nimg, tridx, trans = new_wignerseitz_cell(periodic, lattice)
         get_alpha(lattice, alpha)
 
     dcn = dcndr != None and dcndL != None
@@ -881,39 +885,39 @@ def solve(nat, periodic, lattice, cn, dcndr, dcndL, energy, gradient, sigma, qve
 
     amat = np.zeros((ndim, ndim))
     xvec = np.zeros(ndim)
-    ipiv = np.zeros(ndim)
+    dxdcn = None
     if (grad or cpq):
         dxdcn = np.zeros(ndim)
 
-    get_vrhs(mol, cn, xvec, dxdcn)
+    get_vrhs(nat, id, kcn, chi, charge, cn, xvec, dxdcn)
     if (any(periodic)):
-        get_amat_3d(mol, wsc, alpha, amat)
+        get_amat_3d(lattice, nimg, trans, tridx, rad, eta, alpha, amat)
     else:
-        get_amat_0d(mol, amat)
+        get_amat_0d(rad, eta, amat)
 
     vrhs = xvec
     ainv = amat
 
-    sytrf(ainv, ipiv, info, uplo='l')
+    ipiv, info = mchrg_dsytrf(ainv, uplo='l')
     if (info != 0):
         print("Fatal Error: Bunch-Kaufman factorization failed")
         return
 
     if (cpq):
         #! Inverted matrix is needed for coupled-perturbed equations
-        sytri(ainv, ipiv, info, uplo='l')
+        mchrg_dsytri(ainv, info)
         if (info != 0):
             print("Fatal Error: Inversion of factorized matrix failed")
             return
 
         #! Solve the linear system
-        symv(ainv, xvec, vrhs, uplo='l')
+        mchrg_dsymv(ainv, xvec, vrhs, uplo='l', alpha=None, beta=None)
         for ic in range(ndim):
             for jc in range(ic+1, ndim):
                 ainv[jc, ic] = ainv[ic, jc]
     else:
         #! Solve the linear system
-        sytrs(ainv, vrhs, ipiv, info, uplo='l')
+        mchrg_dsytrs1(ainv, vrhs, ipiv, uplo='l', info=info)
         if (info != 0):
             print("Fatal Error: Solution of linear system failed")
             return
@@ -922,7 +926,7 @@ def solve(nat, periodic, lattice, cn, dcndr, dcndL, energy, gradient, sigma, qve
         qvec[:] = vrhs[:nat]
 
     if (energy != None):
-        symv(amat[:nat, :], vrhs[:nat], xvec[:nat], alpha=0.5, beta=-1.0, uplo='l')
+        mchrg_dsymv(amat[:nat, :], vrhs[:nat], xvec[:nat], uplo='l', alpha=0.5, beta=-1.0)
         energy[:] += vrhs[:nat] * xvec[:nat]
 
     if (grad or cpq):
@@ -931,9 +935,9 @@ def solve(nat, periodic, lattice, cn, dcndr, dcndL, energy, gradient, sigma, qve
         atrace = np.zeros((nat, 3))
 
         if (any(periodic)):
-            get_damat_3d(mol, wsc, alpha, vrhs, dadr, dadL, atrace)
+            get_damat_3d(lattice, rad, nimg, trans, tridx, alpha, vrhs, dadr, dadL, atrace)
         else:
-            get_damat_0d(mol, vrhs, dadr, dadL, atrace)
+            get_damat_0d(rad, vrhs, dadr, dadL, atrace)
 
         xvec[:] = -dxdcn * vrhs
 
@@ -953,6 +957,481 @@ def solve(nat, periodic, lattice, cn, dcndr, dcndL, energy, gradient, sigma, qve
         gemm(dadL, ainv[:nat, :], dqdL, alpha=-1.0)
 
 
+
+def get_damat_0d(rad, qvec, dadr, dadL, atrace):
+   #type(mchrg_model_type), intent(in) :: self
+   #type(structure_type), intent(in) :: mol
+   #real(wp), intent(in) :: qvec(:)
+   #real(wp), intent(out) :: dadr(:, :, :)
+   #real(wp), intent(out) :: dadL(:, :, :)
+   #real(wp), intent(out) :: atrace(:, :)
+
+    vec = np.zeros(3)
+
+    atrace_local = np.array(atrace, copy=True)
+    dadr_local = np.array(dadr, copy=True)
+    dadL_local = np.array(dadL, copy=True)
+
+    for iat in range(nat):
+        izp = id[iat]
+        for jat in range(iat-1):
+            jzp = id[jat]
+            vec = xyz[iat, :] - xyz[jat, :]
+            r2 = vec[0]**2 + vec[1]**2 + vec[2]**2
+            gam = 1.0 / math.sqrt(rad[izp]**2 + rad[jzp]**2)
+            arg = gam*gam*r2
+            dtmp = 2.0 * gam * math.exp(-arg) / (math.sqrt(math.pi)*r2) - math.erf(math.sqrt(arg))/(r2*math.sqrt(r2))
+            dG = dtmp*vec
+            dS = dG[:, None] * vec[None, :]
+            atrace_local[iat, :] = +dG*qvec[jat] + atrace_local[iat, :]
+            atrace_local[jat, :] = -dG*qvec[iat] + atrace_local[jat, :]
+            dadr_local[jat, iat, :] = +dG*qvec[iat]
+            dadr_local[iat, jat, :] = -dG*qvec[jat]
+            dadL_local[jat, :, :] = +dS*qvec[iat] + dadL_local[jat, :, :]
+            dadL_local[iat, :, :] = +dS*qvec[jat] + dadL_local[iat, :, :]
+
+    atrace[:, :] += atrace_local[:, :]
+    dadr[:, :, :] += dadr_local[:, :, :]
+    dadL[:, :, :] += dadL_local[:, :, :]
+
+
+def get_damat_3d(lattice, rad, nimg, trans, tridx, alpha, qvec, dadr, dadL, atrace):
+   #type(mchrg_model_type), intent(in) :: self
+   #type(structure_type), intent(in) :: mol
+   #type(wignerseitz_cell_type), intent(in) :: wsc
+   #real(wp), intent(in) :: alpha
+   #real(wp), intent(in) :: qvec(:)
+   #real(wp), intent(out) :: dadr(:, :, :)
+   #real(wp), intent(out) :: dadL(:, :, :)
+   #real(wp), intent(out) :: atrace(:, :)
+
+    atrace[:, :] = 0.0
+    dadr[:, :, :] = 0.0
+    dadL[:, :, :] = 0.0
+
+    vol = abs(np.linalg.det(lattice))
+    dtrans = get_dir_trans(lattice)
+    rtrans = get_rec_trans(lattice)
+
+    dG = np.zeros(3)
+    dS = np.zeros((3, 3))
+    dSd = np.zeros((3, 3))
+    dSr = np.zeros((3, 3))
+
+    atrace_local = np.array(atrace, copy=True)
+    dadr_local = np.array(dadr, copy=True)
+    dadL_local = np.array(dadL, copy=True)
+
+    for iat in range(nat):
+        izp = id[iat]
+        for jat in range(iat-1):
+            jzp = id[jat]
+            dG[:] = 0.0
+            dS[:, :] = 0.0
+            gam = 1.0 / math.sqrt(rad[izp]**2 + rad[jzp]**2)
+            wsw = 1.0 / float(nimg[iat, jat])
+            for img in range(nimg[iat, jat]):
+                vec = xyz[iat, :] - xyz[jat, :] - trans[tridx[iat, jat, img], :]
+                dGd, dSd = get_damat_dir_3d(vec, gam, alpha, dtrans)
+                dGr, dSr = get_damat_rec_3d(vec, vol, alpha, rtrans)
+                dG += (dGd + dGr) * wsw
+                dS += (dSd + dSr) * wsw
+
+            atrace_local[iat, :] = +dG*qvec[jat] + atrace_local[iat, :]
+            atrace_local[jat, :] = -dG*qvec[jat] + atrace_local[jat, :]
+            dadr_local[jat, iat, :] = +dG*qvec(iat) + dadr_local[jat, iat, :]
+            dadr_local[iat, jat, :] = -dG*qvec(jat) + dadr_local[iat, jat, :]
+            dadL_local[jat, :, :] = +dS*qvec(iat) + dadL_local[jat, :, :]
+            dadL_local[iat, :, :] = +dS*qvec(jat) + dadL_local[iat, :, :]
+
+        dS[:, :] = 0.0
+        gam = 1.0 / math.sqrt(2.0 * rad[izp]**2)
+        wsw = 1.0 / float(nimg[iat, iat])
+        for img in range(nimg[iat, iat]):
+            vec = trans[tridx[iat, iat, img], :]
+            dGd, dSd = get_damat_dir_3d(vec, gam, alpha, dtrans)
+            dGr, dSr = get_damat_rec_3d(vec, vol, alpha, rtrans)
+            dS += (dSd + dSr) * wsw
+
+        dadL_local[iat, :, :] = +dS*qvec[iat] + dadL_local[iat, :, :]
+
+    atrace[:, :] += atrace_local[:, :]
+    dadr[:, :, :] += dadr_local[:, :, :]
+    dadL[:, :, :] += dadL_local[:, :, :]
+
+
+
+def get_damat_dir_3d(rij, gam, alp, trans):
+   #real(wp), intent(in) :: rij(3)
+   #real(wp), intent(in) :: gam
+   #real(wp), intent(in) :: alp
+   #real(wp), intent(in) :: trans(:, :)
+   #real(wp), intent(out) :: dg(3)
+   #real(wp), intent(out) :: ds(3, 3)
+
+    gam2 = gam**2
+    alp2 = alp**2
+
+    vec = np.zeros(3)
+    dg = np.zeros(3)
+    ds = np.zeros((3, 3))
+
+    for itr in range(trans.shape[1]):
+        vec[:] = rij + trans[itr, :]
+        r1 = np.linalg.norm(vec)
+        if (r1 < eps):
+            continue
+        r2 = r1**2
+        gtmp = +2*gam*math.exp(-r2*gam2)/(math.sqrt(math.pi)*r2) - math.erf(r1*gam)/(r2*r1)
+        atmp = -2*alp*math.exp(-r2*alp2)/(math.sqrt(math.pi)*r2) - math.erf(r1*alp)/(r2*r1)
+        dg[:] += (gtmp + atmp) * vec
+        ds[:, :] += (gtmp + atmp) * vec[:, None] * vec[None, :]
+
+    return dg, ds
+
+
+def get_damat_rec_3d(rij, vol, alp, trans):
+   #real(wp), intent(in) :: rij(3)
+   #real(wp), intent(in) :: vol
+   #real(wp), intent(in) :: alp
+   #real(wp), intent(in) :: trans(:, :)
+   #real(wp), intent(out) :: dg(3)
+   #real(wp), intent(out) :: ds(3, 3)
+
+    unity = np.eye(3, dtype=np.float64)
+
+    fac = 4*math.pi/vol
+    alp2 = alp**2
+
+    vec = np.zeros(3)
+    dg = np.zeros(3)
+    ds = np.zeros((3, 3))
+
+    for itr in range(trans.shape[1]):
+        vec[:] = trans[itr, :]
+        g2 = np.dot(vec, vec)
+        if (g2 < eps):
+            continue
+        gv = np.dot(rij, vec)
+        etmp = fac * math.exp(-0.25 * g2/alp2)/g2
+        dtmp = -math.sin(gv) * etmp
+        dg[:] += dtmp * vec
+        ds[:, :] += etmp * math.cos(gv) * ((2.0/g2 + 0.5/alp2) * vec[:, None] * vec[None, :] - unity)
+
+    return dg, ds
+
+
+def get_amat_3d(lattice, nimg, trans, tridx, rad, eta, alpha, amat):
+   #type(mchrg_model_type), intent(in) :: self
+   #type(structure_type), intent(in) :: mol
+   #type(wignerseitz_cell_type), intent(in) :: wsc
+   #real(wp), intent(in) :: alpha
+   #real(wp), intent(out) :: amat(:, :)
+
+    vec = np.zeros(3)
+    amat[:, :] = 0.0
+
+    vol = abs(np.linalg.det(lattice))
+    dtrans = get_dir_trans(lattice)
+    rtrans = get_rec_trans(lattice)
+
+    amat_local = np.array(amat, copy=True)
+
+    for iat in range(nat):
+        izp = id[iat]
+        for jat in range(iat-1):
+            jzp = id[jat]
+            gam = 1.0 / math.sqrt(rad[izp]**2 + rad[jzp]**2)
+            wsw = 1.0 / float(nimg[iat, jat])
+            for img in range(nimg[iat, jat]):
+                vec = xyz[iat, :] - xyz[jat, :] - trans[tridx[iat, jat, img], :]
+                dtmp = get_amat_dir_3d(vec, gam, alpha, dtrans)
+                rtmp = get_amat_rec_3d(vec, vol, alpha, rtrans)
+                amat_local[iat, jat] += (dtmp + rtmp) * wsw
+                amat_local[jat, iat] += (dtmp + rtmp) * wsw
+
+        gam = 1.0 / math.sqrt(2.0 * rad[izp]**2)
+        wsw = 1.0 / float(nimg[iat, iat])
+        for img in range(nimg[iat, iat]):
+            vec = trans[tridx[iat, iat, img], :]
+            dtmp = get_amat_dir_3d(vec, gam, alpha, dtrans)
+            rtmp = get_amat_rec_3d(vec, vol, alpha, rtrans)
+            amat_local[iat, iat] = amat_local[iat, iat] + (dtmp + rtmp) * wsw
+
+        dtmp = eta[izp] + (math.sqrt(2.0/math.pi)) / rad[izp] - 2 * alpha / math.sqrt(math.pi)
+        amat_local[iat, iat] += dtmp
+
+    amat[:, :] += amat_local[:, :]
+
+    amat[1:nat+1, nat+1] = 1.0
+    amat[nat+1, 1:nat+1] = 1.0
+    amat[nat+1, nat+1] = 0.0
+
+
+def get_amat_0d(rad, eta, amat):
+   #type(mchrg_model_type), intent(in) :: self
+   #type(structure_type), intent(in) :: mol
+   #real(wp), intent(out) :: amat(:, :)
+
+    vec = np.zeros(3)
+    amat[:, :] = 0.0
+
+    amat_local = np.array(amat, copy=True)
+
+    for iat in range(nat):
+        izp = id[iat]
+        for jat in range(iat-1):
+            jzp = id[jat]
+            vec = xyz[jat, :] - xyz[iat, :]
+            r2 = vec[0]**2 + vec[1]**2 + vec[2]**2
+            gam = 1.0 / (rad[izp]**2 + rad[jzp]**2)
+            tmp = math.erf(math.sqrt(r2*gam)) / math.sqrt(r2)
+            amat_local[iat, jat] += tmp
+            amat_local[jat, iat] += tmp
+
+        tmp = eta[izp] + math.sqrt(2*math.pi) / rad[izp]
+        amat_local[iat, iat] += tmp
+
+    amat[:, :] += amat_local[:, :]
+
+    amat[1:nat+1, nat+1] = 1.0
+    amat[nat+1, 1:nat+1] = 1.0
+    amat[nat+1, nat+1] = 0.0
+
+
+
+def get_dir_trans(lattice):
+   #real(wp), intent(in) :: lattice(:, :)
+   #real(wp), allocatable, intent(out) :: trans(:, :)
+
+    rep = np.full(3, 2)
+    trans = get_lattice_points_rep_3d(lattice, rep, True)
+    return trans
+
+def get_rec_trans(lattice):
+   #real(wp), intent(in) :: lattice(:, :)
+   #real(wp), allocatable, intent(out) :: trans(:, :)
+
+    rep = np.full(3, 2)
+    rec_lat = np.zeros((3, 3))
+
+    rec_lat = (2*math.pi) * np.transpose(np.linalg.inv(lattice))
+    trans = get_lattice_points_rep_3d(rec_lat, rep, False)
+    return trans
+
+
+def get_amat_dir_3d(rij, gam, alp, trans):
+   #real(wp), intent(in) :: rij(3)
+   #real(wp), intent(in) :: gam
+   #real(wp), intent(in) :: alp
+   #real(wp), intent(in) :: trans(:, :)
+   #real(wp), intent(out) :: amat
+
+    vec = np.zeros(3)
+    amat = 0.0
+    for itr in range(trans.shape[1]):
+        vec[:] = rij + trans[itr, :]
+        r1 = np.linalg.norm(vec)
+        if (r1 < eps):
+            continue
+        tmp = math.erf(gam*r1)/r1 - math.erf(alp*r1)/r1
+        amat += tmp
+
+    return amat
+
+def get_amat_rec_3d(rij, vol, alp, trans):
+   #real(wp), intent(in) :: rij(3)
+   #real(wp), intent(in) :: gam
+   #real(wp), intent(in) :: alp
+   #real(wp), intent(in) :: trans(:, :)
+   #real(wp), intent(out) :: amat
+
+    vec = np.zeros(3)
+    amat = 0.0
+    fac = 4*math.pi/vol
+
+    for itr in range(trans.shape[1]):
+        vec[:] = rij + trans[itr, :]
+        g2 = np.dot(vec, vec)
+        if (g2 < eps):
+            continue
+        tmp = math.cos(np.dot(rij, vec)) * fac * math.exp(-0.25 * g2 / (alp * alp)) / g2
+        amat += tmp
+
+    return amat
+
+
+def get_vrhs(nat, id, kcn, chi, charge, cn, xvec, dxdcn):
+   #type(mchrg_model_type), intent(in) :: self
+   #type(structure_type), intent(in) :: mol
+   #real(wp), intent(in) :: cn(:)
+   #real(wp), intent(out) :: xvec(:)
+   #real(wp), intent(out), optional :: dxdcn(:)
+
+    reg = 1.0e-14
+
+    if (dxdcn != None):
+        for iat in range(nat):
+            izp = id[iat]
+            tmp = kcn[izp] / math.sqrt(cn[iat] + reg)
+            xvec[iat] = -chi[izp] + tmp * cn[iat]
+            dxdcn[iat] = 0.5 * tmp
+        dxdcn[nat+1] = 0.0
+    else:
+        for iat in range(nat):
+            izp = id[iat]
+            tmp = kcn[izp] / math.sqrt(cn[iat] + reg)
+            xvec[iat] = -chi[izp] + tmp * cn[iat]
+
+    xvec[nat+1] = charge
+
+
+
+
+
+eps = math.sqrt(np.finfo(np.float64).eps)
+
+def get_alpha(lattice, alpha):
+   #real(wp), intent(in) :: lattice(:, :)
+   #real(wp), intent(out) :: alpha
+
+    rec_lat = np.zeros((3, 3))
+
+    vol = abs(np.linalg.det(lattice))
+    rec_lat = 2 * math.pi * np.transpose(np.linalg.inv(lattice))
+
+    search_alpha(lattice, rec_lat, vol, eps, alpha)
+
+
+#!> Get optimal alpha-parameter for the Ewald summation by finding alpha, where
+#!> decline of real and reciprocal part of Ewald are equal.
+def search_alpha(lattice, rec_lat, volume, tolerance, alpha):
+   #!> Lattice vectors
+   #real(wp), intent(in) :: lattice(:,:)
+   #!> Reciprocal vectors
+   #real(wp), intent(in) :: rec_lat(:,:)
+   #!> Volume of the unit cell
+   #real(wp), intent(in) :: volume
+   #!> Tolerance for difference in real and rec. part
+   #real(wp), intent(in) :: tolerance
+   #!> Optimal alpha
+   #real(wp), intent(out) :: alpha
+
+    alpha0 = 1.0e-8
+    niter = 30
+
+    rlen = math.sqrt(np.min(np.sum(rec_lat[:, :]**2, axis=0)))
+    dlen = math.sqrt(np.min(np.sum(lattice[:, :]**2, axis=0)))
+
+    stat = 0
+    alpha = alpha0
+    diff = rec_dir_diff(alpha, get_rec_term_3d, rlen, dlen, volume)
+    
+    while (diff < -tolerance and alpha <= np.finfo(np.float64).max):
+        alpha = 2.0 * alpha
+        diff = rec_dir_diff(alpha, get_rec_term_3d, rlen, dlen, volume)
+
+    if (alpha > np.finfo(np.float64).max):
+        stat = 1
+    elif (alpha == alpha0):
+        stat = 2
+
+    alpl = 0.0
+    if (stat == 0):
+        alpl = 0.5 * alpha
+        while (diff < tolerance and alpha <= np.finfo(np.float64).max):
+            alpha = 2.0 * alpha
+            diff = rec_dir_diff(alpha, get_rec_term_3d, rlen, dlen, volume)
+
+        if (alpha > np.finfo(np.float64).max):
+            stat = 3
+
+    if (stat == 0):
+        alpr = alpha
+        alpha = (alpl + alpr) * 0.5
+        ibs = 0
+        diff = rec_dir_diff(alpha, get_rec_term_3d, rlen, dlen, volume)
+        while (abs(diff) > tolerance and ibs <= niter):
+            if (diff < 0):
+                alpl = alpha
+            else:
+                alpr = alpha
+
+            alpha = (alpl + alpr) * 0.5
+            diff = rec_dir_diff(alpha, get_rec_term_3d, rlen, dlen, volume)
+            ibs += 1
+
+        if (ibs > niter):
+            stat = 4
+
+    if (stat != 0):
+        alpha = 0.25
+
+
+
+#!> Returns the max. value of a term in the reciprocal space part of the Ewald
+#!> summation for a given vector length.
+def get_rec_term_3d(gg, alpha, vol): #returns rval
+   #!> Length of the reciprocal space vector
+   #real(wp), intent(in) :: gg
+
+   #!> Parameter of the Ewald summation
+   #real(wp), intent(in) :: alpha
+
+   #!> Volume of the real space unit cell
+   #real(wp), intent(in) :: vol
+
+   #!> Reciprocal term
+   #real(wp) :: rval
+
+    return 4.0 * math.pi * (np.exp(-0.25*gg*gg/(alpha**2))/(vol*gg*gg))
+
+
+
+#!> Returns the difference in the decrease of the real and reciprocal parts of the
+#!> Ewald sum. In order to make the real space part shorter than the reciprocal
+#!> space part, the values are taken at different distances for the real and the
+#!> reciprocal space parts.
+def rec_dir_diff(alpha, get_rec_term, rlen, dlen, volume): # Returns diff
+   #!> Parameter for the Ewald summation
+   #real(wp), intent(in) :: alpha
+
+   #!> Procedure pointer to reciprocal routine
+   #procedure(get_rec_term_gen) :: get_rec_term
+
+   #!> Length of the shortest reciprocal space vector in the sum
+   #real(wp), intent(in) :: rlen
+
+   #!> Length of the shortest real space vector in the sum
+   #real(wp), intent(in) :: dlen
+
+   #!> Volume of the real space unit cell
+   #real(wp), intent(in) :: volume
+
+   #!> Difference between changes in the two terms
+   #real(wp) :: diff
+
+    return (get_rec_term(4*rlen, alpha, volume) - get_rec_term(5*rlen, alpha, volume)) - (get_dir_term(2*dlen, alpha) - get_dir_term(3*dlen, alpha))
+
+
+
+#!> Returns the max. value of a term in the real space part of the Ewald summation
+#!> for a given vector length.
+def get_dir_term(rr, alpha): #returns dval
+   #!> Length of the real space vector
+   #real(wp), intent(in) :: rr
+
+   #!> Parameter of the Ewald summation
+   #real(wp), intent(in) :: alpha
+
+   #!> Real space term
+   #real(wp) :: dvaerfc(alpha*rr)/rr
+
+    return math.erfc(alpha*rr)/rr
+
+
+
+
 #!> Small cutoff threshold to create only closest cells
 thr = math.sqrt(np.finfo(float).eps)
 
@@ -963,21 +1442,75 @@ def new_wignerseitz_cell(periodic, lattice):
    #!> Molecular structure data
    #type(structure_type), intent(in) :: mol
 
-   trans = get_lattice_points_cutoff(periodic, lattice, thr)
-   ntr = trans.shape[1]
+    trans = get_lattice_points_cutoff(periodic, lattice, thr)
+    ntr = trans.shape[1]
 
-   nimg = np.zeros((nat, nat))
-   tridx = np.zeros((nat, nat, ntr))
-   _tridx = np.zeros(ntr)
+    nimg = np.zeros((nat, nat))
+    tridx = np.zeros((nat, nat, ntr))
+    _tridx = np.zeros(ntr)
 
-   for iat in range(nat):
+    vec = np.zeros(3)
+
+    for iat in range(nat):
        for jat in range(nat):
            vec[:] = xyz[iat, :] - xyz[jat, :]
-           nimg, tridx = get_pairs(nimg, trans, vec, tridx)
+           get_pairs(nimg, trans, vec, _tridx)
            nimg[iat, jat] = nimg
-           tridx[iat, jat, :] = tridx
+           tridx[iat, jat, :] = _tridx
 
-    move_alloc(trans, self%trans)
+    return nimg, tridx, trans
+
+
+#!> Tolerance to consider equivalent images
+tol = 0.01
+
+def get_pairs(iws, trans, rij, list1):
+   #integer, intent(out) :: iws
+   #real(wp), intent(in) :: rij(3)
+   #real(wp), intent(in) :: trans(:, :)
+   #integer, intent(out) :: list(:)
+
+    mask = np.zeros(len(list1), dtype=np.bool)
+
+    iws = 0
+    img = 0
+    list1[:] = 0
+    mask[:] = True
+
+    vec = np.zeros(3)
+    dist = np.zeros(len(list1))
+
+    for itr in range(trans.shape[1]):
+        vec[:] = rij - trans[itr, :]
+        r2 = vec[0]**2 + vec[1]**2 + vec[2]**2
+        if (r2 < thr):
+            continue
+        img += 1
+        dist[img] = r2
+
+    if (img == 0):
+        return
+
+    pos = np.argmin(dist[:img], axis=0)
+
+    r2 = dist[pos]
+    mask[pos] = False
+
+    iws = 1
+    list1[iws] = pos
+    if (img <= iws):
+        return
+
+    mask_slice = mask[:img]
+    dist_slice = dist[:img]
+    masked_dist = np.where(mask_slice, dist_slice, np.inf)
+    while True:
+        pos = np.argmin(masked_dist, axis=0)
+        if (abs(dist[pos] - r2) > tol):
+            break
+        mask[pos] = False
+        iws += 1
+        list1[iws] = pos
 
 
 def new_eeq2019_model(num):
@@ -1662,6 +2195,7 @@ def new_erf_dftd4_ncoord(mol, rcov, en, cut, kcn=7.5, cutoff=25.0, norm_exp=1.0)
 
 
 
+from lapack import mchrg_dsytri, mchrg_dsytrf
 from xyz_reader import parse_xyz_with_symbols
 symbols, positions = parse_xyz_with_symbols("./caffeine.xyz")
 nat, id, xyz, nid, map, num, sym, _lattice, _periodic = new_structure(positions, symbols)
