@@ -1,12 +1,12 @@
 import numpy as np
 from basisset import atovlp, dim_basis, new_basis_set
-from dftd4 import new_d4_model
+#from dftd4 import new_d4_model
 from energy import build_SDQH0, dtrf2, form_product, get_multiints, h0scal, horizontal_shift, multipole_3d, olapp
 import glob
 import argparse
 import os
 
-from fock import GFN2_coordination_numbers_np, ncoordLatP
+from fock import GFN2_coordination_numbers_np, getCoordinationNumbers, ncoordLatP
 
 # Parse command-line arguments
 parser = argparse.ArgumentParser(description="Compare original xtb results with our own python implementation.")
@@ -193,12 +193,16 @@ def test_dtrf2():
             s1, s2 = read_ints(2)
             s = np.fromfile(f, dtype=np.float64, count=s1 * s2).reshape((s2, s1))
 
+            #print(f"s input: {s}")
+
             li = read_ints(1)[0]
             lj = read_ints(1)[0]
 
             s1_res, s2_res = read_ints(2)
             s_res = np.fromfile(f, dtype=np.float64, count=s1_res * s2_res).reshape((s2_res, s1_res))
+            #print(f"s input: {s}")
 
+            print(f"li: {li}, lj: {lj}")
             dtrf2(s, li, lj)
 
             s_equal = np.array_equal(s, s_res)
@@ -215,6 +219,8 @@ def test_dtrf2():
     print("\033[0;32m", end='')
     print("matches! [dtrf2]")
     print("\033[0;0m", end='')
+    print("li and lj are 0 for all calls, so s is not actually modified ToT")
+    print("AKA all dtrf2 calls are essentially skipped...")
 
 
 def test_form_product():
@@ -453,6 +459,8 @@ def test_build_SDQH0(compare_args_i = -1):
             cont1 = read_ints(1)[0]
             cont = np.fromfile(f, dtype=np.float64, count=cont1)
 
+            print(f"at: {at}")
+
             sint_res1, sint_res2 = read_ints(2)
             sint_res = np.fromfile(f, dtype=np.float64, count=sint_res1 * sint_res2).reshape((sint_res2, sint_res1))
             dpint_res1, dpint_res2, dpint_res3 = read_ints(3)
@@ -474,7 +482,7 @@ def test_build_SDQH0(compare_args_i = -1):
                 element_cnt = element_ids.shape[0]
                 positions = xyz
                 _, basis_nao, basis_nbf = dim_basis_np(element_ids)
-                cn = GFN2_coordination_numbers_np(element_ids, positions)
+                cn = getCoordinationNumbers(element_ids, positions)
                 selfEnergy_H_kappa_kappa = getSelfEnergy(element_ids, cn)
 
 
@@ -496,10 +504,10 @@ def test_build_SDQH0(compare_args_i = -1):
                 compare(cont, basis_cont, "cont")
 
 
-            #compare(sint_res, sint, "[build_SDQH0] sint")
-            #compare(dpint_res, dpint, "[build_SDQH0] dpint")
-            #compare(qpint_res, qpint, "[build_SDQH0] qpint")
-            #compare(H0_res, H0, "[build_SDQH0] H0")
+            compare(sint_res, sint, "[build_SDQH0] sint")
+            compare(dpint_res, dpint, "[build_SDQH0] dpint")
+            compare(qpint_res, qpint, "[build_SDQH0] qpint")
+            compare(H0_res, H0, "[build_SDQH0] H0")
             #compare(H0_noovlp_res, H0_noovlp, "[build_SDQH0] H0_noovlp")
 
     print("\033[0;32m", end='')
@@ -733,16 +741,16 @@ def test_new_d4_model_with_checks():
 
 
 
-test_olapp()
-test_multipole_3d()
-test_horizontal_shift()
-test_form_product()
-test_dtrf2()
-test_get_multiints()
-test_h0scal()
+#test_olapp()
+#test_multipole_3d()
+#test_horizontal_shift()
+#test_form_product()
+#test_dtrf2()
+#test_get_multiints()
+#test_h0scal()
 test_build_SDQH0(compare_args_i=0)
-test_dim_basis()
-test_atovlp()
-test_new_basis_set()
-test_new_d4_model_with_checks()
-test_coordination_number()
+#test_dim_basis()
+#test_atovlp()
+#test_new_basis_set()
+#test_new_d4_model_with_checks()
+#test_coordination_number()

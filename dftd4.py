@@ -456,7 +456,7 @@ realspace_cutoff_disp3 = 40.0
 
 
 # !> Wrapper to handle the evaluation of dispersion energy and derivatives
-def get_dispersion(zeff, eta, ga, gc, wf, ngw, d4_cn, ref, rcov, kcn, norm_exp, ncoup, energy, lattice, periodic, num, gradient=None, sigma=None):
+def get_dispersion(xyz, nat, zeff, eta, ga, gc, wf, ngw, d4_cn, ref, rcov, kcn, norm_exp, ncoup, energy, lattice, periodic, num, gradient=None, sigma=None):
     mref = np.max(ref)
     grad = gradient is not None or sigma is not None
 
@@ -472,7 +472,7 @@ def get_dispersion(zeff, eta, ga, gc, wf, ngw, d4_cn, ref, rcov, kcn, norm_exp, 
         dqdL = np.zeros((nat, 3, 3))
 
     q = np.zeros(nat)
-    get_charges(periodic, lattice, num, energy, gradient, sigma, q, dqdr, dqdL)
+    get_charges(xyz, nat, periodic, lattice, num, energy, gradient, sigma, q, dqdr, dqdL)
 
     gwvec = np.zeros((ncoup, nat, mref))
     gwdcn = None
@@ -483,7 +483,7 @@ def get_dispersion(zeff, eta, ga, gc, wf, ngw, d4_cn, ref, rcov, kcn, norm_exp, 
         gwdcn = np.zeros((mref, nat, ncoup))
         gwdq = np.zeros((mref, nat, ncoup))
 
-    weight_references(zeff, eta, ga, gc, wf, ngw, d4_cn, cn, q, gwvec, gwdcn, gwdq)
+    weight_references(xyz, nat, id, zeff, eta, ga, gc, wf, ngw, d4_cn, cn, q, gwvec, gwdcn, gwdq)
 
     c6 = np.zeros((nat, nat))
     dc6dcn = None
@@ -492,7 +492,7 @@ def get_dispersion(zeff, eta, ga, gc, wf, ngw, d4_cn, ref, rcov, kcn, norm_exp, 
        dc6dcn = np.zeros((nat, nat))
        dc6dq = np.zeros((nat, nat))
 
-    get_atomic_c6(gwvec, gwdcn, gwdq, c6, dc6dcn, dc6dq)
+    get_atomic_c6(xyz, nat, id, gwvec, gwdcn, gwdq, c6, dc6dcn, dc6dq)
 
     energies = np.zeros(nat)
     energies[:] = 0.0
@@ -509,19 +509,20 @@ def get_dispersion(zeff, eta, ga, gc, wf, ngw, d4_cn, ref, rcov, kcn, norm_exp, 
     trans = get_lattice_points_cutoff(periodic, lattice, realspace_cutoff_disp2)
     get_dispersion2(nat, id, xyz, trans, realspace_cutoff_disp2, r4_over_r2, c6, dc6dcn, dc6dq,energy, dEdcn, dEdq, gradient, sigma)
 
-    if (grad):
-        d4_gemv(gradient)
-        d4_gemv(sigma)
+    # TODO:
+    #if (grad):
+    #    d4_gemv(gradient)
+    #    d4_gemv(sigma)
 
-    q[:] = 0.0
-    weight_references()
-    get_atomic_c6()
+    #q[:] = 0.0
+    #weight_references()
+    #get_atomic_c6()
 
-    get_lattice_points()
-    get_dispersion3()
+    #get_lattice_points()
+    #get_dispersion3()
 
-    if (grad):
-        add_coordination_number_derivs()
+    #if (grad):
+    #    add_coordination_number_derivs()
 
     energy = np.sum(energies)
 
@@ -748,7 +749,7 @@ def get_dispersion_derivs(nat, id, xyz, trans, cutoff, r4r2, c6, dc6dcn, dc6dq, 
 
 #!> Calculate atomic dispersion coefficients and their derivatives w.r.t.
 #!> the coordination numbers and atomic partial charges.
-def get_atomic_c6(gwvec, gwdcn, gwdq, c6, dc6dcn, dc6dq):
+def get_atomic_c6(ref, nat, id, gwvec, gwdcn, gwdq, c6, dc6dcn, dc6dq):
    #!DEC$ ATTRIBUTES DLLEXPORT :: get_atomic_c6
 
    #!> Instance of the dispersion model
@@ -825,7 +826,7 @@ def get_atomic_c6(gwvec, gwdcn, gwdq, c6, dc6dcn, dc6dq):
 
 
 #!> Obtain charges from electronegativity equilibration model
-def get_charges(periodic, lattice, num, energy, gradient, sigma, qvec, dqdr, dqdL):
+def get_charges(xyz, nat, periodic, lattice, num, energy, gradient, sigma, qvec, dqdr, dqdL):
    #!DEC$ ATTRIBUTES DLLEXPORT :: get_charges
 
    #!> Molecular structure data
@@ -853,8 +854,9 @@ def get_charges(periodic, lattice, num, energy, gradient, sigma, qvec, dqdr, dqd
     #   dcndr = np.zeros((nat, nat, 3))
     #   dcndL = np.zeros((nat, 3, 3))
 
-    cn, dcndr, dcndL = get_cn(periodic, lattice, cutoff, rcov, kcn, cn_exp)
-    solve(nat, periodic, lattice, cn, dcndr, dcndL, energy, gradient, sigma, qvec=qvec, dqdr=dqdr, dqdL=dqdL)
+    cn, dcndr, dcndL = get_cn(xyz, nat, periodic, lattice, cutoff, rcov, kcn, cn_exp)
+    # TODO: 
+    #solve(nat, periodic, lattice, cn, dcndr, dcndL, energy, gradient, sigma, qvec=qvec, dqdr=dqdr, dqdL=dqdL)
 
     #if(allocated(error)) then
     #  write(error_unit, '("[Error]:", 1x, a)') error%message
@@ -862,7 +864,7 @@ def get_charges(periodic, lattice, num, energy, gradient, sigma, qvec, dqdr, dqd
     #end if
 
 
-def get_cn(periodic, lattice, cutoff, rcov, kcn, norm_exp):
+def get_cn(xyz, nat, periodic, lattice, cutoff, rcov, kcn, norm_exp):
     # lattr
     trans = get_lattice_points_cutoff(periodic, lattice, cutoff)
     # NOTE: Should the cutoff of the two functions be the same?
@@ -870,13 +872,13 @@ def get_cn(periodic, lattice, cutoff, rcov, kcn, norm_exp):
     return cn, dcndr, dcndL
 
 
-def solve(nat, periodic, lattice, cn, kcn, chi, charge, rad, eta, dcndr, dcndL, energy, gradient, sigma, qvec, dqdr, dqdL):
+def solve(xyz, nat, periodic, lattice, cn, kcn, chi, charge, rad, eta, dcndr, dcndL, energy, gradient, sigma, qvec, dqdr, dqdL):
     ndim = nat + 1
     nimg = None
     tridx = None
     trans = None
     if (any(periodic)):
-        nimg, tridx, trans = new_wignerseitz_cell(periodic, lattice)
+        nimg, tridx, trans = new_wignerseitz_cell(xyz, nat, periodic, lattice)
         get_alpha(lattice, alpha)
 
     dcn = dcndr != None and dcndL != None
@@ -891,36 +893,39 @@ def solve(nat, periodic, lattice, cn, kcn, chi, charge, rad, eta, dcndr, dcndL, 
 
     get_vrhs(nat, id, kcn, chi, charge, cn, xvec, dxdcn)
     if (any(periodic)):
-        get_amat_3d(lattice, nimg, trans, tridx, rad, eta, alpha, amat)
+        get_amat_3d(xyz, nat, id, lattice, nimg, trans, tridx, rad, eta, alpha, amat)
     else:
-        get_amat_0d(rad, eta, amat)
+        get_amat_0d(xyz, nat, id, rad, eta, amat)
 
     vrhs = xvec
     ainv = amat
 
-    ipiv, info = mchrg_dsytrf(ainv, uplo='l')
-    if (info != 0):
-        print("Fatal Error: Bunch-Kaufman factorization failed")
-        return
+    # TODO:
+    #ipiv, info = mchrg_dsytrf(ainv, uplo='l')
+    #if (info != 0):
+    #    print("Fatal Error: Bunch-Kaufman factorization failed")
+    #    return
 
     if (cpq):
         #! Inverted matrix is needed for coupled-perturbed equations
-        mchrg_dsytri(ainv, info)
-        if (info != 0):
-            print("Fatal Error: Inversion of factorized matrix failed")
-            return
+        # TODO:
+        #mchrg_dsytri(ainv, info)
+        #if (info != 0):
+        #    print("Fatal Error: Inversion of factorized matrix failed")
+        #    return
 
         #! Solve the linear system
         mchrg_dsymv(ainv, xvec, vrhs, uplo='l', alpha=None, beta=None)
         for ic in range(ndim):
             for jc in range(ic+1, ndim):
                 ainv[jc, ic] = ainv[ic, jc]
-    else:
+    #else:
         #! Solve the linear system
-        mchrg_dsytrs1(ainv, vrhs, ipiv, uplo='l', info=info)
-        if (info != 0):
-            print("Fatal Error: Solution of linear system failed")
-            return
+        # TODO:
+        #mchrg_dsytrs1(ainv, vrhs, ipiv, uplo='l', info=info)
+        #if (info != 0):
+        #    print("Fatal Error: Solution of linear system failed")
+        #    return
 
     if (qvec != None):
         qvec[:] = vrhs[:nat]
@@ -935,30 +940,32 @@ def solve(nat, periodic, lattice, cn, kcn, chi, charge, rad, eta, dcndr, dcndL, 
         atrace = np.zeros((nat, 3))
 
         if (any(periodic)):
-            get_damat_3d(lattice, rad, nimg, trans, tridx, alpha, vrhs, dadr, dadL, atrace)
+            get_damat_3d(xyz, nat, id, lattice, rad, nimg, trans, tridx, alpha, vrhs, dadr, dadL, atrace)
         else:
-            get_damat_0d(rad, vrhs, dadr, dadL, atrace)
+            get_damat_0d(xyz, nat, id, rad, vrhs, dadr, dadL, atrace)
 
-        xvec[:] = -dxdcn * vrhs
+        # TODO:
+        #xvec[:] = -dxdcn * vrhs
 
-    if (grad):
-      gemv(dadr, vrhs, gradient, beta=1.0_wp)
-      gemv(dcndr, xvec[beta=1.0, gradient, :nat])
-      gemv(dadL, vrhs, sigma, beta=1.0, alpha=0.5)
-      gemv(dcndL, xvec(:nat), sigma, beta=1.0)
+    # TODO:
+    #if (grad):
+    #  gemv(dadr, vrhs, gradient, beta=1.0_wp)
+    #  gemv(dcndr, xvec[beta=1.0, gradient, :nat])
+    #  gemv(dadL, vrhs, sigma, beta=1.0, alpha=0.5)
+    #  gemv(dcndL, xvec(:nat), sigma, beta=1.0)
 
-    if (cpq):
-        for iat in range(nat):
-            dadr[iat, iat, :] = atrace[iat, :] + dadr[iat, iat, :]
-            dadr[iat, :, :] = -dcndr[iat, :, :] * dxdcn[iat] + dadr[iat, :, :]
-            dadL[iat, :, :] = -dcndr[iat, :, :] * dxdcn[iat] + dadL[iat, :, :]
+    #if (cpq):
+    #    for iat in range(nat):
+    #        dadr[iat, iat, :] = atrace[iat, :] + dadr[iat, iat, :]
+    #        dadr[iat, :, :] = -dcndr[iat, :, :] * dxdcn[iat] + dadr[iat, :, :]
+    #        dadL[iat, :, :] = -dcndr[iat, :, :] * dxdcn[iat] + dadL[iat, :, :]
 
-        gemm(dadr, ainv[:nat, :], dqdr, alpha=-1.0)
-        gemm(dadL, ainv[:nat, :], dqdL, alpha=-1.0)
+    #    gemm(dadr, ainv[:nat, :], dqdr, alpha=-1.0)
+    #    gemm(dadL, ainv[:nat, :], dqdL, alpha=-1.0)
 
 
 
-def get_damat_0d(rad, qvec, dadr, dadL, atrace):
+def get_damat_0d(xyz, nat, id, rad, qvec, dadr, dadL, atrace):
    #type(mchrg_model_type), intent(in) :: self
    #type(structure_type), intent(in) :: mol
    #real(wp), intent(in) :: qvec(:)
@@ -995,7 +1002,7 @@ def get_damat_0d(rad, qvec, dadr, dadL, atrace):
     dadL[:, :, :] += dadL_local[:, :, :]
 
 
-def get_damat_3d(lattice, rad, nimg, trans, tridx, alpha, qvec, dadr, dadL, atrace):
+def get_damat_3d(xyz, nat, id, lattice, rad, nimg, trans, tridx, alpha, qvec, dadr, dadL, atrace):
    #type(mchrg_model_type), intent(in) :: self
    #type(structure_type), intent(in) :: mol
    #type(wignerseitz_cell_type), intent(in) :: wsc
@@ -1121,7 +1128,7 @@ def get_damat_rec_3d(rij, vol, alp, trans):
     return dg, ds
 
 
-def get_amat_3d(lattice, nimg, trans, tridx, rad, eta, alpha, amat):
+def get_amat_3d(xyz, nat, id, lattice, nimg, trans, tridx, rad, eta, alpha, amat):
    #type(mchrg_model_type), intent(in) :: self
    #type(structure_type), intent(in) :: mol
    #type(wignerseitz_cell_type), intent(in) :: wsc
@@ -1168,7 +1175,7 @@ def get_amat_3d(lattice, nimg, trans, tridx, rad, eta, alpha, amat):
     amat[nat+1, nat+1] = 0.0
 
 
-def get_amat_0d(rad, eta, amat):
+def get_amat_0d(xyz, nat, id, rad, eta, amat):
    #type(mchrg_model_type), intent(in) :: self
    #type(structure_type), intent(in) :: mol
    #real(wp), intent(out) :: amat(:, :)
@@ -1435,7 +1442,7 @@ def get_dir_term(rr, alpha): #returns dval
 #!> Small cutoff threshold to create only closest cells
 thr = math.sqrt(np.finfo(float).eps)
 
-def new_wignerseitz_cell(periodic, lattice):
+def new_wignerseitz_cell(xyz, nat, periodic, lattice):
    #!> Wigner-Seitz cell instance
    #type(wignerseitz_cell_type), intent(out) :: self
 
@@ -1738,7 +1745,7 @@ def get_covalent_rad_num(num):
 
 #!> Calculate the weights of the reference system and the derivatives w.r.t.
 #!> coordination number for later use.
-def weight_references(zeff, eta, ga, gc, wf, ngw, cn, d4_cn, q, gwvec, gwdcn, gwdq):
+def weight_references(ref, nat, id, zeff, eta, ga, gc, wf, ngw, cn, d4_cn, q, gwvec, gwdcn, gwdq):
     #!> Instance of the dispersion model
     #class(d4_model), intent(in) :: self
 
@@ -1993,7 +2000,7 @@ def get_coordination_number(cut, nat, id, xyz, trans, rcov, kcn, norm_exp):
 
 
 
-def ncoord(rcov, kcn, norm_exp, trans):
+def ncoord(nat, id, xyz, rcov, kcn, norm_exp, trans):
     #!> Coordination number container
     #class(ncoord_type), intent(in) :: self
     #!> Molecular structure data
@@ -2195,11 +2202,12 @@ def new_erf_dftd4_ncoord(mol, rcov, en, cut, kcn=7.5, cutoff=25.0, norm_exp=1.0)
 
 
 
-from lapack import mchrg_dsytri, mchrg_dsytrf
-from xyz_reader import parse_xyz_with_symbols
-symbols, positions = parse_xyz_with_symbols("./caffeine.xyz")
-nat, id, xyz, nid, map, num, sym, _lattice, _periodic = new_structure(positions, symbols)
-c6, ref = new_d4_model(nid, num)
+#from lapack import mchrg_dsytri, mchrg_dsytrf
+#from xyz_reader import parse_xyz_with_symbols
+#symbols, positions = parse_xyz_with_symbols("./caffeine.xyz")
+#nat, id, xyz, nid, map, num, sym, _lattice, _periodic = new_structure(positions, symbols)
+# TODO:
+#c6, ref = new_d4_model(nid, num)
 
 #from energy import GFN2_coordination_numbers_np
 #from xyz_reader import parse_xyz

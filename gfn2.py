@@ -1,4 +1,5 @@
 from math import sqrt
+from dftd4 import aatoau
 #Maximum number of elements supported by GFN2-xTB
 import numpy as np
 kshell = np.array([1.85, 2.23, 2.23, 2.23],dtype=np.float64) #K^Gamma_l
@@ -628,7 +629,7 @@ slaterExponent = np.array([ #zeta_l
 
 
 # Atomic Radii of the Elements
-atomicRadii = np.array([ #zeta_l
+atomicRadii = aatoau * np.array([ #zeta_l
       0.32, 0.37, 1.30, 0.99, 0.84, 0.75, 0.71, 0.64,
       0.60, 0.62, 1.60, 1.40, 1.24, 1.14, 1.09, 1.04,
       1.00, 1.01, 2.00, 1.74, 1.59, 1.48, 1.44, 1.30,
@@ -818,6 +819,8 @@ def generateValenceShellData(nShell, angShell):
     return valenceShell
 
 valenceShell = generateValenceShellData(nShell, angShell)
+
+print(valenceShell)
 
 #subroutine setGFN2NumberOfPrimitives(self, nShell)
 #

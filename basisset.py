@@ -5,7 +5,7 @@ import time
 from slater import slaterToGauss_simple as slaterToGauss
 from util import euclidian_dist, euclidian_dist_sqr, dist, print_res2, density_initial_guess, overlap_initial_guess, get_partial_mulliken_charges
 
-DIM = True
+DIM = False
 rand = np.random.default_rng()
 element_cnt = 10
 element_ids = rand.choice(repZeff.shape[0], size=element_cnt)
@@ -1141,7 +1141,7 @@ def allocate_basisset(n, nbf, nao, nshell):
 #   allocate( self%valao2(nbf),    source = 0 )
     valao2 = np.zeros(nao)
 #end subroutine allocate_basisset
-BAS = bool(1)
+BAS = bool(0)
 if BAS:
     t1 = time.time()
     x1 = new_basis_set(element_ids) 

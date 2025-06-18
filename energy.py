@@ -286,6 +286,8 @@ def build_SDQH0(nat, at, nbf, nao, xyz, trans, selfEnergy, \
     dd = np.zeros((3, 6, 6), dtype=np.float64)
     qq = np.zeros((6, 6, 6), dtype=np.float64)
     tmp = np.zeros((6, 6), dtype=np.float64)
+    ra = np.zeros(3, dtype=np.float64)
+    rb = np.zeros(3, dtype=np.float64)
 
     #compute the upper triangle of S, D, Q and H0
     for iat in range(nat):
@@ -293,9 +295,9 @@ def build_SDQH0(nat, at, nbf, nao, xyz, trans, selfEnergy, \
             if (jat >= iat):
                 continue
 
-            ra = xyz[iat,0:3]
-            izp = at[iat]
-            jzp = at[jat]
+            ra[0:3] = xyz[iat,0:3]
+            izp = at[iat]-1
+            jzp = at[jat]-1
             for ish in range(nShell[izp]):
                 ishtyp = angShell[izp, ish]
                 icao = caoshell[iat, ish]
@@ -321,7 +323,7 @@ def build_SDQH0(nat, at, nbf, nao, xyz, trans, selfEnergy, \
                     hav = 0.5 * km * (hii + hjj) * zetaij # equation (1)
 
                     for itr in range(trans.shape[0]): # NOTE: Is the indexing here correct?
-                        rb = xyz[jat, 0:3] + trans[itr, :]
+                        rb[0:3] = xyz[jat, 0:3] + trans[itr, :]
                         rab2 = np.sum((rb - ra)**2)
 
                         # distance dependent polynomial
@@ -329,7 +331,18 @@ def build_SDQH0(nat, at, nbf, nao, xyz, trans, selfEnergy, \
                         k_polyA = shellPoly[izp][il]
                         k_polyB = shellPoly[jzp][jl]
                         Rcov_AB = atomicRadii[izp] + atomicRadii[jzp]
-                        shpoly = (1.0 + 0.01 * k_polyA * (rab2 / Rcov_AB)**0.5) * (1.0 + 0.01 * k_polyB * (rab2 / Rcov_AB)**0.5)
+                        #shpoly = (1.0 + 0.01 * k_polyA * (rab2 / Rcov_AB)**0.5) * (1.0 + 0.01 * k_polyB * (rab2 / Rcov_AB)**0.5)
+
+                        # distance dependent polynomial
+                        shpoly = gshellPoly(shellPoly[izp, il],shellPoly[jzp, jl],atomicRadii[izp],atomicRadii[jzp],ra,rb)
+
+                        #print(f"izp: {izp}, il: {il}")
+                        #print(f"jzp: {jzp}, il: {jl}")
+                        #print(f"shellPoly1: {shellPoly[izp, il]}, shellPoly2: {shellPoly[jzp, jl]}")
+                        #print(f"atomicRadii1: {atomicRadii[izp]}, atomicRadii2: {atomicRadii[jzp]}")
+                        #print(f"shpoly: {shpoly}")
+                        #exit()
+                        #print(f"ra: {ra}, rb: {rb}")
 
                         ss, dd, qq = get_multiints(icao,jcao,naoi,naoj,ishtyp,jshtyp,ra,rb,point,intcut,nprim,primcount,alp,cont)
 
@@ -354,9 +367,11 @@ def build_SDQH0(nat, at, nbf, nao, xyz, trans, selfEnergy, \
                                 dpint[iao, jao, :] = dpint[iao, jao, :] + dd[ii, jj, :]
                                 qpint[iao, jao, :] = qpint[iao, jao, :] + qq[ii, jj, :]
 
+
+
     # mirror the upper triangle to the lower of S, D and Q. H0 does not need it as we used the pairing function to index it. 
     for iao in range(0, nao):
-        for jao in range(0, iao-1):
+        for jao in range(0, iao):
             sint[jao, iao] = sint[iao, jao]
             dpint[jao, iao, :] = dpint[iao, jao, :]
             qpint[jao, iao, :] = qpint[iao, jao, :]
@@ -364,9 +379,10 @@ def build_SDQH0(nat, at, nbf, nao, xyz, trans, selfEnergy, \
     # compute the diagonal elements of S, D, Q, and H0
     for iat in range(0, nat):
         ra = xyz[iat, :]
-        izp = at[iat]
+        izp = at[iat]-1
         for ish in range(0, nShell[izp]):
             ishtyp = angShell[izp, ish]
+            #print(f"ish: {ish}, izp: {izp}")
             for iao in range(0, llao2[ishtyp]):
                 i = iao + saoshell[iat, ish]
                 ii = lin(i, i)  # compute the pairing function. 
@@ -376,13 +392,35 @@ def build_SDQH0(nat, at, nbf, nao, xyz, trans, selfEnergy, \
 
             icao = caoshell[iat, ish]
             naoi = llao[ishtyp]
-            for jsh in range(0, ish):
+            for jsh in range(0, ish+1):
                 jshtyp = angShell[izp, jsh]
                 jcao = caoshell[iat, jsh]
                 naoj = llao[jshtyp]
+
+                #print("icao:", icao)
+                #print("jcao:", jcao)
+                #print("naoi:", naoi)
+                #print("naoj:", naoj)
+                #print("ishtyp:", ishtyp)
+                #print("jshtyp:", jshtyp)
+                #print("ra (1st):", ra)
+                #print("ra (2nd):", ra)
+                #print("point:", point)
+                #print("intcut:", intcut)
+                #print("nprim:", nprim)
+                #print("primcount:", primcount)
+                #print("alp:", alp)
+                #print("cont:", cont)
+
+                #exit()
+
                 ss, dd, qq = get_multiints(icao,jcao,naoi,naoj,ishtyp,jshtyp,ra,ra,point,intcut,nprim,primcount,alp,cont) # compute the integrals
 
+                #print(f"qq: {qq}")
+                #exit()
+
                 # transform from CAO to SAO
+                #call dtrf2(ss,ishtyp,jshtyp)
                 for k in range(0, 3):
                     tmp[1:6, 1:6] = dd[1:6, 1:6, k]
                     dtrf2(tmp, ishtyp, jshtyp)
@@ -410,6 +448,58 @@ def lin(i1, i2): # TODO: Test? They duplicate this function a bunch of times
     idum1 = max(i1,i2)
     idum2 = min(i1,i2)
     return idum2 + idum1 * (idum1-1)//2
+
+
+
+
+#pure function shellPoly(iPoly,jPoly,iRad,jRad,xyz1,xyz2)
+#   use xtb_mctc_convert, only : aatoau
+#   !$acc routine seq
+#   real(wp), intent(in) :: iPoly,jPoly
+#   real(wp), intent(in) :: iRad,jRad
+#   real(wp), intent(in) :: xyz1(3),xyz2(3)
+#   real(wp) :: shellPoly
+#   real(wp) :: rab,k1,rr,r,rf1,rf2,dx,dy,dz,a
+#
+#   a=0.5_wp           ! R^a dependence 0.5 in GFN1
+#
+#   dx=xyz1(1)-xyz2(1)
+#   dy=xyz1(2)-xyz2(2)
+#   dz=xyz1(3)-xyz2(3)
+#
+#   rab=sqrt(dx**2+dy**2+dz**2)
+#
+#   ! this sloppy conv. factor has been used in development, keep it
+#   rr=jRad+iRad
+#
+#   r=rab/rr
+#
+#   rf1=1.0_wp+0.01_wp*iPoly*r**a
+#   rf2=1.0_wp+0.01_wp*jPoly*r**a
+#
+#   shellPoly= rf1*rf2
+#
+#end function shellPoly
+
+def gshellPoly(iPoly,jPoly,iRad,jRad,xyz1,xyz2):
+    a = 0.5
+
+    dx = xyz1[0] - xyz2[0]
+    dy = xyz1[1] - xyz2[1]
+    dz = xyz1[2] - xyz2[2]
+
+    rab = sqrt(dx**2 + dy**2 + dz**2)
+
+    # this sloppy conv. factor has been used in development, keep it
+    rr = jRad + iRad
+
+    r = rab/rr
+
+    rf1 = 1.0 + 0.01 * iPoly * r**a
+    rf2 = 1.0 + 0.01 * jPoly * r**a
+
+    return rf1 * rf2
+
 
 
 def h0scal(il, jl, izp, jzp, valaoi, valaoj):
@@ -809,6 +899,47 @@ def getSelfEnergy(element_ids, cn): # actually the H_\kappa\kappa diagonal terms
             selfEnergyCopy[iAt, iSh] -= kCN[iZp,iSh]*cn[iAt] 
     return selfEnergyCopy
 
+
+def getSelfEnergyFlat(hdata_selfEnergy, hdata_kCN, hdata_kQShell, hdata_kQAtom, nShell, at, cn, qat, selfEnergy, dSEdcn, dSEdq):
+    #type(THamiltonianData), intent(in) :: hData
+    #integer, intent(in) :: nShell(:)
+    #integer, intent(in) :: at(:)
+    #real(wp), intent(in), optional :: cn(:)
+    #real(wp), intent(in), optional :: qat(:)
+    #real(wp), intent(out) :: selfEnergy(:)
+    #real(wp), intent(out), optional :: dSEdcn(:)
+    #real(wp), intent(out), optional :: dSEdq(:)
+
+    selfEnergy[:] = 0.0
+    if (dSEdcn != None):
+        dSEdcn[:] = 0.0
+    if (dSEdq != None):
+        dSEdq[:] = 0.0
+
+    ind = 0
+    for iAt in range(len(cn)):
+        iZp = at[iAt]
+        for iSh in range(nShell[iZp]):
+            selfEnergy[ind+iSh] = hdata_selfEnergy[iZp, iSh]
+        ind += nShell[iZp]
+
+    if (dSEdcn != None and cn != None):
+        ind = 0
+        for iAt in range(len(cn)):
+            iZp = at[iAt]
+            for iSh in range(nShell[iZp]):
+                selfEnergy[ind+iSh] -= hdata_kCN[iZp, iSh] * cn[iAt]
+                dSEdcn[ind+iSh] = -hdata_kCN[iZp, iSh]
+            ind += nShell[iZp]
+
+    if (dSEdq != None and qat != None):
+        ind = 0
+        for iAt in range(len(cn)):
+            iZp = at[iAt]
+            for iSh in range(nShell[iZp]):
+                selfEnergy[ind+iSh] -= hdata_kQShell[iZp, iSh] * qat[iAt] - hdata_kQAtom[iZp] * qat[iAt]**2
+                dSEdq[ind+iSh] = -hdata_kQShell[iZp, iSh] - hdata_kQAtom[iZp] * 2 * qat[iAt]
+            ind += nShell[iZp]
 
 
 trans = np.zeros((1,3))
