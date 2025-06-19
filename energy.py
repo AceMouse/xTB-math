@@ -265,8 +265,6 @@ if EHT:
 # What are the rest of the args?
 def build_SDQH0(nat, at, nbf, nao, xyz, trans, selfEnergy, \
        intcut, caoshell, saoshell, nprim, primcount, alp, cont): # TODO: We need to find these arg values
-    #H0[:] = 0.0
-    #H0_noovlp[:] = 0.0
     H0 = np.zeros(nao*(nao+1)//2)
     H0_noovlp = np.zeros(nao*(nao+1)//2)
 
@@ -319,23 +317,9 @@ def build_SDQH0(nat, at, nbf, nao, xyz, trans, selfEnergy, \
                     zj = slaterExponent[jzp][jsh]
                     zetaij = (2 * sqrt(zi*zj)/(zi+zj))**wExp # Y term equation (7) in main.pdf
 
-                    #print(f"il: {il}")
-                    #print(f"jl: {jl}")
-                    #print(f"izp: {izp}")
-                    #print(f"jzp: {jzp}")
-                    #print(f"valenceBool1: {(valenceShell[izp, ish] != 0)}")
-                    #print(f"valenceBool2: {(valenceShell[jzp, jsh] != 0)}")
-                    #exit()
-
                     km = h0scal(il, jl, izp, jzp, (valenceShell[izp, ish] != 0), (valenceShell[jzp, jsh] != 0)) # X term, see equation (3-5) and K term. 
 
                     hav = 0.5 * km * (hii + hjj) * zetaij # equation (1)
-
-                    #print(f"km: {km}")
-                    #print(f"hii: {hii}")
-                    #print(f"hjj: {hjj}")
-                    #print(f"zetaij: {zetaij}")
-                    #exit()
 
                     for itr in range(trans.shape[0]): # NOTE: Is the indexing here correct?
                         rb[0:3] = xyz[jat, 0:3] + trans[itr, :]
@@ -343,21 +327,7 @@ def build_SDQH0(nat, at, nbf, nao, xyz, trans, selfEnergy, \
 
                         # distance dependent polynomial
                         # equation (6)
-                        k_polyA = shellPoly[izp][il]
-                        k_polyB = shellPoly[jzp][jl]
-                        Rcov_AB = atomicRadii[izp] + atomicRadii[jzp]
-                        #shpoly = (1.0 + 0.01 * k_polyA * (rab2 / Rcov_AB)**0.5) * (1.0 + 0.01 * k_polyB * (rab2 / Rcov_AB)**0.5)
-
-                        # distance dependent polynomial
                         shpoly = gshellPoly(shellPoly[izp, il],shellPoly[jzp, jl],atomicRadii[izp],atomicRadii[jzp],ra,rb)
-
-                        #print(f"izp: {izp}, il: {il}")
-                        #print(f"jzp: {jzp}, il: {jl}")
-                        #print(f"shellPoly1: {shellPoly[izp, il]}, shellPoly2: {shellPoly[jzp, jl]}")
-                        #print(f"atomicRadii1: {atomicRadii[izp]}, atomicRadii2: {atomicRadii[jzp]}")
-                        #print(f"shpoly: {shpoly}")
-                        #exit()
-                        #print(f"ra: {ra}, rb: {rb}")
 
                         ss, dd, qq = get_multiints(icao,jcao,naoi,naoj,ishtyp,jshtyp,ra,rb,point,intcut,nprim,primcount,alp,cont)
 
@@ -376,17 +346,7 @@ def build_SDQH0(nat, at, nbf, nao, xyz, trans, selfEnergy, \
                             for jj in range(0, llao2[jshtyp]):
                                 jao = jj + saoshell[jat, jsh]
                                 ij = lin(iao+1, jao+1)-1
-                                #print(f"iao: {iao}")
-                                #print(f"jao: {jao}")
                                 H0[ij] += hav * shpoly * ss[ii, jj] # add in remaining Pi and S terms. 
-                                #print(f"ij: {ij}")
-                                #print(f"ii: {ii}")
-                                #print(f"jj: {jj}")
-                                #print(f"hav: {hav}")
-                                #print(f"shpoly: {shpoly}")
-                                #print(f"ss1: {ss[ii, jj]}")
-                                #print(f"H0: {H0[10]}")
-                                #exit()
                                 H0_noovlp[ij] = H0_noovlp[ij] + hav * shpoly
                                 sint[iao, jao] = sint[iao, jao] + ss[ii, jj]
                                 dpint[iao, jao, :] = dpint[iao, jao, :] + dd[ii, jj, :]
@@ -405,7 +365,6 @@ def build_SDQH0(nat, at, nbf, nao, xyz, trans, selfEnergy, \
         izp = at[iat]-1
         for ish in range(0, nShell[izp]):
             ishtyp = angShell[izp, ish]
-            #print(f"ish: {ish}, izp: {izp}")
             for iao in range(0, llao2[ishtyp]):
                 i = iao + saoshell[iat, ish]
                 ii = lin(i+1, i+1)-1  # compute the pairing function. 
@@ -420,27 +379,7 @@ def build_SDQH0(nat, at, nbf, nao, xyz, trans, selfEnergy, \
                 jcao = caoshell[iat, jsh]
                 naoj = llao[jshtyp]
 
-                #print("icao:", icao)
-                #print("jcao:", jcao)
-                #print("naoi:", naoi)
-                #print("naoj:", naoj)
-                #print("ishtyp:", ishtyp)
-                #print("jshtyp:", jshtyp)
-                #print("ra (1st):", ra)
-                #print("ra (2nd):", ra)
-                #print("point:", point)
-                #print("intcut:", intcut)
-                #print("nprim:", nprim)
-                #print("primcount:", primcount)
-                #print("alp:", alp)
-                #print("cont:", cont)
-
-                #exit()
-
                 ss, dd, qq = get_multiints(icao,jcao,naoi,naoj,ishtyp,jshtyp,ra,ra,point,intcut,nprim,primcount,alp,cont) # compute the integrals
-
-                #print(f"qq: {qq}")
-                #exit()
 
                 # transform from CAO to SAO
                 #call dtrf2(ss,ishtyp,jshtyp)
