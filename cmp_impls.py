@@ -508,7 +508,7 @@ def test_build_SDQH0(compare_args_i = -1):
             compare(dpint_res, dpint, "[build_SDQH0] dpint")
             compare(qpint_res, qpint, "[build_SDQH0] qpint")
             compare(H0_res, H0, "[build_SDQH0] H0")
-            #compare(H0_noovlp_res, H0_noovlp, "[build_SDQH0] H0_noovlp")
+            compare(H0_noovlp_res, H0_noovlp, "[build_SDQH0] H0_noovlp")
 
     print("\033[0;32m", end='')
     print("matches! [build_SDQH0]")

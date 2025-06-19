@@ -318,9 +318,24 @@ def build_SDQH0(nat, at, nbf, nao, xyz, trans, selfEnergy, \
                     zi = slaterExponent[izp][ish]
                     zj = slaterExponent[jzp][jsh]
                     zetaij = (2 * sqrt(zi*zj)/(zi+zj))**wExp # Y term equation (7) in main.pdf
+
+                    #print(f"il: {il}")
+                    #print(f"jl: {jl}")
+                    #print(f"izp: {izp}")
+                    #print(f"jzp: {jzp}")
+                    #print(f"valenceBool1: {(valenceShell[izp, ish] != 0)}")
+                    #print(f"valenceBool2: {(valenceShell[jzp, jsh] != 0)}")
+                    #exit()
+
                     km = h0scal(il, jl, izp, jzp, (valenceShell[izp, ish] != 0), (valenceShell[jzp, jsh] != 0)) # X term, see equation (3-5) and K term. 
 
                     hav = 0.5 * km * (hii + hjj) * zetaij # equation (1)
+
+                    #print(f"km: {km}")
+                    #print(f"hii: {hii}")
+                    #print(f"hjj: {hjj}")
+                    #print(f"zetaij: {zetaij}")
+                    #exit()
 
                     for itr in range(trans.shape[0]): # NOTE: Is the indexing here correct?
                         rb[0:3] = xyz[jat, 0:3] + trans[itr, :]
@@ -360,14 +375,22 @@ def build_SDQH0(nat, at, nbf, nao, xyz, trans, selfEnergy, \
                             iao = ii + saoshell[iat, ish]
                             for jj in range(0, llao2[jshtyp]):
                                 jao = jj + saoshell[jat, jsh]
-                                ij = lin(iao, jao)
-                                H0[ij] = H0[ij] + hav * shpoly * ss[ii, jj] # add in remaining Pi and S terms. 
+                                ij = lin(iao+1, jao+1)-1
+                                #print(f"iao: {iao}")
+                                #print(f"jao: {jao}")
+                                H0[ij] += hav * shpoly * ss[ii, jj] # add in remaining Pi and S terms. 
+                                #print(f"ij: {ij}")
+                                #print(f"ii: {ii}")
+                                #print(f"jj: {jj}")
+                                #print(f"hav: {hav}")
+                                #print(f"shpoly: {shpoly}")
+                                #print(f"ss1: {ss[ii, jj]}")
+                                #print(f"H0: {H0[10]}")
+                                #exit()
                                 H0_noovlp[ij] = H0_noovlp[ij] + hav * shpoly
                                 sint[iao, jao] = sint[iao, jao] + ss[ii, jj]
                                 dpint[iao, jao, :] = dpint[iao, jao, :] + dd[ii, jj, :]
                                 qpint[iao, jao, :] = qpint[iao, jao, :] + qq[ii, jj, :]
-
-
 
     # mirror the upper triangle to the lower of S, D and Q. H0 does not need it as we used the pairing function to index it. 
     for iao in range(0, nao):
@@ -385,7 +408,7 @@ def build_SDQH0(nat, at, nbf, nao, xyz, trans, selfEnergy, \
             #print(f"ish: {ish}, izp: {izp}")
             for iao in range(0, llao2[ishtyp]):
                 i = iao + saoshell[iat, ish]
-                ii = lin(i, i)  # compute the pairing function. 
+                ii = lin(i+1, i+1)-1  # compute the pairing function. 
                 sint[i,i] = 1.0 + sint[i,i]
                 H0[ii] = H0[ii] + selfEnergy[iat, ish]
                 H0_noovlp[ii] = H0_noovlp[ii] + selfEnergy[iat, ish]
@@ -503,15 +526,22 @@ def gshellPoly(iPoly,jPoly,iRad,jRad,xyz1,xyz2):
 
 
 def h0scal(il, jl, izp, jzp, valaoi, valaoj):
+   #type(THamiltonianData), intent(in) :: hData
+   #integer, intent(in)  :: il
+   #integer, intent(in)  :: jl
+   #integer, intent(in)  :: izp
+   #integer, intent(in)  :: jzp
+   #logical, intent(in)  :: valaoi
+   #logical, intent(in)  :: valaoj
+   #real(wp),intent(out) :: km
+
     km = 0.0
 
     # Valence
     if (valaoi and valaoj):
-        electronegativity_izp = electronegativity[izp]
-        electronegativity_jzp = electronegativity[jzp]
-        den = (electronegativity_izp - electronegativity_jzp)**2
-        enpoly = (1.0 + enScale[il-1, jl-1] * den * (1.0 + enScale4 * den))
-        km = kScale[il-1, jl-1] * enpoly * pairParam[jzp, izp]
+        den = (electronegativity[izp] - electronegativity[jzp])**2
+        enpoly = (1.0 + enScale[il, jl] * den * (1.0 + enScale4 * den))
+        km = kScale[il, jl] * enpoly * pairParam[jzp, izp]
         return km
 
     # "DZ" functions (on H for GFN or 3S for EA calc on all atoms)
@@ -519,10 +549,10 @@ def h0scal(il, jl, izp, jzp, valaoi, valaoj):
         km = kdiff
         return km
     if (not valaoi and valaoj):
-        km = 0.5 * (kScale[jl-1, jl-1] + kdiff)
+        km = 0.5 * (kScale[jl, jl] + kdiff)
         return km
     if (not valaoj and valaoi):
-        km = 0.5 * (kScale[il-1, il-1] + kdiff)
+        km = 0.5 * (kScale[il, il] + kdiff)
     return km
 
 
