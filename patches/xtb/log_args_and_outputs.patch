@@ -379,7 +379,7 @@ index ced9a9d..12ddc1d 100644
 +  'utils.f90',
  )
 diff --git a/src/scc_core.f90 b/src/scc_core.f90
-index 5b29581..65fb968 100644
+index 5b29581..1bf709d 100644
 --- a/src/scc_core.f90
 +++ b/src/scc_core.f90
 @@ -29,6 +29,7 @@ module xtb_scc_core
@@ -399,7 +399,7 @@ index 5b29581..65fb968 100644
    !$acc routine seq
     type(THamiltonianData), intent(in) :: hData
     integer, intent(in)  :: il
-@@ -642,8 +643,38 @@ subroutine h0scal(hData,il,jl,izp,jzp,valaoi,valaoj,km)
+@@ -642,13 +643,43 @@ subroutine h0scal(hData,il,jl,izp,jzp,valaoi,valaoj,km)
     endif
  
  
@@ -439,6 +439,125 @@ index 5b29581..65fb968 100644
  
  !! ========================================================================
  !  total energy for GFN1
+ !! ========================================================================
+-pure subroutine electro(n,at,nbf,nshell,ies,H0,P,dq,dqsh,es,scc)
++pure subroutine gelectro(n,at,nbf,nshell,ies,H0,P,dq,dqsh,es,scc)
+    use xtb_mctc_convert, only : evtoau
+    integer, intent(in) :: n
+    integer, intent(in) :: at(n)
+@@ -684,6 +715,112 @@ pure subroutine electro(n,at,nbf,nshell,ies,H0,P,dq,dqsh,es,scc)
+ !  Etotal in Eh
+    scc = es + 2.0_wp*h*evtoau
+ 
++end subroutine gelectro
++
++subroutine electro(n,at,nbf,nshell,ies,H0,P,dq,dqsh,es,scc)
++   use xtb_mctc_convert, only : evtoau
++   integer, intent(in) :: n
++   integer, intent(in) :: at(n)
++   integer, intent(in) :: nbf
++   integer, intent(in) :: nshell
++   real(wp),intent(in)  :: H0(nbf*(nbf+1)/2)
++   real(wp),intent(in)  :: P (nbf,nbf)
++   type(TxTBCoulomb), intent(inout) :: ies
++   real(wp),intent(in)  :: dq(n)
++   real(wp),intent(in)  :: dqsh(nshell)
++   real(wp),intent(out) :: es
++   real(wp),intent(out) :: scc
++
++    !integer :: i, j
++
++    !print *, "nbf =", nbf
++
++    !print *, "H0:"
++    !do i = 1, size(H0)
++    !   print *, "H0(", i, ") =", H0(i)
++    !end do
++
++    !print *, "P matrix:"
++    !do i = 1, nbf
++    !   print *, (P(i,j), j=1,nbf)
++    !end do
++
++    !print *, "dq:"
++    !do i = 1, size(dq)
++    !   print *, "dq(", i, ") =", dq(i)
++    !end do
++
++    !print *, "dqsh:"
++    !do i = 1, size(dqsh)
++    !   print *, "dqsh(", i, ") =", dqsh(i)
++    !end do
++
++    !print *, "atomicGam:"
++    !if (allocated(ies%thirdOrder%atomicGam)) then
++    !  do i = 1, size(ies%thirdOrder%atomicGam)
++    !     print *, "atomicGam(", i, ") =", ies%thirdOrder%atomicGam(i)
++    !  end do
++    !else
++    !  print *, "Not allocated."
++    !end if
++
++    !if (allocated(ies%thirdOrder%shellGam)) then
++    !  print *, "shellGam:"
++    !  do i = 1, size(ies%thirdOrder%shellGam)
++    !     print *, "shellGam(", i, ") =", ies%thirdOrder%shellGam(i)
++    !  end do
++    !else
++    !  print *, "Not allocated."
++    !end if
++
++    !print *, "jmat:"
++    !do i = 1, size(ies%jmat, 1)
++    !   print *, (ies%jmat(i, j), j=1, size(ies%jmat, 2))
++    !end do
++
++    !print *, "shift =", ies%shift
++
++    !stop
++
++    !call gelectro(n,at,nbf,nshell,ies,H0,P,dq,dqsh,es,scc)
++
++   logical :: exists
++   integer :: u
++   character(len=200) :: path
++
++   exists = testfile_path('electro', path)
++   if (.not.exists) then
++     open(newunit=u, file=trim(path), form='unformatted', access='stream')
++     write(u) nbf
++     write(u) size(H0), H0
++     write(u) size(P, 1), size(P, 2), P
++     write(u) size(dq), dq
++     write(u) size(dqsh), dqsh
++
++     if (allocated(ies%thirdOrder%atomicGam)) then
++       write(u) size(ies%thirdorder%atomicgam), ies%thirdorder%atomicgam
++     else
++       write(u) 0
++     end if
++
++     if (allocated(ies%thirdOrder%shellGam)) then
++       write(u) size(ies%thirdOrder%shellGam), ies%thirdOrder%shellGam
++     else
++       write(u) 0
++     end if
++
++     write(u) size(ies%jmat, 1), size(ies%jmat, 2), ies%jmat
++     write(u) size(ies%shift), ies%shift
++   end if
++
++   call gelectro(n,at,nbf,nshell,ies,H0,P,dq,dqsh,es,scc)
++
++   if (.not.exists) then
++     write(u) es
++     write(u) scc
++     close(u)
++   end if
++
+ end subroutine electro
+ 
+ 
 diff --git a/src/scf_module.F90 b/src/scf_module.F90
 index 7166f76..57c789f 100644
 --- a/src/scf_module.F90

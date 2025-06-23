@@ -820,8 +820,6 @@ def generateValenceShellData(nShell, angShell):
 
 valenceShell = generateValenceShellData(nShell, angShell)
 
-print(valenceShell)
-
 #subroutine setGFN2NumberOfPrimitives(self, nShell)
 #
 #   !> Data instance
