@@ -332,15 +332,15 @@ def build_SDQH0(nat, at, nbf, nao, xyz, trans, selfEnergy, \
                         ss, dd, qq = get_multiints(icao,jcao,naoi,naoj,ishtyp,jshtyp,ra,rb,point,intcut,nprim,primcount,alp,cont)
 
                         # transform from CAO to SAO
-                        dtrf2(ss, ishtyp, jshtyp)
-                        for k in range(0,3):
-                            tmp[0:6, 0:6] = dd[0:6, 0:6, k]
-                            dtrf2(tmp, ishtyp, jshtyp)
-                            dd[0:6, 0:6, k] = tmp[0:6, 0:6]
-                        for k in range(0,6):
-                            tmp[0:6, 0:6] = qq[0:6, 0:6, k]
-                            dtrf2(tmp, ishtyp, jshtyp)
-                            qq[0:6, 0:6, k] = tmp[0:6, 0:6]
+                        # dtrf2(ss, ishtyp, jshtyp) # NOTE: Not called for smaller atoms. Not called unless the atoms has d orbitals or above!
+                        #for k in range(0,3):
+                        #    tmp[0:6, 0:6] = dd[0:6, 0:6, k]
+                        #    # dtrf2(tmp, ishtyp, jshtyp) # NOTE: Not called for smaller atoms. Not called unless the atoms has d orbitals or above!
+                        #    dd[0:6, 0:6, k] = tmp[0:6, 0:6]
+                        #for k in range(0,6):
+                        #    tmp[0:6, 0:6] = qq[0:6, 0:6, k]
+                        #    # dtrf2(tmp, ishtyp, jshtyp) # NOTE: Not called for smaller atoms. Not called unless the atoms has d orbitals or above!
+                        #    qq[0:6, 0:6, k] = tmp[0:6, 0:6]
                         for ii in range(0, llao2[ishtyp]):
                             iao = ii + saoshell[iat, ish]
                             for jj in range(0, llao2[jshtyp]):
