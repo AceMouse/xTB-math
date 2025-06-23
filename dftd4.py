@@ -1696,6 +1696,10 @@ autoaa = bohr * 1e10
 #!> Conversion factor from Ångström to bohr
 aatoau = 1.0/autoaa
 
+#!  convert Hartree to eV and back
+autoev = 27.21138505
+evtoau = 1.0 / autoev
+
 #!> Covalent radii (taken from Pyykko and Atsumi, Chem. Eur. J. 15, 2009,
 #!> 188-197), values for metals decreased by 10 %
 covalent_rad_2009 = aatoau * np.array([
