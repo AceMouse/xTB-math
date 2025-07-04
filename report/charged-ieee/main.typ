@@ -241,6 +241,12 @@ Turns out we cannot call the blas functions inside a kernel, because they launch
 They can be used as a drop in replacement with atom level parallization, but would require more careful separation of the code to launch it in a separate kernel for all atoms.
 
 
+Run electro:
+```bash
+LD_LIBRARY_PATH=~/intel/oneapi/compiler/2025.2/lib:~/Documents/xtb-gpu/oneMath/build/lib steam-run ./electro
+```
+
+
 == Implementation Deviating from xTB Paper
 
 - Implementing the equations from the paper does not give the same results as the reference implementation.
