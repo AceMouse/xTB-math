@@ -226,7 +226,7 @@ Now we can give building Onemath another attempt.
 To build the rocBLAS backend, we have to tell cmake where to find the rocBLAS config. Thankfully rocBLAS can already be found in the Nix package repository NixPkgs.
 
 ```bash
-LD_LIBRARY_PATH=~/intel/oneapi/compiler/2025.2/lib steam-run /nix/store/dx4bdrs7mq3jfviqhszrc7l35ps9kg64-cmake-3.31.7/bin/cmake .. -DCMAKE_CXX_COMPILER=/home/maroka/intel/oneapi/compiler/2025.2/bin/icpx -DCMAKE_C_COMPILER=/home/maroka/intel/oneapi/compiler/2025.2/bin/icx -DENABLE_MKLCPU_BACKEND=False -DENABLE_MKLGPU_BACKEND=False -DENABLE_ROCBLAS_BACKEND=True -DBUILD_FUNCTIONAL_TESTS=False -DBUILD_EXAMPLES=False -Drocblas_DIR=/nix/store/dabbsd24a5kiw73nr3290hipab3n7zll-rocblas-6.3.3/lib/cmake/rocblas
+LD_LIBRARY_PATH=~/intel/oneapi/compiler/2025.2/lib steam-run /nix/store/dx4bdrs7mq3jfviqhszrc7l35ps9kg64-cmake-3.31.7/bin/cmake .. -DCMAKE_CXX_COMPILER=/home/maroka/intel/oneapi/compiler/2025.2/bin/icpx -DCMAKE_C_COMPILER=/home/maroka/intel/oneapi/compiler/2025.2/bin/icx -DENABLE_ROCBLAS_BACKEND=True -DBUILD_FUNCTIONAL_TESTS=False -DBUILD_EXAMPLES=False -Drocblas_DIR=/nix/store/dabbsd24a5kiw73nr3290hipab3n7zll-rocblas-6.3.3/lib/cmake/rocblas -DHIP_TARGETS=gfx1100
 ``` 
 
 
