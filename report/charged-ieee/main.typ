@@ -232,7 +232,7 @@ LD_LIBRARY_PATH=~/intel/oneapi/compiler/2025.2/lib steam-run /nix/store/dx4bdrs7
 
 Compile electro.cpp with Onemath:
 ```bash
-LD_LIBRARY_PATH=~/intel/oneapi/compiler/2025.2/lib steam-run ~/intel/oneapi/compiler/2025.2/bin/icpx -fsycl -fsycl-targets=amdgcn-amd-amdhsa -Xsycl-target-backend=amdgcn-amd-amdhsa --offload-arch=gfx1100 --rocm-path=/nix/store/k1dgx54vsclvdlrfipa5yr1xd5s44jm7-rocm-merged -I/home/maroka/Documents/xtb-gpu/oneMath/include -I/home/maroka/Documents/xtb-gpu/oneMath/build/bin -o electro electro.cpp
+LD_LIBRARY_PATH=~/intel/oneapi/compiler/2025.2/lib steam-run ~/intel/oneapi/compiler/2025.2/bin/icpx -fsycl -fsycl-targets=amdgcn-amd-amdhsa -Xsycl-target-backend=amdgcn-amd-amdhsa --offload-arch=gfx1100 --rocm-path=/nix/store/k1dgx54vsclvdlrfipa5yr1xd5s44jm7-rocm-merged -I/home/maroka/Documents/xtb-gpu/oneMath/include -I/home/maroka/Documents/xtb-gpu/oneMath/build/bin -o electro electro.cpp -L/home/maroka/Documents/xtb-gpu/oneMath/build/lib -lonemath
 ```
 
 
