@@ -18,24 +18,7 @@
     },
     "root": {
       "inputs": {
-        "nixpkgs": "nixpkgs",
-        "xtb": "xtb"
-      }
-    },
-    "xtb": {
-      "flake": false,
-      "locked": {
-        "lastModified": 1744788534,
-        "narHash": "sha256-nJtOks2nUVJuPUmqzdNJZA/23Hl6Nup+beDnldHduqM=",
-        "owner": "grimme-lab",
-        "repo": "xtb",
-        "rev": "c59ca03bd10e227a079544c3c4cf0faa4ed2be66",
-        "type": "github"
-      },
-      "original": {
-        "owner": "grimme-lab",
-        "repo": "xtb",
-        "type": "github"
+        "nixpkgs": "nixpkgs"
       }
     }
   },

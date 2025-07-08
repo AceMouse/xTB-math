@@ -368,16 +368,6 @@ index 44f8f7e..10ee35b 100644
        &                           intcut,nprim,primcount,alp,cont,sdq,sdqg)
     integer, intent(in)  :: icao
     integer, intent(in)  :: jcao
-diff --git a/src/meson.build b/src/meson.build
-index ced9a9d..12ddc1d 100644
---- a/src/meson.build
-+++ b/src/meson.build
-@@ -158,4 +158,5 @@ srcs += files(
-   'wrmo.f90',
-   'xhelp.f90',
-   'zmatpr.f90',
-+  'utils.f90',
- )
 diff --git a/src/scc_core.f90 b/src/scc_core.f90
 index 5b29581..1bf709d 100644
 --- a/src/scc_core.f90
@@ -597,88 +587,6 @@ index 7166f76..57c789f 100644
     call getSelfEnergy(xtbData%hamiltonian, xtbData%nShell, mol%at, cn=cn, &
        & selfEnergy=selfEnergy, dSEdcn=dSEdcn)
     ! compute integrals and prescreen to set up list arrays
-diff --git a/src/utils.f90 b/src/utils.f90
-new file mode 100644
-index 0000000..aaf4ae3
---- /dev/null
-+++ b/src/utils.f90
-@@ -0,0 +1,76 @@
-+module utils
-+  implicit none
-+  contains
-+
-+  subroutine random_uuid(uuid)
-+      character(len=*), intent(out) :: uuid
-+      character(len=16) :: hexchars
-+      integer :: i, n
-+      real :: r(1)
-+      character(len=1) :: c
-+
-+      hexchars = '0123456789abcdef'
-+      uuid = ''
-+      do i = 1, 36
-+          if (i == 9 .or. i == 14 .or. i == 19 .or. i == 24) then
-+              uuid(i:i) = '-'
-+          else
-+              call random_number(r)
-+              n = 1 + int(r(1) * 16.0)
-+              uuid(i:i) = hexchars(n:n)
-+          end if
-+      end do
-+  end subroutine
-+
-+  subroutine create_directory(dir_name)
-+     character(len=*), intent(in) :: dir_name
-+     character(len=255) :: command
-+
-+     ! Construct the command to create the directory
-+     write(command, '("mkdir -p ", A)') trim(adjustl(dir_name))
-+
-+     ! Execute the command
-+     call system(command)
-+  end subroutine create_directory
-+
-+  logical function testfile_path(fn_name, path)
-+    implicit none
-+    character(len=*), intent(in)  :: fn_name
-+    character(len=*), intent(out) :: path
-+
-+    character(len=36) :: uuid
-+    character(len=100) :: filename, dir
-+
-+    integer, parameter :: max_cached = 100
-+    character(len=100), save :: cached_dirs(max_cached) = ''
-+    integer :: i, slot
-+
-+    dir = 'calls/' // trim(fn_name) // '/'
-+    slot = -1
-+
-+    ! Search for fn_name in cache
-+    do i = 1, max_cached
-+      if (trim(cached_dirs(i)) == trim(dir)) then
-+        testfile_path = .true.
-+        return
-+      elseif (cached_dirs(i) == '') then
-+        slot = i
-+      end if
-+    end do
-+
-+    ! Not in cache, do the check
-+    inquire(file=trim(dir)//'.', exist=testfile_path)
-+
-+    if (.not. testfile_path) then
-+      call create_directory(trim(dir))
-+
-+      call random_seed()
-+      call random_uuid(uuid)
-+      write(filename, '(A,A)') 'args_', uuid
-+      write(path, '(A,A,A)') trim(dir), trim(filename), ".bin"
-+    endif
-+
-+    cached_dirs(slot) = dir
-+  end function testfile_path
-+
-+end module utils
 diff --git a/src/xtb/basisset.f90 b/src/xtb/basisset.f90
 index ad99d35..9bf1389 100644
 --- a/src/xtb/basisset.f90
