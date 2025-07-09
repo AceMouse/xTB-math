@@ -1,15 +1,16 @@
 {
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
-    xtb.url = "github:grimme-lab/xtb";
-    xtb.flake = false;
   };
 
   outputs = { self, nixpkgs, ... }: {
     apps."x86_64-linux" = let
       pkgs = nixpkgs.legacyPackages."x86_64-linux";
       xtb = (self.packages."x86_64-linux".xtb.overrideAttrs (finalAttrs: previousAttrs: {
-        patches = [./patches/xtb/log_args_and_outputs.patch];
+        patches = [
+          ./patches/xtb/log_utils.patch
+          ./patches/xtb/log_args_and_outputs.patch
+        ];
       }));
       multicharge = (pkgs.multicharge.overrideAttrs (finalAttrs: previousAttrs: rec {
         version = "0.4.0";
@@ -38,11 +39,40 @@
         name = "xtb-test-data";
         system = "x86_64-linux";
         builder = "${pkgs.bash}/bin/bash";
-        src = ./caffeine.xyz;
+        src = ./output_1.xyz;
         args = ["-c" ''
           PATH=$PATH:${pkgs.coreutils}/bin
           ${xtb}/bin/xtb $src
           ${dftd4}/bin/dftd4 $src
+          mv calls $out
+        ''];
+      };
+
+      electro_data = let
+        xtb = (self.packages."x86_64-linux".xtb.overrideAttrs (finalAttrs: previousAttrs: {
+          patches = [
+            ./patches/xtb/log_utils.patch
+            ./patches/xtb/log_electro.patch
+          ];
+        }));
+      in builtins.derivation {
+        name = "xtb-electro-data";
+        system = "x86_64-linux";
+        builder = "${pkgs.bash}/bin/bash";
+        src = ./bin2xyz;
+        args = ["-c" ''
+          PATH=$PATH:${pkgs.coreutils}/bin:${pkgs.clang}/bin
+          cp $src/* .
+          clang++ -o bin2xyz bin2xyz.cpp -O3
+          ./bin2xyz
+
+          count=0
+          for file in ./output/*; do
+            count=$((count + 1))
+            ${xtb}/bin/xtb "$file" > /dev/null
+            echo "[$count/10000] Processing: $file"
+          done
+
           mv calls $out
         ''];
       };
@@ -60,6 +90,13 @@
             ${./cmp_impls.py} ${xtb_test_data}
         '');
       };
+
+      "bench-electro" = {
+        type = "app";
+        program = toString (pkgs.writeShellScript "bench-electro" ''
+          echo ${electro_data}
+        '');
+      };
     };
 
     packages."x86_64-linux" = let
@@ -72,7 +109,7 @@
 
     devShells."x86_64-linux".default = let
       pkgs = nixpkgs.legacyPackages."x86_64-linux";
-    in pkgs.mkShell {
+    in pkgs.mkShell.override { stdenv = pkgs.clangStdenv; } {
       packages = with pkgs; [
         pkgs.pyright
         pkgs.texlab

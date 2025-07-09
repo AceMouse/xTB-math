@@ -1,0 +1,94 @@
+\section{Total Energy for GFN2-xTB}
+\begin{equation}
+\begin{split}
+\E{GFN2-xTB} &= \E[0]{rep}+\E[0,1,2]{disp}+\E[1]{EHT}+\E[2]{IES+IXC}+\E[2]{AES+AXC}+\E[3]{IES+IXC}\\
+&=\E{rep}+\E{disp}^{D4'}+\E{EHT}+\E{\gamma}+\E{AES}+\E{AXC}+\E{\Gamma}^{GFN2}
+\end{split}
+\end{equation}
+\subsection{Repulsion Energy}
+\begin{align}
+\E{rep} &= \frac{1}{2}\sum_{A,B}\frac{Z^{eff}_A Z^{eff}_B}{R_{AB}}e^{-\sqrt{a_Aa_B}(R_{AB})^{(k_f)}}\\
+k_f &= \begin{cases}1 & if A,B\in\{\text{H},\text{He}\}\\\frac{3}{2}&otherwise\end{cases} 
+\end{align}
+$Z^{eff}$ and $a$ are variables fitted for each element. A,B are the labels of atoms. 
+Since we only have C and H in our systems we can simplify this quite a bit in code. 
+$R_{AB}$ is the distance between the A and B atoms.
+\subsection{Extended Hückel Theory Energy}
+\begin{align}
+    \E{EHT} &= \sum_{\mu\nu}P_{\mu\nu}H^{EHT}_{\mu\nu}\\
+    P_{\mu\nu} &= P^0_{\mu\nu}+ \delta P_{\mu\nu}\\
+    P^0&=\sum_AP_A^0\\ 
+    \delta P_{\mu\nu} &=??\quad\text{comes from the iteration, can be skipped for now}
+\end{align}
+Where $P_A^0$ is the neutral atomic reference density of A. This is known as Superposition of Atomic Densities or SAD.  
+\subsection{Isotropic electrostatic and Exchange-correlation energy}
+\subsubsection{Second order}
+\begin{equation}
+    \E{\gamma} = \frac{1}{2}\sum_{A,B}^{N_{atoms}}\sum_{l\in A}\sum_{l'\in B}q_{A,l}q_{B,l'}\gamma_{AB,ll'}
+\end{equation}
+\subsubsection{Third order}
+\begin{equation}
+    \E{\Gamma}^{GFN2} = \frac{1}{3}\sum_A^{N_{atoms}}\sum_{l\in A}(q_{A,l})^3\Gamma_{A,l}
+\end{equation}
+\subsection{Anisotropic electrostatic energy}
+\begin{equation}
+\begin{split}
+    \E{AES} &= \E{q\mu}+\E{q\Theta} + \E{\mu\mu}\\
+    &= \frac{1}{2}\sum_{A,B}\{f_3(R_{AB})[q_A(\pmb{\mu}_B^T\pmb{R}_{BA})+q_B(\pmb{\mu}_A^T\pmb{R}_{AB})]\\
+    &\quad + f_5(R_{AB})[q_A\pmb{R}_{AB}^T\pmb{\Theta}_B\pmb{R}_{AB}+q_B\pmb{R}_{AB}^T\pmb{\Theta}_A\pmb{R}_{AB}\\
+    &\quad -3(\pmb{\mu}_A^T\pmb{R}_{AB})(\pmb{\mu}_B^T\pmb{R}_{AB}) + (\pmb{\mu}_A^T\pmb{\mu}_B)R_{AB}^2] \}\\
+\end{split}
+\end{equation}
+
+
+
+\subsection{Anisotropic XC energy}
+\begin{equation}
+    \E{AXC} = \sum_A (f^{\mu_A}_{XC}|\pmb{\mu}_A|^2 + f^{\Theta_A}_{XC}||\pmb{\Theta}_A||^2)
+\end{equation}
+What norms are these?
+
+\newpage
+
+\subsection{Dispersion Energy}
+\begin{equation}
+\begin{split}
+  \E{disp}^{D4'} = &-\sum_{A>B} \sum_{n=6,8} s_n \frac{C_n^{AB} (q_A, CN^A_{cov}, q_B, CN^B_{cov})}{R^n_{AB}} f^{(n)}_{damp,BJ} (R_{AB}) \\
+  &-s_9 \sum_{A>B>C} \frac{(3cos(\theta_{ABC})cos(\theta_{BCA})cos(\theta_{CAB})+1)C_9^{ABC}(CN_{cov}^A,CN_{cov}^B,CN_{cov}^C)}{(R_{AB} R_{AC} R_{BC})^3} \\
+  &\times f^{(9)}_{damp,zero}(R_{AB},R_{AC},R_{BC}).
+\end{split}
+\end{equation}
+
+\vspace{10pt}
+\noindent
+The term in the second line is the three-body Axilrod–
+Teller–Muto (ATM) (What is this??????) term and the last line is the corresponding zero-damping function for this term.
+
+
+\vspace{10pt}
+\noindent
+The damping and scaling parameters in the dispersion model are:
+\[
+  s6 = 1.0 \quad|\quad s8 = 2.7 \quad|\quad s9 = 5.0
+\]
+
+
+\vspace{10pt}
+\noindent
+\(C_9^{ABC}\) is the triple-dipole constant\footnote{\label{dft-d}https://www.researchgate.net/publication/43347348\_A\_Consistent\_and\_Accurate\_Ab\_Initio\_Parametrization\_of\_Density\_Functional\_Dispersion\_Correction\_DFT-D\_for\_the\_94\_Elements\_H-Pu}:
+\begin{equation}
+  C_9^{ABC} = \frac{3}{\pi} \int_0^\infty \alpha^A(i\omega) \alpha^B(i\omega)\alpha^C(i\omega)d\omega
+\end{equation}
+
+\vspace{10pt}
+\noindent
+The three-body contribution is typically \(<5-10\%\) of \(E_{disp}\), so it is small enough that we can reasonably approximate the coefficients by a geometric mean as\footnoteref{dft-d}:
+
+\begin{equation}
+  C_9^{ABC} \approx -\sqrt{C_6^{AB} C_6^{AC} C_6^{BC}}
+\end{equation}
+
+
+\vspace{10pt}
+\noindent
+\(\theta_{ABC}\) is the angle between the two edges going from B to the other two atoms. \(\theta_{BCA}\) is the angle between the edges going from C to the other two and so on.
