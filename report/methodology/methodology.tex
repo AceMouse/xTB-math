@@ -1,0 +1,20 @@
+\section{Methodology}
+
+\subsection{Testing}
+
+The xTB algorithm computes a lot different energies, corrections and other additions to the energy terms. There is a lot of overlap between the different variants of xTB, so even focusing on just one of them still requires a great amount of code.
+Dealing with large computations with so many small parts makes proper validation especially important, as it becomes increasingly easy to make mistakes.
+In the case of the xTB algorithm, the original Fortran implementation becomes an important point of reference for comparison. Throughout the coding process it became apparent that the xTB implementation by the people at Grimme Laboratories does not match the equations described in the original xTB paper by the same authors. It should be noted that the program is described as a semiempirical implementation, which could explain some degree of deviation in results from the original paper.
+With this realization the obvious approach forward was to follow the semiempirical implementation rather than the purely theoretical version. This choice would allow continued validation against the existing code as a reference.
+
+One of the hurdles from testing against an existing program becomes the lack of transparency regarding the logic that finds place between the initial input and the output presented to the user. Thankfully, the source code is publicly available allowing for easy manipulation of the original flow of execution, thus avoiding the hassle of testing against a black box or the need to resort to methods of reverse engineering.
+
+One behalf of these considerations it was decided to write patches that allow to intercept the arguments and results of arbitrary functions just by running the program as normal. This meant that smaller parts could be implemented without the need to implement all the code needed to compute its arguments.
+
+An important part of any software is reproducability, and applying certain patches in certain scenarios is something that should preferably be automated, reproducable, and optimally also portable. This is especially important for this approach to validation as it requires a way to reproduce a specific version of xTB linked to the same versions of dependencies. Essentially an exact copy of the original shell environment to ensure that patches work, results are the same, and no new bugs appear in the program itself or its dependencies. All of this should be achievable without having to add, remove, downgrade or upgrade system packages on your system.
+
+The well-known contenders for this is any of the numerous containerization solutions on Linux, such as Docker, Podman, LXC etc. There are some problems with these options though, one being that it can be difficult to truly reproduce package versions without saving the resulting container image, another being that it does not solve the problem of having multiple versions of the same package installed. Some other notable limitations are that it limits the process to run within the container and passing in a GPU or other hardware can be nefariously difficult. Lastly, a container does not have access to the X or Wayland session needed to run GUI applications, though that is not currently relevant in this case.
+
+Another approach which has been growing in popularity in recent years are tools that take unique approaches to package management in order to make not only packages reproducable, but also shell environments, system configurations and other forms of "outputs". Two such popular package managers are Nix from the Nix team and Guix from the GNU foundation. Nix is arguably the more popular option and it is also the solution that has been chosen for this project.
+
+Nix is an umbrella term that can refer to either the Nix functional programming language, the package manager, or the Nix based Linux distribution NixOS. The language and package manager go hand in hand and can be used on any Linux distribution. As such, NixOS is not required for the needs of this project and will not be mentioned going forward.
