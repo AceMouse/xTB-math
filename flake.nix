@@ -71,10 +71,6 @@
             count=$((count + 1))
             ${xtb}/bin/xtb "$file" > /dev/null
             echo "[$count/10000] Processing: $file"
-            if [ "$count" -eq 10 ]; then
-              echo "Reached 10 files. Terminating loop."
-              break
-            fi
           done
 
           mv calls $out
