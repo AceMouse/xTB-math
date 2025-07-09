@@ -37,10 +37,11 @@ We will not go into how the are prepared other than the fact that classically we
 As any classical computation in theory also can be applied to a quantum computer after modifications it is a possibility to prepare these states. 
 
 
-\section{GFN2-xTB $E^\Gamma$}
-\subsection{Quantum Digital Arithmetic}
+\subsection{GFN2-xTB $E^\Gamma$}
+\subsubsection{Quantum Digital Arithmetic}
+The GFN2-xTB $E^\Gamma$ term has the following form
 \begin{equation}
-    E^\Gamma = \frac{1}{3}\sum_A\sum_{\mu\in A} (q_{A,\mu})^3\Gamma_{A,\mu}
+    E^\Gamma = \frac{1}{3}\sum_A\sum_{\mu\in A} (q_{A,\mu})^3\Gamma_{A,\mu},
 \end{equation}
 where $q_{A,\nu}=\sum_B\sum_{\nu\in B}P_{\mu\nu}S_{\mu\nu}$ is the partial charge of shell $\mu$ associated with atom $A$. $P, S$ are the density and overlap matrices. $\Gamma_{A,\mu} = \Gamma_A K_\mu$ is just the product of an element specific constant and a shell specific constant, for our purposes the element is always carbon and the shell is either the first or second in GFN2 thus we have 2 numbers $\Gamma_{\text{Carbon},0(1)}$ henceforth referred to as $\varGamma_{0(1)}$. 
 
@@ -51,7 +52,7 @@ Let us first rewrite the inner expression a bit given our new definition and kno
     \sum_{\mu\in A} (q_{A,\mu})^3\Gamma_{A,\mu} = \sum_{\mu \in \{0,1\}} (q_{A,\mu})^3\varGamma_{\mu}
 \end{equation}
 
-We now need a unitary which computes this function on a given state $\ket{q_{A,\mu}}_Q\ket{\varGamma_\mu}_\Gamma\ket{acc}_E \to \ket{q_{A,\mu}}_Q\ket{\varGamma_\mu}_\Gamma\ket{acc+(q_{A,\mu})^3\varGamma_{\mu}}_E$. 
+We now need a unitary which computes this function on a given state $\ket{q_{A,\mu}}_Q\ket{\varGamma_\mu}_\Gamma\ket{acc}_E \to \ket{q_{A,\mu}}_Q\ket{\varGamma_\mu}_\Gamma\ket{acc+(q_{A,\mu})^3\varGamma_{\mu}}_E$. The subscripts on the kets refer to the quantum register they represent. 
 Consider having access to the following addition (multiplication) unitary $\ket{A}\ket{B} \to \ket{A}\ket{A+(*)B}$. 
 We can now apply the following unitary ${E_i^\Gamma}_{(Q,\Gamma,E)} = \text{MULT}^{\dagger^3}_{Q,\Gamma}\text{ADD}_{\Gamma,E}\text{MULT}^{3}_{Q,\Gamma}$.  
 \begin{align}
@@ -60,26 +61,11 @@ We can now apply the following unitary ${E_i^\Gamma}_{(Q,\Gamma,E)} = \text{MULT
     = \text{MULT}^{\dagger^3}_{Q,\Gamma}\text{ADD}_{\Gamma,E}\text{MULT}^{2}_{Q,\Gamma}&\ket{q_{A,\mu}}_Q\ket{q_{A,\mu}\varGamma_\mu}_\Gamma\ket{acc}_E\\
     = \text{MULT}^{\dagger^3}_{Q,\Gamma}\text{ADD}_{\Gamma,E}\text{MULT}_{Q,\Gamma}&\ket{q_{A,\mu}}_Q\ket{(q_{A,\mu})^2\varGamma_\mu}_\Gamma\ket{acc}_E\\
     = \text{MULT}^{\dagger^3}_{Q,\Gamma}\text{ADD}_{\Gamma,E}&\ket{q_{A,\mu}}_Q\ket{(q_{A,\mu})^3\varGamma_\mu}_\Gamma\ket{acc}_E\\
-    = \text{MULT}^{\dagger^3}_{Q,\Gamma}&\ket{q_{A,\mu}}_Q\ket{(q_{A,\mu})^3\varGamma_\mu}_\Gamma\ket{acc+(q_{A,\mu})^3\varGamma_\mu}_E\\
+    = \text{MULT}^{\dagger^3}_{Q,\Gamma}&\ket{q_{A,\mu}}_Q\ket{(q_{A,\mu})^3\varGamma_\mu}_\Gamma\ket{acc+(q_{A,\mu})^3\varGamma_\mu}_E\label{comp}\\
     = \text{MULT}^{\dagger^2}_{Q,\Gamma}&\ket{q_{A,\mu}}_Q\ket{(q_{A,\mu})^2\varGamma_\mu}_\Gamma\ket{acc+(q_{A,\mu})^3\varGamma_\mu}_E\\
     = \text{MULT}^{\dagger}_{Q,\Gamma}&\ket{q_{A,\mu}}_Q\ket{q_{A,\mu}\varGamma_\mu}_\Gamma\ket{acc+(q_{A,\mu})^3\varGamma_\mu}_E\\
     = &\ket{q_{A,\mu}}_Q\ket{\varGamma_\mu}_\Gamma\ket{acc+(q_{A,\mu})^3\varGamma_\mu}_E\\
 \end{align}
-This circuit to compute the inner sum in $E^\Gamma$ could be called ${E_i^\Gamma}_{(Q,\Gamma,E)}$. Let us say we are given a circuit, SDA, for encoding a molecule from its ID in the following manner. 
-\begin{equation}
-\begin{split}
-    \text{SDA}\ket{ID}_{ID}\ket{0}=&\\
-    \ket{ID}_{ID}\ket{0}_E\ket{0}_C\ket{0}_W&\bigotimes_{A_n\in \text{Atoms}}\left(\ket{q_{A_n,0}}_{Q_{n,0}}\ket{q_{A_n,1}}_{Q_{n,1}}\right)\ket{\varGamma_0}_{\Gamma_0}\ket{\varGamma_1}_{\Gamma_1} 
-\end{split}
-\end{equation}
-We can now apply $\text{DA}=\prod_{\mu\in\{0,1\}}\prod_{A_n} {E_i^\Gamma}_{(Q_{n,\mu},\Gamma_\mu,E)}$ to get 
-\begin{equation}
-\begin{split}
-    \text{DA}&\ket{ID}_{ID}\ket{0}_E\ket{0}_C\ket{0}_W\bigotimes_{A_n}\left(\ket{q_{A_n,0}}_{Q_{n,0}}\ket{q_{A_n,1}}_{Q_{n,1}}\right)\ket{\varGamma_0}_{\Gamma_0}\ket{\varGamma_1}_{\Gamma_1} = \\
-    &\ket{ID}_{ID}\ket{E^\Gamma}_E\ket{0}_C\ket{0}_W\bigotimes_{A_n}\left(\ket{q_{A_n,0}}_{Q_{n,0}}\ket{q_{A_n,1}}_{Q_{n,1}}\right)\ket{\varGamma_0}_{\Gamma_0}\ket{\varGamma_1}_{\Gamma_1}
-\end{split}
-\end{equation}
-
 \begin{tikzpicture}[scale=1, transform shape]
     \node[rectangle,anchor=east] at (-1,2) {$\ket{q_{A,\mu}}$};
     \node[rectangle,anchor=east] at (-1,1) {$\ket{\Gamma_\mu}$};
@@ -114,6 +100,26 @@ We can now apply $\text{DA}=\prod_{\mu\in\{0,1\}}\prod_{A_n} {E_i^\Gamma}_{(Q_{n
     \node[] at (3.6,0.2) {D}; 
         
 \end{tikzpicture}
+
+We see that already in eq. \ref{comp} we have the result we want in the accumulation register. We continue with the uncomputation of the $\Gamma_\mu$ register purely to be able to reuse it in the remaining calculations. This saves the qubits required for having a copy of the register for every calculation. The MULT and ADD gates here could be implementing using QFT adders and multipliers in which case we would need very few ancillary qubits. The downside of this approach  is an additional benefit to this approach which we can see if we decompose our operations into their components: (inverse) Fourier transforms and conditional rotations.
+
+
+
+This circuit to compute the inner sum in $E^\Gamma$ could be called ${E_i^\Gamma}_{(Q,\Gamma,E)}$. Let us say we are given a circuit, SDA, for encoding a molecule from its ID in the following manner. 
+\begin{equation}
+\begin{split}
+    \text{SDA}\ket{ID}_{ID}\ket{0}=&\\
+    \ket{ID}_{ID}\ket{0}_E\ket{0}_C\ket{0}_W&\bigotimes_{A_n\in \text{Atoms}}\left(\ket{q_{A_n,0}}_{Q_{n,0}}\ket{q_{A_n,1}}_{Q_{n,1}}\right)\ket{\varGamma_0}_{\Gamma_0}\ket{\varGamma_1}_{\Gamma_1} 
+\end{split}
+\end{equation}
+We can now apply $\text{DA}=\prod_{\mu\in\{0,1\}}\prod_{A_n} {E_i^\Gamma}_{(Q_{n,\mu},\Gamma_\mu,E)}$ to get 
+\begin{equation}
+\begin{split}
+    \text{DA}&\ket{ID}_{ID}\ket{0}_E\ket{0}_C\ket{0}_W\bigotimes_{A_n}\left(\ket{q_{A_n,0}}_{Q_{n,0}}\ket{q_{A_n,1}}_{Q_{n,1}}\right)\ket{\varGamma_0}_{\Gamma_0}\ket{\varGamma_1}_{\Gamma_1} = \\
+    &\ket{ID}_{ID}\ket{E^\Gamma}_E\ket{0}_C\ket{0}_W\bigotimes_{A_n}\left(\ket{q_{A_n,0}}_{Q_{n,0}}\ket{q_{A_n,1}}_{Q_{n,1}}\right)\ket{\varGamma_0}_{\Gamma_0}\ket{\varGamma_1}_{\Gamma_1}
+\end{split}
+\end{equation}
+
 
 \subsection{Sampling using Quantum Amplitude Arithmetic}
 Assume that we are given an equal superposition of all the canonical IDs of the fullerenes in an isomer-space. We can apply SDA to set up the encoding and then apply $DA$. We now have computed the $E^\Gamma$ energies for every isomer. However we can only sample once! Let us say that we are interested in the isomers with the lowest energies. We then would like the probability of sampling an isomer to be proportional to $E^\Gamma$. We can achieve this using Quantum Amplitude Arithmetic, not to be confused with Quantum Amplitude Amplification, both shortened as QAA but in this writing as QA-Arithmetic and QA-Amplification. 
