@@ -1,0 +1,69 @@
+\newpage
+\section{Code Structure}
+
+\dirtree{%
+.1 xTB-math/.
+.2 bin2xyz/.
+.3 bin2xyz.cpp\DTcomment{converter from float64 coords into xyz format}.
+.3 C200\_10000\_fullerenes.float64\DTcomment{3d coords for 10k fullerenes}.
+.2 flake.lock.
+.2 flake.nix\DTcomment{conventional structure for Nix inputs and outputs}.
+.2 nix/\DTcomment{Nix package definitions for xTB and its dependencies}.
+.3 cpx.nix\DTcomment{CPCM-X - a solvation model}.
+.3 numsa.nix\DTcomment{solvent accessible surface area calculation}.
+.3 patches/\DTcomment{patches for extracting data for validation}.
+.4 dftd4/\DTcomment{dispersion correction}.
+.5 log\_args\_and\_outputs.patch.
+.5 use\_gfn2.patch.
+.4 xtb/.
+.5 log\_args\_and\_outputs.patch.
+.5 log\_electro.patch.
+.5 log\_utils.patch.
+.3 xtb.nix\DTcomment{extended tight-binding program}.
+.2 README.md.
+.2 report/.
+.2 xtb-python/\DTcomment{Python port of xTB paper and Fortran impl}.
+.3 basisset.py.
+.3 blas.py.
+.3 cmp\_impls.py\DTcomment{validation tests against Fortran impl}.
+.3 data/.
+.4 C200.xyz.
+.4 caffeine.xyz.
+.3 dftd4.py\DTcomment{computation for dispersion correction}.
+.3 dftd4\_reference.py\DTcomment{constants for dftd4}.
+.3 energy.py\DTcomment{various energy computations}.
+.3 fock.py\DTcomment{Fock matrix computation}.
+.3 gfn2.py\DTcomment{xTB-GFN2 specific constants}.
+.3 lapack.py\DTcomment{Facade for LAPACK functions}.
+.3 scc.py\DTcomment{computation for self-consistent charges}.
+.3 slater.py\DTcomment{computation for slater determinants}.
+.3 util.py.
+.3 xyz\_reader.py.
+}
+
+\newpage
+
+\dirtree{%
+.1 xtb-gpu/.
+.2 flake.lock.
+.2 flake.nix.
+.2 nix/.
+.3 nvhpc.nix\DTcomment{patching nvhpc to make nvfortran work on Nix}.
+.3 xtb.nix\DTcomment{xtb version 6.4.0 compiled with nvfortran}.
+.2 README.md.
+.2 sycl/.
+.3 build\_SDQH0.cpp\DTcomment{incomplete SYCL impl for build\_SDQH0}.
+.3 data/\DTcomment{test data for electro.cpp computed from caffeine}.
+.4 atomicGam.txt.
+.4 dqsh.txt.
+.4 dq.txt.
+.4 H0.txt.
+.4 jmat.txt.
+.4 P.txt.
+.4 shellGam.txt.
+.4 shift.txt.
+.2 electro.cpp\DTcomment{SYCL impl for computing electrostatic energy}.
+}
+
+
+

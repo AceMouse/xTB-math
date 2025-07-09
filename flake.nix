@@ -39,7 +39,7 @@
         name = "xtb-test-data";
         system = "x86_64-linux";
         builder = "${pkgs.bash}/bin/bash";
-        src = ./output_1.xyz;
+        src = ./xtb-python/data/C200.xyz;
         args = ["-c" ''
           PATH=$PATH:${pkgs.coreutils}/bin
           ${xtb}/bin/xtb $src

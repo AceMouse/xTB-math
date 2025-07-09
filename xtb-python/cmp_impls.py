@@ -697,7 +697,7 @@ def test_coordination_number():
             cn_res = np.fromfile(f, dtype=np.float64, count=m)
 
             from xyz_reader import parse_xyz
-            element_ids, positions = parse_xyz("./caffeine.xyz")
+            element_ids, positions = parse_xyz("./data/caffeine.xyz")
             #cn = GFN2_coordination_numbers_np(element_ids, positions)
             cn = ncoordLatP(element_ids, positions)
 
@@ -721,7 +721,7 @@ def test_new_d4_model_with_checks():
             c6_res = np.fromfile(f, dtype=np.float64, count=m*n*j*k).reshape((k, j, n, m))
 
             from xyz_reader import parse_xyz_with_symbols
-            symbols, positions = parse_xyz_with_symbols("./caffeine.xyz")
+            symbols, positions = parse_xyz_with_symbols("./data/caffeine.xyz")
 
             c6 = new_d4_model(symbols, positions)
 
