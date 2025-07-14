@@ -8,8 +8,8 @@
       pkgs = nixpkgs.legacyPackages."x86_64-linux";
       xtb = (self.packages."x86_64-linux".xtb.overrideAttrs (finalAttrs: previousAttrs: {
         patches = [
-          ./patches/xtb/log_utils.patch
-          ./patches/xtb/log_args_and_outputs.patch
+          ./nix/patches/xtb/log_utils.patch
+          ./nix/patches/xtb/log_args_and_outputs.patch
         ];
       }));
       multicharge = (pkgs.multicharge.overrideAttrs (finalAttrs: previousAttrs: rec {
@@ -31,8 +31,8 @@
         buildInputs = [ multicharge ] ++ previousAttrs.buildInputs;
         doCheck = false;
         patches = previousAttrs.patches ++ [
-          ./patches/dftd4/use_gfn2.patch
-          ./patches/dftd4/log_args_and_outputs.patch
+          ./nix/patches/dftd4/use_gfn2.patch
+          ./nix/patches/dftd4/log_args_and_outputs.patch
         ];
       }));
       xtb_test_data = builtins.derivation {
@@ -51,8 +51,8 @@
       electro_data = let
         xtb = (self.packages."x86_64-linux".xtb.overrideAttrs (finalAttrs: previousAttrs: {
           patches = [
-            ./patches/xtb/log_utils.patch
-            ./patches/xtb/log_electro.patch
+            ./nix/patches/xtb/log_utils.patch
+            ./nix/patches/xtb/log_electro.patch
           ];
         }));
       in builtins.derivation {
@@ -64,7 +64,7 @@
           PATH=$PATH:${pkgs.coreutils}/bin:${pkgs.clang}/bin
           cp $src/* .
           clang++ -o bin2xyz bin2xyz.cpp -O3
-          ./bin2xyz
+          ./bin2xyz ./C200_10000_fullerenes.float64 10000
 
           count=0
           for file in ./output/*; do
@@ -86,8 +86,8 @@
       in {
         type = "app";
         program = toString (pkgs.writeShellScript "cmp-impls" ''
-          PYTHONPATH=${pkgs.lib.cleanSource ./.} exec ${python}/bin/python \
-            ${./cmp_impls.py} ${xtb_test_data}
+          PYTHONPATH=${pkgs.lib.cleanSource ./xtb-python} exec ${python}/bin/python \
+            ${./xtb-python/cmp_impls.py} ${xtb_test_data}
         '');
       };
 
@@ -102,9 +102,9 @@
     packages."x86_64-linux" = let
       pkgs = nixpkgs.legacyPackages."x86_64-linux";
     in rec {
-      xtb = pkgs.callPackage ./xtb.nix { inherit cpx numsa; };
-      cpx = pkgs.callPackage ./cpx.nix { inherit numsa; };
-      numsa = pkgs.callPackage ./numsa.nix {};
+      xtb = pkgs.callPackage ./nix/xtb.nix { inherit cpx numsa; };
+      cpx = pkgs.callPackage ./nix/cpx.nix { inherit numsa; };
+      numsa = pkgs.callPackage ./nix/numsa.nix {};
     };
 
     devShells."x86_64-linux".default = let

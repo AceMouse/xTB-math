@@ -36,3 +36,78 @@ nix run .#cmp-impls
 \end{minted}
 
 
+This command takes the form '\verb|nix run <path to flake>#<output>|'. Path to flake refers to a file-tree whose root directory contains a file called 'flake.nix'. Nix flakes is an experimental but widely adopted feature, which provides a standard way to write Nix expressions and a way to manager their dependencies through a version-pinned lock file. The 'flake.nix' file follows a uniform naming schema for declaring inputs and outputs, where inputs are the dependencies, and outputs are Nix expressions to be exposed.
+The new Nix command-line interface needed to interact with flakes is naturally also an experimental feature that has to be enabled explicitly. The run command instructs Nix to build and run the derivation 'cmp-impls', which is defined as an app in the flake outputs.
+
+\newpage
+
+\begin{minted}{nix}
+{
+  inputs = {
+    nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
+  };
+
+  outputs = { self, nixpkgs, ... }: {
+    apps."x86_64-linux" = let
+      pkgs = nixpkgs.legacyPackages."x86_64-linux";
+      ...
+    in {
+      "cmp-impls" = let
+        python = (pkgs.python3.withPackages (python-pkgs: with python-pkgs; [
+          numpy
+          scipy
+          cvxopt
+        ]));
+      in {
+        type = "app";
+        program = toString (pkgs.writeShellScript "cmp-impls" ''
+          PYTHONPATH=${pkgs.lib.cleanSource ./xtb-python} exec ${python}/bin/python \
+            ${./xtb-python/cmp_impls.py} ${xtb_test_data}
+        '');
+      };
+    };
+    ...
+  };
+}
+\end{minted}
+
+Python is declared with the required packages and is then used in the app to call the \verb|cmp_impls.py| script. The script is called with the test data acquired from running the Fortran xTB program. This data comes from another derivation which executes patched versions of xTB and DFT-D4 on a C200 fullerene to get the relevant function arguments and results as binary files.
+
+\begin{minted}{nix}
+xtb_test_data = builtins.derivation {
+  name = "xtb-test-data";
+  system = "x86_64-linux";
+  builder = "${pkgs.bash}/bin/bash";
+  src = ./xtb-python/data/C200.xyz;
+  args = ["-c" ''
+    PATH=$PATH:${pkgs.coreutils}/bin
+    ${xtb}/bin/xtb $src
+    ${dftd4}/bin/dftd4 $src
+    mv calls $out
+  ''];
+};
+\end{minted}
+
+This in turn uses derivations for xTB and DFT-D4. Luckily DFT-D4 is already in NixPkgs, but it still needs to be patched in order to extract the required data for validation. Thankfully the \verb|mkDerivation| function used in NixPkgs makes overriding and patching a package very straightforward. 
+
+\begin{minted}{nix}
+dftd4 = (pkgs.dftd4.overrideAttrs (finalAttrs: previousAttrs: {
+  src = pkgs.fetchFromGitHub {
+    owner = "dftd4";
+    repo = "dftd4";
+    rev = "502d7c59bf88beec7c90a71c4ecf80029794bd5e";
+    hash = "sha256-FEABtBAZK0xQ1P/Pbj5gUuvKf8/ZLITXaXYB+btAY/8=";
+  };
+  buildInputs = [ multicharge ] ++ previousAttrs.buildInputs;
+  doCheck = false;
+  patches = previousAttrs.patches ++ [
+    ./nix/patches/dftd4/use_gfn2.patch
+    ./nix/patches/dftd4/log_args_and_outputs.patch
+  ];
+}));
+\end{minted}
+
+The version is bumped by overriding the source, and the multicharge project is added from NixPkgs and also bumped as a requirement of this newer version. Some of the tests were timing out, so they have been disabled by setting \verb|doCheck| to false. Lastly the patches are applied by providing the relevant patch files.
+
+
+xTB and two of its dependencies, namely CPCM-X and numsa are not in NixPkgs and had to be packaged from scratch.
