@@ -697,7 +697,7 @@ def test_coordination_number():
             cn_res = np.fromfile(f, dtype=np.float64, count=m)
 
             from xyz_reader import parse_xyz
-            element_ids, positions = parse_xyz("./data/caffeine.xyz")
+            element_ids, positions = parse_xyz("./xtb-python/data/caffeine.xyz")
             #cn = GFN2_coordination_numbers_np(element_ids, positions)
             cn = ncoordLatP(element_ids, positions)
 
@@ -721,7 +721,7 @@ def test_new_d4_model_with_checks():
             c6_res = np.fromfile(f, dtype=np.float64, count=m*n*j*k).reshape((k, j, n, m))
 
             from xyz_reader import parse_xyz_with_symbols
-            symbols, positions = parse_xyz_with_symbols("./data/caffeine.xyz")
+            symbols, positions = parse_xyz_with_symbols("./xtb-python/data/caffeine.xyz")
 
             c6 = new_d4_model(symbols, positions)
 
@@ -790,17 +790,17 @@ def test_electro():
     print("\033[0;0m", end='')
 
 
-#test_olapp()
-#test_multipole_3d()
-#test_horizontal_shift()
-#test_form_product()
-#test_dtrf2()
-#test_get_multiints()
-#test_h0scal()
-#test_build_SDQH0(compare_args_i=0)
-#test_dim_basis()
-#test_atovlp()
-#test_new_basis_set()
+test_olapp()
+test_multipole_3d()
+test_horizontal_shift()
+test_form_product()
+test_dtrf2()
+test_get_multiints()
+test_build_SDQH0(compare_args_i=0)
+test_dim_basis()
+test_atovlp()
+test_new_basis_set()
 #test_new_d4_model_with_checks()
-#test_coordination_number()
 test_electro()
+test_coordination_number()
+test_h0scal()

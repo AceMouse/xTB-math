@@ -10,33 +10,42 @@ index ced9a9d..12ddc1d 100644
  )
 diff --git a/src/utils.f90 b/src/utils.f90
 new file mode 100644
-index 0000000..0a04764
+index 0000000..7a24e1e
 --- /dev/null
 +++ b/src/utils.f90
-@@ -0,0 +1,78 @@
+@@ -0,0 +1,75 @@
 +module utils
 +  implicit none
++  integer, parameter :: max_dirs = 100
++  character(len=100), dimension(max_dirs) :: dir_names
++  integer, dimension(max_dirs) :: file_counts
++  integer :: num_tracked = 0
 +  contains
 +
-+  subroutine random_uuid(uuid)
-+      character(len=*), intent(out) :: uuid
-+      character(len=16) :: hexchars
-+      integer :: i, n
-+      real :: r(1)
-+      character(len=1) :: c
++  subroutine increment_count(dir, count)
++    character(len=*), intent(in) :: dir
++    integer, intent(out) :: count
++    integer :: i
 +
-+      hexchars = '0123456789abcdef'
-+      uuid = ''
-+      do i = 1, 36
-+          if (i == 9 .or. i == 14 .or. i == 19 .or. i == 24) then
-+              uuid(i:i) = '-'
-+          else
-+              call random_number(r)
-+              n = 1 + int(r(1) * 16.0)
-+              uuid(i:i) = hexchars(n:n)
-+          end if
-+      end do
-+  end subroutine
++    do i = 1, num_tracked
++      if (trim(dir_names(i)) == trim(dir)) then
++        file_counts(i) = file_counts(i) + 1
++        count = file_counts(i)
++        return
++      end if
++    end do
++
++    ! New entry
++    if (num_tracked < max_dirs) then
++      num_tracked = num_tracked + 1
++      dir_names(num_tracked) = dir
++      file_counts(num_tracked) = 1
++      count = 1
++    else
++      print *, "Error: file_tracker full"
++      count = -1
++    end if
++  end subroutine increment_count
 +
 +  subroutine create_directory(dir_name)
 +     character(len=*), intent(in) :: dir_name
@@ -54,41 +63,29 @@ index 0000000..0a04764
 +    character(len=*), intent(in)  :: fn_name
 +    character(len=*), intent(out) :: path
 +
-+    character(len=36) :: uuid
 +    character(len=100) :: filename, dir
-+
-+    !integer, parameter :: max_cached = 100
-+    !character(len=100), save :: cached_dirs(max_cached) = ''
-+    !integer :: i, slot
++    logical :: exist_flag
++    integer :: file_index
 +
 +    dir = 'calls/' // trim(fn_name) // '/'
-+    !slot = -1
 +
-+    ! Search for fn_name in cache
-+    !do i = 1, max_cached
-+    !  if (trim(cached_dirs(i)) == trim(dir)) then
-+    !    testfile_path = .true.
-+    !    return
-+    !  elseif (cached_dirs(i) == '') then
-+    !    slot = i
-+    !  end if
-+    !end do
-+
-+    ! Not in cache, do the check
-+    inquire(file=trim(dir)//'.', exist=testfile_path)
-+
-+    if (.not. testfile_path) then
-+      call create_directory(trim(dir))
++    call increment_count(trim(dir), file_index)
++    if (file_index > 10) then
++      testfile_path = .true.
++      return
++    else
++      testfile_path = .false.
 +    endif
 +
-+    call random_seed()
-+    call random_uuid(uuid)
-+    write(filename, '(A,A)') 'args_', uuid
++    !inquire(file=trim(dir), exist=exist_flag)
++
++    !if (.not. exist_flag) then
++    !  call create_directory(trim(dir))
++    !endif
++
++    write(filename, '(A,I0.4)') 'args_', file_index
 +    write(path, '(A,A,A)') trim(dir), trim(filename), ".bin"
 +
-+    testfile_path = .false.
-+
-+    !cached_dirs(slot) = dir
 +  end function testfile_path
 +
 +end module utils

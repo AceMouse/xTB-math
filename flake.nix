@@ -42,6 +42,7 @@
         src = ./xtb-python/data/C200.xyz;
         args = ["-c" ''
           PATH=$PATH:${pkgs.coreutils}/bin
+          mkdir -p ./calls/{build_SDQH0,coordination_number,dim_basis,dtrf2,electro,form_product,get_multiints,h0scal,horizontal_shift,multipole_3d,newBasisset,olapp}
           ${xtb}/bin/xtb $src
           ${dftd4}/bin/dftd4 $src
           mv calls $out

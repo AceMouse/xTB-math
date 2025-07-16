@@ -1,5 +1,5 @@
 diff --git a/src/intgrad.f90 b/src/intgrad.f90
-index 44f8f7e..10ee35b 100644
+index 44f8f7e..ba9d6e4 100644
 --- a/src/intgrad.f90
 +++ b/src/intgrad.f90
 @@ -22,6 +22,7 @@
@@ -42,12 +42,12 @@ index 44f8f7e..10ee35b 100644
 +   real(wp),intent(in) :: gama
 +   real(wp) :: s(size(l))
 +
-+   logical :: exists
++   logical :: hit_threshold
 +   integer :: u
 +   character(len=200) :: path
 +
-+   exists = testfile_path('olapp', path)
-+   if (.not.exists) then
++   hit_threshold = testfile_path('olapp', path)
++   if (.not.hit_threshold) then
 +     open(newunit=u, file=trim(path), form='unformatted', access='stream')
 +     write(u) size(l), l
 +     write(u) gama
@@ -55,7 +55,7 @@ index 44f8f7e..10ee35b 100644
 +
 +   s = golapp(l, gama)
 +
-+   if (.not.exists) then
++   if (.not.hit_threshold) then
 +     write(u) size(s), s
 +     close(u)
 +   end if
@@ -66,12 +66,12 @@ index 44f8f7e..10ee35b 100644
 +   real(wp),intent(in) :: gama
 +   real(wp) :: s
 +
-+   logical :: exists
++   logical :: hit_threshold
 +   integer :: u
 +   character(len=200) :: path
 +
-+   exists = testfile_path('olapp', path)
-+   if (.not.exists) then
++   hit_threshold = testfile_path('olapp', path)
++   if (.not.hit_threshold) then
 +     open(newunit=u, file=trim(path), form='unformatted', access='stream')
 +     write(u) 1, [l]
 +     write(u) gama
@@ -79,7 +79,7 @@ index 44f8f7e..10ee35b 100644
 +
 +   s = golapp(l, gama)
 +
-+   if (.not.exists) then
++   if (.not.hit_threshold) then
 +     write(u) 1, [s]
 +     close(u)
 +   end if
@@ -107,12 +107,12 @@ index 44f8f7e..10ee35b 100644
 +   real(wp),intent(inout) :: s(6,6)
 +   integer, intent(in)    :: li,lj
 +
-+   logical :: exists
++   logical :: hit_threshold
 +   integer :: u
 +   character(len=200) :: path
 +
-+   exists = testfile_path('dtrf2', path)
-+   if (.not.exists) then
++   hit_threshold = testfile_path('dtrf2', path)
++   if (.not.hit_threshold) then
 +     open(newunit=u, file=trim(path), form='unformatted', access='stream')
 +     write(u) size(s, 1), size(s, 2), s
 +     write(u) li
@@ -121,7 +121,7 @@ index 44f8f7e..10ee35b 100644
 +
 +   call gdtrf2(s,li,lj)
 +
-+   if (.not.exists) then
++   if (.not.hit_threshold) then
 +     write(u) size(s, 1), size(s, 2), s
 +     close(u)
 +   end if
@@ -148,12 +148,12 @@ index 44f8f7e..10ee35b 100644
 +   real(wp), intent(in) :: ae
 +   real(wp), intent(inout) :: cfs(:)
 +
-+   logical :: exists
++   logical :: hit_threshold
 +   integer :: u
 +   character(len=200) :: path
 +
-+   exists = testfile_path('horizontal_shift', path)
-+   if (.not.exists) then
++   hit_threshold = testfile_path('horizontal_shift', path)
++   if (.not.hit_threshold) then
 +     open(newunit=u, file=trim(path), form='unformatted', access='stream')
 +     write(u) ae
 +     write(u) l
@@ -162,7 +162,7 @@ index 44f8f7e..10ee35b 100644
 +
 +   call ghorizontal_shift(ae, l, cfs)
 +
-+   if (.not.exists) then
++   if (.not.hit_threshold) then
 +     write(u) size(cfs), cfs
 +     close(u)
 +   end if
@@ -185,12 +185,12 @@ index 44f8f7e..10ee35b 100644
 +   real(wp), intent(in) :: a(:), b(:)
 +   real(wp), intent(inout) :: d(:)
 +
-+   logical :: exists
++   logical :: hit_threshold
 +   integer :: u
 +   character(len=200) :: path
 +
-+   exists = testfile_path('form_product', path)
-+   if (.not.exists) then
++   hit_threshold = testfile_path('form_product', path)
++   if (.not.hit_threshold) then
 +     open(newunit=u, file=trim(path), form='unformatted', access='stream')
 +     write(u) la
 +     write(u) lb
@@ -201,7 +201,7 @@ index 44f8f7e..10ee35b 100644
 +
 +   call gform_product(a, b, la, lb, d)
 +
-+   if (.not.exists) then
++   if (.not.hit_threshold) then
 +     write(u) size(d), d
 +     close(u)
 +   end if
@@ -239,12 +239,12 @@ index 44f8f7e..10ee35b 100644
 +   real(wp), intent(in) :: s1d(0:)
 +   real(wp), intent(out) :: s3d(10)
 +
-+   logical :: exists
++   logical :: hit_threshold
 +   integer :: u
 +   character(len=200) :: path
 +
-+   exists = testfile_path('multipole_3d', path)
-+   if (.not.exists) then
++   hit_threshold = testfile_path('multipole_3d', path)
++   if (.not.hit_threshold) then
 +     open(newunit=u, file=trim(path), form='unformatted', access='stream')
 +     write(u) size(ri), ri
 +     write(u) size(rj), rj
@@ -258,7 +258,7 @@ index 44f8f7e..10ee35b 100644
 +
 +   call gmultipole_3d(ri, rj, rc, rp, ai, aj, li, lj, s1d, s3d)
 +
-+   if (.not.exists) then
++   if (.not.hit_threshold) then
 +     write(u) size(s3d), s3d
 +     close(u)
 +   end if
@@ -334,12 +334,12 @@ index 44f8f7e..10ee35b 100644
 +   real(wp),intent(in)  :: alp(:)
 +   real(wp),intent(in)  :: cont(:)
  
-+   logical :: exists
++   logical :: hit_threshold
 +   integer :: u
 +   character(len=200) :: path
 +
-+   exists = testfile_path('get_multiints', path)
-+   if (.not.exists) then
++   hit_threshold = testfile_path('get_multiints', path)
++   if (.not.hit_threshold) then
 +     open(newunit=u, file=trim(path), form='unformatted', access='stream')
 +     write(u) icao, jcao, naoi, naoj, ishtyp, jshtyp
 +     write(u) ri
@@ -354,7 +354,7 @@ index 44f8f7e..10ee35b 100644
 +
 +   call gget_multiints(icao,jcao,naoi,naoj,ishtyp,jshtyp,ri,rj,point,intcut,nprim,primcount,alp,cont,ss,dd,qq)
 +
-+   if (.not.exists) then
++   if (.not.hit_threshold) then
 +     write(u) size(ss, 1), size(ss, 2), ss
 +     write(u) size(dd, 1), size(dd, 2), size(dd, 3), dd
 +     write(u) size(qq, 1), size(qq, 2), size(qq, 3), qq
@@ -369,7 +369,7 @@ index 44f8f7e..10ee35b 100644
     integer, intent(in)  :: icao
     integer, intent(in)  :: jcao
 diff --git a/src/scc_core.f90 b/src/scc_core.f90
-index 5b29581..1bf709d 100644
+index 5b29581..6e61ee8 100644
 --- a/src/scc_core.f90
 +++ b/src/scc_core.f90
 @@ -29,6 +29,7 @@ module xtb_scc_core
@@ -389,13 +389,13 @@ index 5b29581..1bf709d 100644
    !$acc routine seq
     type(THamiltonianData), intent(in) :: hData
     integer, intent(in)  :: il
-@@ -642,13 +643,43 @@ subroutine h0scal(hData,il,jl,izp,jzp,valaoi,valaoj,km)
+@@ -642,13 +643,46 @@ subroutine h0scal(hData,il,jl,izp,jzp,valaoi,valaoj,km)
     endif
  
  
 -end subroutine h0scal
 +end subroutine gh0scal
- 
++
 +subroutine h0scal(hData,il,jl,izp,jzp,valaoi,valaoj,km)
 +  !$acc routine seq
 +   type(THamiltonianData), intent(in) :: hData
@@ -407,12 +407,12 @@ index 5b29581..1bf709d 100644
 +   logical, intent(in)  :: valaoj
 +   real(wp),intent(out) :: km
 +
-+   logical :: exists
++   logical :: hit_threshold
 +   integer :: u
 +   character(len=200) :: path
 +
-+   exists = testfile_path('h0scal', path)
-+   if (.not.exists) then
++   hit_threshold = testfile_path('h0scal', path)
++   if (.not.hit_threshold) then
 +     open(newunit=u, file=trim(path), form='unformatted', access='stream')
 +     write(u) il, jl
 +     write(u) izp, jzp
@@ -421,10 +421,13 @@ index 5b29581..1bf709d 100644
 +
 +   call gh0scal(hData,il,jl,izp,jzp,valaoi,valaoj,km)
 +
-+   if (.not.exists) then
++   if (.not.hit_threshold) then
 +     write(u) km
 +     close(u)
 +   end if
++
++  
+ 
 +end subroutine h0scal
  
  !! ========================================================================
@@ -435,7 +438,7 @@ index 5b29581..1bf709d 100644
     use xtb_mctc_convert, only : evtoau
     integer, intent(in) :: n
     integer, intent(in) :: at(n)
-@@ -684,6 +715,112 @@ pure subroutine electro(n,at,nbf,nshell,ies,H0,P,dq,dqsh,es,scc)
+@@ -684,6 +718,112 @@ pure subroutine electro(n,at,nbf,nshell,ies,H0,P,dq,dqsh,es,scc)
  !  Etotal in Eh
     scc = es + 2.0_wp*h*evtoau
  
@@ -508,12 +511,12 @@ index 5b29581..1bf709d 100644
 +
 +    !call gelectro(n,at,nbf,nshell,ies,H0,P,dq,dqsh,es,scc)
 +
-+   logical :: exists
++   logical :: hit_threshold
 +   integer :: u
 +   character(len=200) :: path
 +
-+   exists = testfile_path('electro', path)
-+   if (.not.exists) then
++   hit_threshold = testfile_path('electro', path)
++   if (.not.hit_threshold) then
 +     open(newunit=u, file=trim(path), form='unformatted', access='stream')
 +     write(u) nbf
 +     write(u) size(H0), H0
@@ -539,7 +542,7 @@ index 5b29581..1bf709d 100644
 +
 +   call gelectro(n,at,nbf,nshell,ies,H0,P,dq,dqsh,es,scc)
 +
-+   if (.not.exists) then
++   if (.not.hit_threshold) then
 +     write(u) es
 +     write(u) scc
 +     close(u)
@@ -549,7 +552,7 @@ index 5b29581..1bf709d 100644
  
  
 diff --git a/src/scf_module.F90 b/src/scf_module.F90
-index 7166f76..57c789f 100644
+index 7166f76..c809e8e 100644
 --- a/src/scf_module.F90
 +++ b/src/scf_module.F90
 @@ -53,6 +53,7 @@ module xtb_scf
@@ -565,7 +568,7 @@ index 7166f76..57c789f 100644
     logical  :: broy
  
 +
-+   logical :: exists
++   logical :: hit_threshold
 +   integer :: u
 +   character(len=200) :: path
 +
@@ -577,8 +580,8 @@ index 7166f76..57c789f 100644
        &     source = 0.0_wp)
  
 +
-+   exists = testfile_path('coordination_number', path)
-+   if (.not.exists) then
++   hit_threshold = testfile_path('coordination_number', path)
++   if (.not.hit_threshold) then
 +     open(newunit=u, file=trim(path), form='unformatted', access='stream')
 +     write(u) size(cn), cn
 +     close(u)
@@ -588,7 +591,7 @@ index 7166f76..57c789f 100644
        & selfEnergy=selfEnergy, dSEdcn=dSEdcn)
     ! compute integrals and prescreen to set up list arrays
 diff --git a/src/xtb/basisset.f90 b/src/xtb/basisset.f90
-index ad99d35..9bf1389 100644
+index ad99d35..71a8433 100644
 --- a/src/xtb/basisset.f90
 +++ b/src/xtb/basisset.f90
 @@ -22,6 +22,7 @@ module xtb_basis
@@ -650,19 +653,19 @@ index ad99d35..9bf1389 100644
 +   real(wp) :: as(10),cs(10)
 +   integer :: info
 +
-+   logical :: exists
++   logical :: hit_threshold
 +   integer :: u
 +   character(len=200) :: path
 +
-+   exists = testfile_path('newBasisset', path)
-+   if (.not.exists) then
++   hit_threshold = testfile_path('newBasisset', path)
++   if (.not.hit_threshold) then
 +     open(newunit=u, file=trim(path), form='unformatted', access='stream')
 +     write(u) size(at), at
 +   end if
 +
 +   call gnewBasisset(xtbData,n,at,basis,ok)
 +
-+   if (.not.exists) then
++   if (.not.hit_threshold) then
 +     write(u) size(basis%shells, 1), size(basis%shells, 2), basis%shells
 +     write(u) size(basis%sh2ao, 1), size(basis%sh2ao, 2), basis%sh2ao
 +     write(u) size(basis%sh2bf, 1), size(basis%sh2bf, 2), basis%sh2bf
@@ -722,19 +725,19 @@ index ad99d35..9bf1389 100644
 +
 +   integer i,j,k,l
 +
-+   logical :: exists
++   logical :: hit_threshold
 +   integer :: u
 +   character(len=200) :: path
 +
-+   exists = testfile_path('dim_basis', path)
-+   if (.not.exists) then
++   hit_threshold = testfile_path('dim_basis', path)
++   if (.not.hit_threshold) then
 +     open(newunit=u, file=trim(path), form='unformatted', access='stream')
 +     write(u) size(at), at
 +   end if
 +
 +   call gdim_basis(xtbData,n,at,nshell,nao,nbf)
 +
-+   if (.not.exists) then
++   if (.not.hit_threshold) then
 +     write(u) nshell
 +     write(u) nao
 +     write(u) nbf
@@ -765,12 +768,12 @@ index ad99d35..9bf1389 100644
 +   integer ii,jj
 +   real(wp) ab,s00,sss,ab05
 +
-+   logical :: exists
++   logical :: hit_threshold
 +   integer :: u
 +   character(len=200) :: path
 +
-+   exists = testfile_path('atovlp', path)
-+   if (.not.exists) then
++   hit_threshold = testfile_path('atovlp', path)
++   if (.not.hit_threshold) then
 +     open(newunit=u, file=trim(path), form='unformatted', access='stream')
 +     write(u) l, npri, nprj
 +     write(u) size(alpa), alpa
@@ -781,7 +784,7 @@ index ad99d35..9bf1389 100644
 +
 +   call gatovlp(l,npri,nprj,alpa,alpb,conta,contb,ss)
 +
-+   if (.not.exists) then
++   if (.not.hit_threshold) then
 +     write(u) ss
 +     close(u)
 +   end if
@@ -789,7 +792,7 @@ index ad99d35..9bf1389 100644
  
  subroutine set_s_function(basis,iat,ish,iao,ibf,ipr,npq,l,nprim,zeta,level,valao)
 diff --git a/src/xtb/hamiltonian.f90 b/src/xtb/hamiltonian.f90
-index 59ca64c..29114bb 100644
+index 59ca64c..aa524b4 100644
 --- a/src/xtb/hamiltonian.f90
 +++ b/src/xtb/hamiltonian.f90
 @@ -143,7 +143,7 @@ end subroutine getSelfEnergy2D
@@ -862,12 +865,12 @@ index 59ca64c..29114bb 100644
 +   parameter(itt  =(/0,1,4,10/))
 +   real(wp) :: saw(10)
 +
-+   logical :: exists
++   logical :: hit_threshold
 +   integer :: u
 +   character(len=200) :: path
 +
-+   exists = testfile_path('build_SDQH0', path)
-+   if (.not.exists) then
++   hit_threshold = testfile_path('build_SDQH0', path)
++   if (.not.hit_threshold) then
 +     open(newunit=u, file=trim(path), form='unformatted', access='stream')
 +     write(u) nat
 +     write(u) size(at), at
@@ -887,7 +890,7 @@ index 59ca64c..29114bb 100644
 +
 +   call gbuild_SDQH0(nShell, hData, nat, at, nbf, nao, xyz, trans, selfEnergy, intcut, caoshell, saoshell, nprim, primcount, alp, cont, sint, dpint, qpint, H0, H0_noovlp)
 +
-+   if (.not.exists) then
++   if (.not.hit_threshold) then
 +     write(u) size(sint, 1), size(sint, 2), sint
 +     write(u) size(dpint, 1), size(dpint, 2), size(dpint, 3), dpint
 +     write(u) size(qpint, 1), size(qpint, 2), size(qpint, 3), qpint
