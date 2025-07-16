@@ -10,10 +10,10 @@ index ced9a9d..12ddc1d 100644
  )
 diff --git a/src/utils.f90 b/src/utils.f90
 new file mode 100644
-index 0000000..7a24e1e
+index 0000000..1e4e3a8
 --- /dev/null
 +++ b/src/utils.f90
-@@ -0,0 +1,75 @@
+@@ -0,0 +1,69 @@
 +module utils
 +  implicit none
 +  integer, parameter :: max_dirs = 100
@@ -76,12 +76,6 @@ index 0000000..7a24e1e
 +    else
 +      testfile_path = .false.
 +    endif
-+
-+    !inquire(file=trim(dir), exist=exist_flag)
-+
-+    !if (.not. exist_flag) then
-+    !  call create_directory(trim(dir))
-+    !endif
 +
 +    write(filename, '(A,I0.4)') 'args_', file_index
 +    write(path, '(A,A,A)') trim(dir), trim(filename), ".bin"

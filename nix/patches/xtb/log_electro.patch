@@ -1,5 +1,5 @@
 diff --git a/src/scc_core.f90 b/src/scc_core.f90
-index 5b29581..e08befd 100644
+index 5b29581..1d6dba8 100644
 --- a/src/scc_core.f90
 +++ b/src/scc_core.f90
 @@ -29,6 +29,7 @@ module xtb_scc_core
@@ -19,7 +19,7 @@ index 5b29581..e08befd 100644
     use xtb_mctc_convert, only : evtoau
     integer, intent(in) :: n
     integer, intent(in) :: at(n)
-@@ -684,6 +685,61 @@ pure subroutine electro(n,at,nbf,nshell,ies,H0,P,dq,dqsh,es,scc)
+@@ -684,6 +685,59 @@ pure subroutine electro(n,at,nbf,nshell,ies,H0,P,dq,dqsh,es,scc)
  !  Etotal in Eh
     scc = es + 2.0_wp*h*evtoau
  
@@ -39,12 +39,12 @@ index 5b29581..e08befd 100644
 +   real(wp),intent(out) :: es
 +   real(wp),intent(out) :: scc
 +
-+   logical :: exists
++   logical :: hit_threshold
 +   integer :: u
 +   character(len=200) :: path
 +
-+   exists = testfile_path('electro', path)
-+   if (.not.exists) then
++   hit_threshold = testfile_path('electro', path)
++   if (.not.hit_threshold) then
 +     open(newunit=u, file=trim(path), form='unformatted', access='stream')
 +     write(u) nbf
 +     write(u) size(H0), H0
@@ -70,13 +70,11 @@ index 5b29581..e08befd 100644
 +
 +   call gelectro(n,at,nbf,nshell,ies,H0,P,dq,dqsh,es,scc)
 +
-+   if (.not.exists) then
++   if (.not.hit_threshold) then
 +     write(u) es
 +     write(u) scc
 +     close(u)
 +   end if
-+
-+   stop
 +
  end subroutine electro
  
