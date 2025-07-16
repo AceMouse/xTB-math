@@ -54,9 +54,7 @@ The new Nix command-line interface needed to interact with flakes is naturally a
     in {
       "cmp-impls" = let
         python = (pkgs.python3.withPackages (python-pkgs: with python-pkgs; [
-          numpy
-          scipy
-          cvxopt
+          numpy scipy cvxopt
         ]));
       in {
         type = "app";
@@ -81,6 +79,9 @@ xtb_test_data = builtins.derivation {
   src = ./xtb-python/data/C200.xyz;
   args = ["-c" ''
     PATH=$PATH:${pkgs.coreutils}/bin
+    mkdir -p ./calls/{build_SDQH0,coordination_number,\
+      dim_basis,dtrf2,electro,form_product,get_multiints,\
+      h0scal,horizontal_shift,multipole_3d,newBasisset, olapp}
     ${xtb}/bin/xtb $src
     ${dftd4}/bin/dftd4 $src
     mv calls $out
@@ -88,7 +89,8 @@ xtb_test_data = builtins.derivation {
 };
 \end{minted}
 
-This in turn uses derivations for xTB and DFT-D4. Luckily DFT-D4 is already in NixPkgs, but it still needs to be patched in order to extract the required data for validation. Thankfully the \verb|mkDerivation| function used in NixPkgs makes overriding and patching a package very straightforward. 
+The directories for the binary files are created in advance as checking whether they exist when writing the binary files has a large overhead.
+This derivation in turn uses derivations for xTB and DFT-D4. Luckily DFT-D4 is already in NixPkgs, but it still needs to be patched in order to extract the required data for validation. Thankfully the \verb|mkDerivation| function used in NixPkgs makes overriding and patching a package very straightforward. 
 
 \begin{minted}{nix}
 dftd4 = (pkgs.dftd4.overrideAttrs (finalAttrs: previousAttrs: {
@@ -111,3 +113,66 @@ The version is bumped by overriding the source, and the multicharge project is a
 
 
 xTB and two of its dependencies, namely CPCM-X and numsa are not in NixPkgs and had to be packaged from scratch.
+
+All the patches follow the structure below where the original function is prefixed with a 'g', such that the new wrapper function will be called instead. The wrapper function writes the function arguments to a binary file before calling the actual function and then finally writes the result to the same file.
+Writing a file for each call to a function is a bit excessive and will produce a very large amount of files, so a threshold has been used to create an upperbound on the number of files that can be created for each function.
+
+\begin{minted}{diff}
++   logical :: hit_threshold
++   integer :: u
++   character(len=200) :: path
++
++   hit_threshold = testfile_path('electro', path)
++   if (.not.hit_threshold) then
++     open(newunit=u, file=trim(path), form='unformatted', access='stream')
++     write(u) nbf
++     write(u) size(H0), H0
++     write(u) size(P, 1), size(P, 2), P
+...
++     if (allocated(ies%thirdOrder%atomicGam)) then
++       write(u) size(ies%thirdorder%atomicgam), ies%thirdorder%atomicgam
++     else
++       write(u) 0
++     end if
+...
++     write(u) size(ies%jmat, 1), size(ies%jmat, 2), ies%jmat
++     write(u) size(ies%shift), ies%shift
++   end if
++
++   call gelectro(n,at,nbf,nshell,ies,H0,P,dq,dqsh,es,scc)
++
++   if (.not.hit_threshold) then
++     write(u) es
++     write(u) scc
++     close(u)
++   end if
+\end{minted}
+
+When all the data has been written, then the binary files are passed onto \verb|cmp-impls.py|, which is the test suite for comparing the Python reimplementation to the original Fortran code. 
+
+\begin{minted}{python}
+def test_electro():
+    fn_name = "electro"
+    for i, file_path in enumerate(glob.glob(f'{directory}/{fn_name}/*.bin')):
+        with open(file_path, 'rb') as f:
+            def read_ints(n=1):
+                return np.fromfile(f, dtype=np.int32, count=n)
+
+            nbf = read_ints(1)[0]
+            H01 = read_ints(1)[0]
+            H0 = np.fromfile(f, dtype=np.float64, count=H01)
+            m, n = read_ints(2)
+            P = np.fromfile(f, dtype=np.float64, count=m * n).reshape((n, m))
+            ...
+            atomicGam1 = read_ints(1)[0]
+            atomicGam = None  if atomicGam1 == 0
+                              else np.fromfile(f, dtype=np.float64, count=atomicGam1)
+            ...
+            es_res, scc_res = read_reals(2)
+            es, scc = electro(nbf, H0, P, dq, dqsh, atomicGam, shellGam, jmat, shift)
+
+            is_equal(es, es_res, "es", fn_name)
+            is_equal(scc, scc_res, "scc", fn_name)
+
+    print(f"matches! [{fn_name}]")
+\end{minted}
