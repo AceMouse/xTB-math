@@ -2,6 +2,13 @@
 
 \subsection{High Performance Parallel Computing}
 
-We can scale parallization with the amount of fullerenes. Det scaler med isomerrummet? (fullerence molekylder med samme antal carbon atomer, f.eks. isomerrum af C200 fullerener).
+We can scale parallization with the amount of fullerenes. Det scaler med isomerrummet? (fullerence molekyler med samme antal carbon atomer, f.eks. isomerrum af C200 fullerener).
 Forklar hvordan vi kan isolere computation for hvert molekyle for at lave "embarassingly parallel" parallelization.
 
+
+
+The xTB program computes multiple energy terms for each atom in a molecule based on the type of atom, the spin of their electrons and other properties.
+For a molecule on the smaller scale such as a caffeine molecule with 24 atoms, this is perceivably fairly instantanious. Even a fullerene with 200 carbon atoms does not take considerably long to compute. The point at which the computional time for even small molecules begins to be noticable, is when the problem size grows to thousands or even millions of molecules.
+This project aims to compute the energies of all fullerenes in the isomerspaces \(C_{20}, C_{24}, \cdots, C_{200} \), and for this purpose the computational time needed for individual molecules is of less importance and trying to achieve speedups here should not be a priority, and would be considered as premature optimization. What is truly interesting for this problem domain is speeding up largely concurrent xTB computations by running them in parallel on general purpose graphic processing units (GPGPUs).
+
+This is where lockstep parallization comes in because the molecules have no data dependencies on eachother...
