@@ -4,19 +4,24 @@
 \usepackage{graphicx}
 \usepackage{tikz}
 \usepackage{mathtools}
+\usepackage[
+backend=biber,
+style=numeric-comp,
+]{biblatex}
+\addbibresource{quantum.bib}
 \begin{document}
 \section{Introduction to quantum algorithmic approaches}
-In this section we will attempt to construct quantum algorithms for calculating three of the GFN2-xTB energy terms: $E^\Gamma, E^\gamma$ and $E^{EHT}$.
+In this section we will attempt to construct quantum algorithms for calculating three of the GFN2-xTB\cite{bannwarth2019} energy terms: $E^\Gamma, E^\gamma$ and $E^{EHT}$.
 We will showcase three different approaches to doing a calculation as a building block of a larger circuit.
 
 
 The conceptually simplest approach is to directly translate classical mathematical circuits to the quantum world using ancillary qubits to ensure reversibility.
-Here all the computation happens in the state, and the result is readable in the bits of the measurement output.
-This approach has seen some development beyond this simple translation resulting in some very qubit efficient primitives for multiplication and addition in particular.
+Here most of the computation happens in the state, and the result is readable in the bits of the measurement output.
+This approach has seen some development beyond this simple translation resulting in some very qubit efficient primitives for multiplication and addition in particular\cite{draper2000,perez2017}.
 This approach will be applied to the $E^\Gamma$ and $E^\gamma$ terms, and be referred to as Quantum Digital Arithmetic in this report. 
 
 
-Our second approach is Quantum Amplitude Arithmetic. 
+Our second approach is Quantum Amplitude Arithmetic\cite{wang2020}. 
 In this approach we try to prepare the desired result not as a easily read measurement result, but as part of the amplitude of a state.
 We will use this approach for the $E^\Gamma$ term to prepare a qubit in the state $w\ket{0}+\alpha\ket{0}$ where we can choose $\alpha$ to be proportional to the $E^\Gamma$ of the molecule.
 Alternatively we can choose $\alpha$ to be proportional to $E^\Gamma-E^\Gamma_H$ where $E^\Gamma_H$ is the $E^\Gamma$ energy for some known high energy isomer.
@@ -26,9 +31,9 @@ If all the energies lie between 100 and 101 (units not important), which may mak
 If we subtract a known high energy of say 100.9 we get much larger relative differences where the low energy isomers will have a much larger $\alpha$ than the high energy isomers. 
 
 
-The final algorithmic approach we will explore uses quantum singular value transformations.
+The final algorithmic approach we will explore uses quantum singular value transformations\cite{gilyen2019}.
 In this approach the calculations are being carried out in the singular values of block encoded matrices. 
-We will use this approach to calculate the $E^{ETH}$ term, as it involves a lot of matrix multiplications. 
+We will use this approach to calculate the $E^{ETH}$ term, as it involves a lot of elementwise matrix multiplications. 
 This is well suited for this approach.
 
 
@@ -37,9 +42,8 @@ We will not go into how the are prepared other than the fact that classically we
 As any classical computation in theory also can be applied to a quantum computer after modifications it is a possibility to prepare these states. 
 
 
-\subsection{GFN2-xTB $E^\Gamma$}
-\subsubsection{Quantum Digital Arithmetic}
-The GFN2-xTB $E^\Gamma$ term has the following form
+\subsection{Calculating $E^\Gamma$ using Quantum Digital Arithmetic}
+The GFN2-xTB $E^\Gamma$ term has the following form\cite{bannwarth2021}
 \begin{equation}
     E^\Gamma = \frac{1}{3}\sum_A\sum_{\mu\in A} (q_{A,\mu})^3\Gamma_{A,\mu},
 \end{equation}
@@ -52,143 +56,150 @@ Let us first rewrite the inner expression a bit given our new definition and kno
     \sum_{\mu\in A} (q_{A,\mu})^3\Gamma_{A,\mu} = \sum_{\mu \in \{0,1\}} (q_{A,\mu})^3\varGamma_{\mu}
 \end{equation}
 
-We now need a unitary which computes this function on a given state $\ket{q_{A,\mu}}_Q\ket{\varGamma_\mu}_\Gamma\ket{acc}_E \to \ket{q_{A,\mu}}_Q\ket{\varGamma_\mu}_\Gamma\ket{acc+(q_{A,\mu})^3\varGamma_{\mu}}_E$. The subscripts on the kets refer to the quantum register they represent. 
-Consider having access to the following addition (multiplication) unitary $\ket{A}\ket{B} \to \ket{A}\ket{A+(*)B}$. 
-We can now apply the following unitary ${E_i^\Gamma}_{(Q,\Gamma,E)} = \text{MULT}^{\dagger^3}_{Q,\Gamma}\text{ADD}_{\Gamma,E}\text{MULT}^{3}_{Q,\Gamma}$.  
+We now need a unitary which computes this function on a given state $\ket{\varGamma_\mu}_\Gamma\ket{q_{A,\mu}}_Q\ket{acc}_E \to \ket{\varGamma_\mu}_\Gamma\ket{q_{A,\mu}}_Q\ket{acc+(q_{A,\mu})^3\varGamma_{\mu}}_E$. The subscripts on the kets refer to the quantum register they represent. 
+Consider having access to the following fused multiply add unitary $\ket{A}\ket{B}\ket{acc} \to \ket{A}\ket{B}\ket{acc+A*B}$. 
+Let us to our initial $\Gamma, Q, E$ registers add two ancillary registers, $W_1,W_2$. 
+We can now apply the following unitary 
+\begin{equation}
+    \resizebox{.9\hsize}{!}{${E_i^\Gamma}_{(\Gamma,Q,W_1,W_2,E)} = \text{MADD}^\dagger_{\Gamma,Q,W_1}\text{MADD}^\dagger_{Q,W_1,W_2}\text{MADD}_{Q,W_2,E}\text{MADD}_{Q,W_1,W_2}\text{MADD}_{\Gamma,Q,W_1}$}
+\end{equation}
+Let us follow the process:
+
 \begin{align}
-    {E_i^\Gamma}_{(Q,\Gamma,E)}&\ket{q_{A,\mu}}_Q\ket{\varGamma_\mu}_\Gamma\ket{acc}_E\\
-    =\text{MULT}^{\dagger^3}_{Q,\Gamma}\text{ADD}_{\Gamma,E}\text{MULT}^{3}_{Q,\Gamma}&\ket{q_{A,\mu}}_Q\ket{\varGamma_\mu}_\Gamma\ket{acc}_E\\ 
-    = \text{MULT}^{\dagger^3}_{Q,\Gamma}\text{ADD}_{\Gamma,E}\text{MULT}^{2}_{Q,\Gamma}&\ket{q_{A,\mu}}_Q\ket{q_{A,\mu}\varGamma_\mu}_\Gamma\ket{acc}_E\\
-    = \text{MULT}^{\dagger^3}_{Q,\Gamma}\text{ADD}_{\Gamma,E}\text{MULT}_{Q,\Gamma}&\ket{q_{A,\mu}}_Q\ket{(q_{A,\mu})^2\varGamma_\mu}_\Gamma\ket{acc}_E\\
-    = \text{MULT}^{\dagger^3}_{Q,\Gamma}\text{ADD}_{\Gamma,E}&\ket{q_{A,\mu}}_Q\ket{(q_{A,\mu})^3\varGamma_\mu}_\Gamma\ket{acc}_E\\
-    = \text{MULT}^{\dagger^3}_{Q,\Gamma}&\ket{q_{A,\mu}}_Q\ket{(q_{A,\mu})^3\varGamma_\mu}_\Gamma\ket{acc+(q_{A,\mu})^3\varGamma_\mu}_E\label{comp}\\
-    = \text{MULT}^{\dagger^2}_{Q,\Gamma}&\ket{q_{A,\mu}}_Q\ket{(q_{A,\mu})^2\varGamma_\mu}_\Gamma\ket{acc+(q_{A,\mu})^3\varGamma_\mu}_E\\
-    = \text{MULT}^{\dagger}_{Q,\Gamma}&\ket{q_{A,\mu}}_Q\ket{q_{A,\mu}\varGamma_\mu}_\Gamma\ket{acc+(q_{A,\mu})^3\varGamma_\mu}_E\\
-    = &\ket{q_{A,\mu}}_Q\ket{\varGamma_\mu}_\Gamma\ket{acc+(q_{A,\mu})^3\varGamma_\mu}_E\\
+    &{E_i^\Gamma}_{(\Gamma,Q,W_1,W_2,E)}\ket{\varGamma_\mu}_\Gamma\ket{q_{A,\mu}}_Q\ket{0}_{W_1}\ket{0}_{W_2}\ket{acc}_E\\
+    =&\resizebox{.9\hsize}{!}{$\text{MADD}^\dagger_{\Gamma,Q,W_1}\text{MADD}^\dagger_{Q,W_1,W_2}\text{MADD}_{Q,W_2,E}\text{MADD}_{Q,W_1,W_2}\ket{\varGamma_\mu}_\Gamma\ket{q_{A,\mu}}_Q\ket{\varGamma_\mu q_{A,\mu}}_{W_1}\ket{0}_{W_2}\ket{acc}_E$}\\
+    =&\resizebox{.9\hsize}{!}{$\text{MADD}^\dagger_{\Gamma,Q,W_1}\text{MADD}^\dagger_{Q,W_1,W_2}\text{MADD}_{Q,W_2,E}\ket{\varGamma_\mu}_\Gamma\ket{q_{A,\mu}}_Q\ket{\varGamma_\mu q_{A,\mu}}_{W_1}\ket{\varGamma_\mu (q_{A,\mu})^2}_{W_2}\ket{acc}_E$}\\
+    =&\resizebox{.9\hsize}{!}{$\text{MADD}^\dagger_{\Gamma,Q,W_1}\text{MADD}^\dagger_{Q,W_1,W_2}\ket{\varGamma_\mu}_\Gamma\ket{q_{A,\mu}}_Q\ket{\varGamma_\mu q_{A,\mu}}_{W_1}\ket{\varGamma_\mu (q_{A,\mu})^2}_{W_2}\ket{acc+\varGamma_\mu (q_{A,\mu})^3}_E\label{comp}$}\\
+    =&\text{MADD}^\dagger_{\Gamma,Q,W_1}\ket{\varGamma_\mu}_\Gamma\ket{q_{A,\mu}}_Q\ket{\varGamma_\mu q_{A,\mu}}_{W_1}\ket{0}_{W_2}\ket{acc+\varGamma_\mu (q_{A,\mu})^3}_E\\
+    =&\ket{\varGamma_\mu}_\Gamma\ket{q_{A,\mu}}_Q\ket{0}_{W_1}\ket{0}_{W_2}\ket{acc+\varGamma_\mu (q_{A,\mu})^3}_E\\
 \end{align}
+
 \begin{tikzpicture}[scale=1, transform shape]
-    \node[rectangle,anchor=east] at (-1,2) {$\ket{q_{A,\mu}}$};
-    \node[rectangle,anchor=east] at (-1,1) {$\ket{\Gamma_\mu}$};
-    \node[rectangle,anchor=east] at (-1,0) {$\ket{acc}$};
+    \node[rectangle,anchor=east] at (-1.5,4) {$\ket{\Gamma_\mu}$};
+    \node[rectangle,anchor=east] at (-1.5,3) {$\ket{q_{A,\mu}}$};
+    \node[rectangle,anchor=east] at (-1.5,2) {$\ket{0}$};
+    \node[rectangle,anchor=east] at (-1.5,1) {$\ket{0}$};
+    \node[rectangle,anchor=east] at (-1.5,0) {$\ket{acc}$};
 
-    \node[rectangle,anchor=west] at ( 8.5,2) {$\ket{q_{A,\mu}}$};
-    \node[rectangle,anchor=west] at ( 8.5,1) {$\ket{\Gamma_\mu}$};
-    \node[rectangle,anchor=west] at ( 8.5,0) {$\ket{acc}$};
-    \foreach \y in {0,...,2}
-        \draw (-1,\y) -- (8.5,\y) ;
-    \foreach \x in {0,...,2}{
-        \filldraw[gray] (-0.8+\x*1.3+0,2.5) rectangle (0+\x*1.3,.5);
-        \filldraw[black] (0+\x*1.3,.9) -- (0+\x*1.3+0.1,1) -- (0+\x*1.3,1.1);
-        \node[] at (-0.4+\x*1.3+0,2.0) {M}; 
-        \node[] at (-0.4+\x*1.3+0,1.7) {U}; 
-        \node[] at (-0.4+\x*1.3+0,1.4) {L}; 
-        \node[] at (-0.4+\x*1.3+0,1.1) {T}; 
+    \node[rectangle,anchor=west] at ( 6,4) {$\ket{\Gamma_\mu}$};
+    \node[rectangle,anchor=west] at ( 6,3) {$\ket{q_{A,\mu}}$};
+    \node[rectangle,anchor=west] at ( 6,2) {$\ket{0}$};
+    \node[rectangle,anchor=west] at ( 6,1) {$\ket{0}$};
+    \node[rectangle,anchor=west] at ( 6,0) {$\ket{acc}$};
+    \foreach \y in {0,...,4}
+        \draw (-1.5,\y) -- (6,\y) ;
+    \foreach \x in {0,...,1}{
+        \filldraw[black] (\x*1.3-.9,2.9-\x) -- (\x*1.3-.8,3-\x) -- (\x*1.3-.9,3.1-\x);
+        \filldraw[black] (\x*1.3-.9,3.9-\x) -- (\x*1.3-.8,4-\x) -- (\x*1.3-.9,4.1-\x);
+        \filldraw[gray] (-0.8+\x*1.3+0,2-\x+2.5) rectangle (0+\x*1.3,1-\x+.5);
+        \filldraw[black] (0+\x*1.3,1-\x+.9) -- (0+\x*1.3+0.1,1-\x+1) -- (0+\x*1.3,1-\x+1.1);
+        \node[] at (-0.4+\x*1.3+0,2-\x+2.0) {M}; 
+        \node[] at (-0.4+\x*1.3+0,2-\x+1.7) {U}; 
+        \node[] at (-0.4+\x*1.3+0,2-\x+1.4) {L}; 
+        \node[] at (-0.4+\x*1.3+0,2-\x+1.1) {T}; 
+        \node[] at (-0.4+\x*1.3+0,2-\x+.5) {A}; 
+        \node[] at (-0.4+\x*1.3+0,2-\x+.2) {D}; 
+        \node[] at (-0.4+\x*1.3+0,2-\x-.1) {D}; 
     }
-    \foreach \x in {0,...,2}{
-        \filldraw[gray] (-0.8+\x*1.3+5.4,2.5) rectangle (5.4+\x*1.3,.5);
-        \filldraw[black] (5.4+\x*1.3,.9) -- (5.4+\x*1.3+0.1,1) -- (5.4+\x*1.3,1.1);
-        \node[anchor=west] at (-0.4+\x*1.3+5.1,2.0) {M$ ^\dagger$}; 
-        \node[] at (-0.4+\x*1.3+5.4,1.7) {U}; 
-        \node[] at (-0.4+\x*1.3+5.4,1.4) {L}; 
-        \node[] at (-0.4+\x*1.3+5.4,1.1) {T}; 
-    }
+    \filldraw[gray] (-0.8+2*1.3+0,2-1+2.5) rectangle (0+2*1.3,1-2+.5);
+    \filldraw[black] (0+2*1.3,1-2+.9) -- (0+2*1.3+0.1,1-2+1) -- (0+2*1.3,1-2+1.1);
 
-    \filldraw[gray] (3.2,1.5) rectangle (4,-.5);
-    \filldraw[black] (4,-.1) -- (4.1,0) -- (4,.1);
-    \node[] at (3.6,0.8) {A}; 
-    \node[] at (3.6,0.5) {D}; 
-    \node[] at (3.6,0.2) {D}; 
-        
+    \filldraw[black] (2*1.3-.9,.9) -- (2*1.3-.8,1) -- (0+2*1.3-.9,1.1);
+    \filldraw[black] (2*1.3-.9,2.9) -- (2*1.3-.8,3) -- (0+2*1.3-.9,3.1);
+    \node[] at (-0.4+2*1.3+0,1+2.0) {M}; 
+    \node[] at (-0.4+2*1.3+0,1+1.7) {U}; 
+    \node[] at (-0.4+2*1.3+0,1+1.4) {L}; 
+    \node[] at (-0.4+2*1.3+0,1+1.1) {T}; 
+    \node[] at (-0.4+2*1.3+0,+.5) {A}; 
+    \node[] at (-0.4+2*1.3+0,+.2) {D}; 
+    \node[] at (-0.4+2*1.3+0,-.1) {D}; 
+    \foreach \x in {0,...,1}{
+        \filldraw[black] (4+\x*1.3-.9,2.9+\x) -- (4+\x*1.3-.8,3+\x) -- (4+\x*1.3-.9,3.1+\x);
+        \filldraw[black] (4+\x*1.3-.9,1.9+\x) -- (4+\x*1.3-.8,2+\x) -- (4+\x*1.3-.9,2.1+\x);
+        \filldraw[gray] (4+-0.8+\x*1.3+0,1+\x+2.5) rectangle (4+0+\x*1.3,+\x+.5);
+        \filldraw[black] (4+0+\x*1.3,+\x+.9) -- (4+0+\x*1.3+0.1,+\x+1) -- (4+0+\x*1.3,+\x+1.1);
+        \node[anchor=west] at (-0.4+\x*1.3+4-.3,1+\x+2.0) {M$ ^\dagger$}; 
+        \node[] at (-0.4+\x*1.3+4,1+\x+1.7) {U}; 
+        \node[] at (-0.4+\x*1.3+4,1+\x+1.4) {L}; 
+        \node[] at (-0.4+\x*1.3+4,1+\x+1.1) {T}; 
+        \node[] at (-0.4+\x*1.3+4,1+\x+.5) {A}; 
+        \node[] at (-0.4+\x*1.3+4,1+\x+.2) {D}; 
+        \node[] at (-0.4+\x*1.3+4,1+\x-.1) {D}; 
+    }
 \end{tikzpicture}
 
-We see that already in eq. \ref{comp} we have the result we want in the accumulation register. We continue with the uncomputation of the $\Gamma_\mu$ register purely to be able to reuse it in the remaining calculations. This saves the qubits required for having a copy of the register for every calculation. The MULT and ADD gates here could be implementing using QFT adders and multipliers in which case we would need very few ancillary qubits. The downside of this approach  is an additional benefit to this approach which we can see if we decompose our operations into their components: (inverse) Fourier transforms and conditional rotations.
+We see that already in eq. \ref{comp} we have the result we want in the accumulation register. We continue with the uncomputation of the $W_1,W_2$ registers purely to be able to reuse them in the remaining calculations. This saves the qubits required for having a 2 ancillary registers for every calculation. The MADD gates here could be implementing using QFT multipliers\cite{perez2017} in which case we wouldn't need any additional ancillaries. If we decompose our QFT multiplier into its components it is essentially a chain of QFT additions\cite{draper2000,perez2017} and multiplications by a constant power of two. These additions are built up of two components: (inverse) Fourier transforms and conditional rotations. When we chain them together like this however many of the transforms can be taken out as they are always followed or preceded by their inverse except for in the beginning and end. 
 
 
 
-This circuit to compute the inner sum in $E^\Gamma$ could be called ${E_i^\Gamma}_{(Q,\Gamma,E)}$. Let us say we are given a circuit, SDA, for encoding a molecule from its ID in the following manner. 
+Let us say we are given a circuit, SDA, for encoding a molecule from its ID in the following manner, and a circuit $\text{DA}=\prod_{A}\prod_{\mu\in \{0,1\}} {E_i^\Gamma}_{(\Gamma_\mu,Q_{A,\mu},W_1,W_2,E)}$. Then 
 \begin{equation}
 \begin{split}
-    \text{SDA}\ket{ID}_{ID}\ket{0}=&\\
-    \ket{ID}_{ID}\ket{0}_E\ket{0}_C\ket{0}_W&\bigotimes_{A_n\in \text{Atoms}}\left(\ket{q_{A_n,0}}_{Q_{n,0}}\ket{q_{A_n,1}}_{Q_{n,1}}\right)\ket{\varGamma_0}_{\Gamma_0}\ket{\varGamma_1}_{\Gamma_1} 
+    \text{DA}\ \text{SDA}&\ket{ID}_{ID}\ket{0}\to\\
+    \text{DA}&\ket{ID}_{ID}\bigg(\bigotimes_{\mu\in \{0,1\}}\ket{\varGamma_\mu}_{\Gamma_\mu}\bigotimes_{A}\ket{q_{A,\mu}}_{Q_{A,\mu}}\bigg)\ket{0}_{W_1}\ket{0}_{W_2}\ket{0}_E \to\\
+    &\ket{ID}_{ID}\bigg(\bigotimes_{\mu\in \{0,1\}}\ket{\varGamma_\mu}_{\Gamma_\mu}\bigotimes_{A}\ket{q_{A,\mu}}_{Q_{A,\mu}}\bigg)\ket{0}_{W_1}\ket{0}_{W_2}\ket{E^\Gamma}_E\\
 \end{split}
 \end{equation}
-We can now apply $\text{DA}=\prod_{\mu\in\{0,1\}}\prod_{A_n} {E_i^\Gamma}_{(Q_{n,\mu},\Gamma_\mu,E)}$ to get 
-\begin{equation}
-\begin{split}
-    \text{DA}&\ket{ID}_{ID}\ket{0}_E\ket{0}_C\ket{0}_W\bigotimes_{A_n}\left(\ket{q_{A_n,0}}_{Q_{n,0}}\ket{q_{A_n,1}}_{Q_{n,1}}\right)\ket{\varGamma_0}_{\Gamma_0}\ket{\varGamma_1}_{\Gamma_1} = \\
-    &\ket{ID}_{ID}\ket{E^\Gamma}_E\ket{0}_C\ket{0}_W\bigotimes_{A_n}\left(\ket{q_{A_n,0}}_{Q_{n,0}}\ket{q_{A_n,1}}_{Q_{n,1}}\right)\ket{\varGamma_0}_{\Gamma_0}\ket{\varGamma_1}_{\Gamma_1}
-\end{split}
-\end{equation}
-
+\noindent
+will give us the $E^\Gamma$ energy term in the E register corresponding to the ID in the ID register.
 
 \subsection{Sampling using Quantum Amplitude Arithmetic}
-Assume that we are given an equal superposition of all the canonical IDs of the fullerenes in an isomer-space. We can apply SDA to set up the encoding and then apply $DA$. We now have computed the $E^\Gamma$ energies for every isomer. However we can only sample once! Let us say that we are interested in the isomers with the lowest energies. We then would like the probability of sampling an isomer to be proportional to $E^\Gamma$. We can achieve this using Quantum Amplitude Arithmetic, not to be confused with Quantum Amplitude Amplification, both shortened as QAA but in this writing as QA-Arithmetic and QA-Amplification. 
+Assume that we are given an equal superposition of all the canonical IDs of the fullerenes in an isomer-space. We can apply SDA to set up the encoding and then apply $DA$. We now have computed the $E^\Gamma$ energies for every isomer. However we can only sample once! Let us say that we are interested in the isomers with the lowest energies. We then would like the probability of sampling an isomer to be proportional to $E^\Gamma$. We can achieve this using Quantum Amplitude Arithmetic\cite{wang2020}, not to be confused with Quantum Amplitude Amplification, both shortened as QAA but in this writing as QA-Arithmetic and QA-Amplification. 
 
 
 \vspace{\baselineskip}
-The paper on QA-Arithmetic uses the introduced addition and multiplication primitives to construct a circuit which transforms the state $\ket{x}_D\ket{0}_C\ket{0}_W \to \frac{1}{2}\frac{x}{2^n}\ket{x}_D\ket{0}_C\ket{1}_W+\alpha\ket{\omega}_{D \otimes C\otimes W}$ where $\alpha$ is some normalization factor, and $\ket{\omega}$ is some state with no overlap with the state containing all 0's in the control register, $C$, and 1 in the work register, $W$.
+Wang et al. use their introduced addition and multiplication primitives to construct a circuit which transforms the state $\ket{x}_D\ket{0}_C\ket{0}_W \to \frac{1}{2}\frac{x}{2^n}\ket{x}_D\ket{0}_C\ket{1}_W+\alpha\ket{\omega}_{D \otimes C\otimes W}$ where $\alpha$ is some normalization factor, and $\ket{\omega}$ is some state with no overlap with the state containing all 0's in the control register, $C$, and 1 in the work register, $W$.
 
 
 \vspace{\baselineskip}
-When using this circuit we can treat the $E$ register containing our resulting $E^\Gamma$ term as the data register, $D$. Let us take a look at that.
+When using this circuit we can treat the $E$ register containing our resulting $E^\Gamma$ term as the data register, $D$. We can reuse the $W_1,W_2$ registers as the control and work registers. Let us take a look at that.
 \begin{equation}
    \resizebox{.9\hsize}{!}{$\begin{split}
-       \sum_{ID\in \text{isomers}}&\left [ \ket{ID}_{ID}\ket{E^\Gamma_{ID}}_E\ket{0}_C\ket{0}_W\bigotimes_{A_n}\left ( \ket{q_{A_n,0}}_{Q_{n,0}}\ket{q_{A_n,1}}_{Q_{n,1}}\right ) \right ] \ket{\varGamma_0}_{\Gamma_0}\ket{\varGamma_1}_{\Gamma_1} \to\\ 
-        \sum_{ID\in \text{isomers}}&\left [ \ket{ID}_{ID}\left(\frac{1}{2}\frac{E^\Gamma_{ID}}{2^n}\ket{E^\Gamma_{ID}}_E\ket{0}_C\ket{1}_W+\alpha_{ID}\ket{\omega_{ID}}\right)\bigotimes_{A_n}\left ( \ket{q_{A_n,0}}_{Q_{n,0}}\ket{q_{A_n,1}}_{Q_{n,1}}\right ) \right ] \ket{\varGamma_0}_{\Gamma_0}\ket{\varGamma_1}_{\Gamma_1}\\ 
+       \sum_{ID\in \text{isomers}}&\ket{ID}_{ID}\bigg(\bigotimes_{\mu\in \{0,1\}}\ket{\varGamma_\mu}_{\Gamma_\mu}\bigotimes_{A}\ket{q_{A,\mu}}_{Q_{A,\mu}}\bigg)\ket{0}_{W_1}\ket{0}_{W_2}\ket{E^\Gamma}_E \to\\ 
+       \sum_{ID\in \text{isomers}}&\ket{ID}_{ID}\bigg(\bigotimes_{\mu\in \{0,1\}}\ket{\varGamma_\mu}_{\Gamma_\mu}\bigotimes_{A}\ket{q_{A,\mu}}_{Q_{A,\mu}}\bigg)\left(\frac{1}{2}\frac{E^\Gamma_{ID}}{2^n}\ket{0}_{W_1}\ket{1}_{W_2}\ket{E^\Gamma_{ID}}_E+\alpha_{ID}\ket{\omega_{ID}}\right) \\ 
    \end{split}$}
 \end{equation}
-If we now sample from this superposition and postselect for $C = 0$ and $W = 1$ we are more likely to sample a low energy fullerene. The likelihood of sampling a given canonical fullerene ID is proportional with $E^\Gamma$ for that fullerene.
+If we now sample from this superposition and postselect for $W_1 = 0$ and $W_2 = 1$ we are more likely to sample a low energy fullerene. The likelihood of sampling a given canonical fullerene ID is proportional with $E^\Gamma$ for that fullerene.
 
 
 
-\subsection{An alternative circuit using exclusively Quantum Amplitude Arithmetic.}
+\subsection{Calculating $E^\Gamma$ with Quantum Amplitude Arithmetic.}
 An alternative strategy would be to go all in on QA-Arithmetic and do all the arithmetic in the amplitudes. 
 Here we would encode a molecule as follows
 \begin{equation}
-    \text{SAA}\ket{ID}_{ID}\ket{0}_{\Gamma\otimes Q\otimes C\otimes W}=\ket{ID}_{ID}\sum_{\mu\in\{0,1\}}\ket{\varGamma_\mu}_\Gamma\sum_{A_n}\ket{q_{A_n,\mu}}_Q\ket{0}_{C}\ket{0}_{W}
+   \resizebox{.9\hsize}{!}{$\begin{split}
+       \text{SAA}&\ket{ID}_{ID}\ket{0}_{E,E_w,C_E,q_{o(1,2,3)},\Gamma_w,\Gamma_{1,\dots,n},q_{1,\dots,n},C_{1,\dots,\lceil log(n+1) \rceil}}\\
+       =&\ket{ID}_{ID}\ket{0}_{E,E_w,C_E,q_{o(1,2,3)},\Gamma_w}\bigotimes_{\mu\in\{0,1\}}\ket{\varGamma_\mu}_{\Gamma_{1,\dots,n}}\bigotimes_{A}\ket{q_{A,\mu}}_{q_{1,\dots,n}}\ket{0}_{C_{1,\dots,\lceil log(n+1) \rceil}}
+   \end{split}$}
 \end{equation}
-Where $C = C_1\otimes C_2\otimes C_3\otimes C_4$ and $W = W_1\otimes W_2\otimes W_3\otimes W_4$.
-We can now apply the QA-Arithmetic papers transformation 4 times. This would be on the $(\Gamma,C_1,W_1), (Q,C_2,W_2), (Q,C_3,W_3), (Q,C_4,W_4)$ registers.
-This would, if we collect all terms involving $\omega$ into one term, yield
-\begin{equation}
-    \alpha_{ID}\ket{\omega_{ID}}+\frac{1}{2^4}\ket{ID}\sum_{\mu\in\{0,1\}}\frac{\varGamma_\mu}{2^{n}}\ket{\varGamma_\mu}_\Gamma\sum_{A_n}\frac{q_{A_n,\mu}^3}{2^{n^3}}\ket{q_{A_n,\mu}}_Q\ket{0}_{C}\ket{1}_{W}
-\end{equation}
+Let us apply the following example circuit to our encoding. Here we focus on one pair of $q$ and $\Gamma$. 
 
-If we apply this to a superposition of such molecule encodings and postselect on $C = 0$ and $W = 1$ we would sample a molecule with $ID$ with probability $\propto
-    \sum_{\mu\in\{0,1\}}\sum_{A_n}\frac{\varGamma_\mu}{2^{n}}\frac{q_{A_n,\mu}^3}{2^{n^3}} =  \frac{E^\Gamma_{ID}}{2^{n^4}}\propto E^\Gamma_{ID}.
-$
-We can then compute the energy classically. 
-
-
-
-\begin{tikzpicture}[scale=0.7, transform shape]
+\begin{tikzpicture}[scale=0.65, transform shape]
     \draw[fill=purple!50] (-2.5,-.5) -- (-2.5,10) -- (9.25,10) -- (9.25,1.5) -- (13,1.5) -- (13,-.5) -- cycle;
     \foreach \y in {1,...,3}{
-        \node[rectangle,anchor=east] at (-1,12.5-0.5*\y) {$q_{o\y}\ket{0}$};
-        \node[rectangle,anchor=east] at (-1,10.5-\y) { $q_{w\y}\ket{0}$};
+        \node[rectangle,anchor=east] at (-1,12.5-0.5*\y) {$\ket{0}_{q_{o\y}}$};
+        \node[rectangle,anchor=east] at (-1,10.5-\y) { $\ket{0}_{q_{w\y}}$};
     }
-    \node[rectangle,anchor=east] at (-1,10.5) {$\Gamma_o\ket{0}$};
-    \node[rectangle,anchor=east] at (-1,6.5) { $\Gamma_{w}\ket{0}$};
+    \node[rectangle,anchor=east] at (-1,10.5) {$\ket{0}_{\Gamma_o}$};
+    \node[rectangle,anchor=east] at (-1,6.5) { $\ket{0}_{\Gamma_{w}}$};
 
-    \node[text width=5cm,anchor=west] at (13.5,15) { $\frac{1}{8}[(2E_{other}+E_{sin}+sin\theta_E)\ket{0}+(E_{sin}-sin\theta_E)\ket{1}]$};
+    \node[text width=5cm,anchor=west] at (13.5,15) { $\frac{1}{8}[(2E_{other}+E_{sin}+sin\theta_E)\ket{0}+(E_{sin}-sin\theta_E)\ket{1}]_{E}$};
 
 
     \foreach \y in {1,...,4}
-        \node[rectangle,anchor=east] at (-1,6-.5*\y) { $q_{\y}\ket{q_{\y}}$};
+        \node[rectangle,anchor=east] at (-1,6-.5*\y) { $\ket{\Gamma_{\y}}_{\Gamma_{\y}}$};
     \foreach \y in {1,...,4}
-        \node[rectangle,anchor=east] at (-1,4-.5*\y) { $\Gamma_{\y}\ket{\Gamma_{\y}}$};
+        \node[rectangle,anchor=east] at (-1,4-.5*\y) { $\ket{q_{\y}}_{q_{\y}}$};
     \foreach \y in {1,2}
-        \node[rectangle,anchor=east] at (-1,2-\y) { $C_{\y}\ket{0}$};
-    \node[rectangle,anchor=east] at (-1,13) { $C_{E}\ket{0}$};
-    \node[rectangle,anchor=east] at (-1,14) { $E_w\ket{0}$};
-    \node[rectangle,anchor=east] at (-1,15) { $E\ket{0}$};
+        \node[rectangle,anchor=east] at (-1,2-\y) { $\ket{0}_{C_{\y}}$};
+    \node[rectangle,anchor=east] at (-1,13) { $\ket{0}_{C_E}$};
+    \node[rectangle,anchor=east] at (-1,14) { $\ket{0}_{E_w}$};
+    \node[rectangle,anchor=east] at (-1,15) { $\ket{0}_{E}$};
 
     \foreach \y in {1,...,4}
-        \node[rectangle,anchor=west] at (13.5,6-.5*\y) { $q_{\y}\ket{q_{\y}}$};
+        \node[rectangle,anchor=west] at (13.5,6-.5*\y) { $\ket{\Gamma_{\y}}_{\Gamma_{\y}}$};
     \foreach \y in {1,...,4}
-        \node[rectangle,anchor=west] at (13.5,4-.5*\y) { $\Gamma_{\y}\ket{\Gamma_{\y}}$};
-    \foreach \y in {1,2}
-        \node[rectangle,anchor=west] at (13.5,2-\y) { $C_{\y}\ket{0}$};
+        \node[rectangle,anchor=west] at (13.5,4-.5*\y) { $\ket{q_{\y}}_{q_{\y}}$};
 
     \foreach \y in {0,...,2}
         \draw (-1,\y) -- (13.5,\y) ;
@@ -232,9 +243,8 @@ We can then compute the energy classically.
     \node[rectangle] at (13,15) {$\bigoplus$};
     \filldraw[black] (13,13) circle (2pt);
     \filldraw[black] (13,14) circle (2pt);
-    \foreach \a in {4,...,1}{
-        \filldraw[black] (\a,4-0.5*\a) circle (2pt);
-        \filldraw[black] (\a+4,6-.5*\a) circle (2pt);
+    \foreach \a in {8,...,1}{
+        \filldraw[black] (\a,6-0.5*\a) circle (2pt);
     }
     \foreach \g in {0,...,3}{
         \draw (10+0.5*\g,0) -- (10+0.5*\g,10.5+0.5*\g);
@@ -257,6 +267,12 @@ We can then compute the energy classically.
     }
 \end{tikzpicture}
 
+This circuit is built from the addition and multiplication primitives introduced in the QA-Arithmetic paper\cite{wang2020}. We also do a trivial modification to get subtraction. The diagram is for a n=4 bit example i.e. $q$ and $\Gamma$ are encoded as 4 bit numbers. The crimson region in the diagram is the only part which needs to be scaled up if using larger n. 
+
+If using more than one $q$ and $\Gamma$ the contribution to the final $E_w$ register should include those as well which would just need an extra addition. $C_E$ should be scaled appropriately as the base 2 logarithm of the number of $q,\Gamma$ pairs plus 1.   
+
+Let us go though the mathematics of our 4 bit example. 
+
 The controlled gate notation here is the following, $t$ is the target register and $c1,c2,c3,\dots$ are the control registers. $a,b,c,\dots$ are all $1$ except if there is a bar over the corresponding $c1,c2,c3,\dots$ in which case it is $0$. 
 \begin{equation}
     \begin{split}
@@ -264,8 +280,7 @@ The controlled gate notation here is the following, $t$ is the target register a
         \sum_{\alpha,\beta,\zeta,\dots\in\{0,1\}}I_t\otimes &\ket{\alpha}\bra{\alpha}_{c1} \otimes \ket{\beta}\bra{\beta}_{c2} \otimes \ket{\zeta}\bra{\zeta}_{c3}\otimes\dots. 
     \end{split}
 \end{equation}
-Let us follow the execution of the above diagram.
-We neglect writing out the $q_{1,2,3,4},\Gamma_{1,2,3,4}$ as they never change throughout the calculation, we also neglect the $ _{o,output}$ registers for now.
+We neglect writing out the $q_{1,2,3,4},\Gamma_{1,2,3,4}$ as they never change throughout the calculation, we also neglect the registers outside of the crimson region for now. 
 We begin by applying the Hadamard gates.
 \begin{equation}
     \begin{split}
@@ -278,9 +293,9 @@ We begin by applying the Hadamard gates.
         )
     \end{split}
 \end{equation}
-We then apply the conditional rotation gates to some register like $\Gamma_w$ we do the following
+when we apply the conditional rotation gates to a register such as $\Gamma_w$ we do the following
 \begin{equation}
-    \begin{split}
+   \resizebox{.9\hsize}{!}{$\begin{split}
         CRy_{\Gamma_w}^{\Gamma_4,C_1,C_2}(2\theta_4)CRy_{\Gamma_w}^{\Gamma_3,\bar{C_1},C_2}(2\theta_3)CRy_{\Gamma_w}^{\Gamma_2,C_1,\bar{C_2}}(2\theta_2)&CRy_{\Gamma_w}^{\Gamma_1,\bar{C_1},\bar{C_2}}(2\theta_1)\\
         \frac{1}{2}\sum_{x_1,x_2\in\{0,1\}}\ket{0000}_{q_{w(1,2,3)},\Gamma_w}&\ket{ x_1x_2}_{C_{(1,2)}}\to\\
         \frac{1}{2}(
@@ -294,11 +309,11 @@ We then apply the conditional rotation gates to some register like $\Gamma_w$ we
         \ket{000}[\Gamma3(cos\theta_3\ket{0}+sin\theta_3\ket{1})+(1-\Gamma_3)\ket{0}]_{q_{w(1,2,3)},\Gamma_w}&\ket{ 10}+\\
         \ket{000}[\Gamma4(cos\theta_4\ket{0}+sin\theta_4\ket{1})+(1-\Gamma_4)\ket{0}]_{q_{w(1,2,3)},\Gamma_w}&\ket{ 11}
         )
-    \end{split}
+   \end{split}$}
 \end{equation}
 Let us adopt the notation $\ket{\Psi^t_i}=t(cos\theta_i\ket{0}+sin\theta_i\ket{1})+(1-t)\ket{0}$ before redoing the application using our new notation. We also apply the rotation gates for the $q_w$ registers:
 \begin{equation}
-    \begin{split}
+   \resizebox{.9\hsize}{!}{$\begin{split}
         CRy_{\Gamma_w}^{\Gamma_4,C_1,C_2}(2\theta_4)CRy_{\Gamma_w}^{\Gamma_3,\bar{C_1},C_2}(2\theta_3)CRy_{\Gamma_w}^{\Gamma_2,C_1,\bar{C_2}}(2\theta_2)&CRy_{\Gamma_w}^{\Gamma_1,\bar{C_1},\bar{C_2}}(2\theta_1)\\
         CRy_{q_{w1}}^{q_4,C_1,C_2}(2\theta_4)CRy_{q_{w1}}^{q_3,\bar{C_1},C_2}(2\theta_3)CRy_{q_{w1}}^{q_2,C_1,\bar{C_2}}(2\theta_2)&CRy_{q_{w1}}^{q_1,\bar{C_1},\bar{C_2}}(2\theta_1)\\
         CRy_{q_{w2}}^{q_4,C_1,C_2}(2\theta_4)CRy_{q_{w2}}^{q_3,\bar{C_1},C_2}(2\theta_3)CRy_{q_{w2}}^{q_2,C_1,\bar{C_2}}(2\theta_2)&CRy_{q_{w2}}^{q_1,\bar{C_1},\bar{C_2}}(2\theta_1)\\
@@ -315,11 +330,11 @@ Let us adopt the notation $\ket{\Psi^t_i}=t(cos\theta_i\ket{0}+sin\theta_i\ket{1
         \ket{\Psi^{q_3}_3\Psi^{q_3}_3\Psi^{q_3}_3\Psi^{\Gamma_3}_3}_{q_{w(1,2,3)},\Gamma_w}&\ket{ 10}+\\
         \ket{\Psi^{q_4}_4\Psi^{q_4}_4\Psi^{q_4}_4\Psi^{\Gamma_4}_4}_{q_{w(1,2,3)},\Gamma_w}&\ket{ 11}
         )
-    \end{split}
+   \end{split}$}
 \end{equation}
-Let us now apply the second set of Hadamard:
+Let us now apply the second set of Hadamard gates:
 \begin{equation}
-    \begin{split}
+   \resizebox{.9\hsize}{!}{$\begin{split}
         H_{C_1}H_{C_2}\frac{1}{2}(
         &\ket{\Psi^{q_1}_1\Psi^{q_1}_1\Psi^{q_1}_1\Psi^{\Gamma_1}_1 }\ket{00}+\\
         &\ket{\Psi^{q_2}_2\Psi^{q_2}_2\Psi^{q_2}_2\Psi^{\Gamma_2}_2 }\ket{01}+\\
@@ -350,7 +365,7 @@ Let us now apply the second set of Hadamard:
         &\left[\ket{\Psi^{q_1}_1\Psi^{q_1}_1\Psi^{q_1}_1\Psi^{\Gamma_1}_1 }-\ket{\Psi^{q_2}_2\Psi^{q_2}_2\Psi^{q_2}_2\Psi^{\Gamma_2}_2 }-\ket{\Psi^{q_3}_3\Psi^{q_3}_3\Psi^{q_3}_3\Psi^{\Gamma_3}_3 }+\ket{\Psi^{q_4}_4\Psi^{q_4}_4\Psi^{q_4}_4\Psi^{\Gamma_4}_4 }\right]\ket{11}
     \bigg) \\= 
         \frac{1}{4}&\left[\ket{\Psi^{q_1}_1\Psi^{q_1}_1\Psi^{q_1}_1\Psi^{\Gamma_1}_1 }+\ket{\Psi^{q_2}_2\Psi^{q_2}_2\Psi^{q_2}_2\Psi^{\Gamma_2}_2 }+\ket{\Psi^{q_3}_3\Psi^{q_3}_3\Psi^{q_3}_3\Psi^{\Gamma_3}_3 }+\ket{\Psi^{q_4}_4\Psi^{q_4}_4\Psi^{q_4}_4\Psi^{\Gamma_4}_4 }\right]\ket{00}+\ket{M}\\=&\ket{N}+\ket{M}
-    \end{split}
+   \end{split}$}
 \end{equation}
 Before the next step let us define:
 \begin{align}
@@ -367,36 +382,36 @@ Before the next step let us define:
 \end{align}
 Let us now add in the $ _o$ registers and apply the first 4 conditional not gates:
 \begin{equation}
-    \begin{split}
+   \resizebox{.9\hsize}{!}{$\begin{split}
         CX_{q_{o1}}^{q_{w1},\bar{C_1},\bar{C_2}}CX_{q_{o2}}^{q_{w2},\bar{C_1},\bar{C_2}}CX_{q_{o3}}^{q_{w3},\bar{C_1},\bar{C_2}}CX_{\Gamma_o}^{\Gamma_w,\bar{C_1},\bar{C_2}}
-        \ket{0000}_{E_o,q_{o(1,2,3)},\Gamma_o}&(\ket{N}+\ket{M})\to\\
+        \ket{0000}_{E,q_{o(1,2,3)},\Gamma_o}&(\ket{N}+\ket{M})\to\\
         \bigg(CX_{q_{o1}}^{q_{w1}}CX_{q_{o2}}^{q_{w2}}CX_{q_{o3}}^{q_{w3}}CX_{\Gamma_o}^{\Gamma_w}
         \ket{0000}\ket{N}\bigg)+\ket{0000}&\ket{M}\to\\
         \ket{\sigma_q\sigma_q\sigma_q\sigma_\Gamma}_{q_{o(1,2,3)},\Gamma_{o}}\ket{N}+\ket{0000}&\ket{M}\\
-    \end{split}
+   \end{split}$}
 \end{equation}
-Now let us disregard everything below the $ _o$ registers in the diagram except the $C_1,C_2$ registers and do the final gates involving the $ _o$ registers:
+Now let us disregard everything in the crimson region except the $C_1,C_2$ control registers and do the final gates involving the $ _o$ registers:
 \begin{equation}
-    \begin{split}
-        H_{C_E}&CX_{E_w}^{\bar{C}_E,q_{o1},q_{o2},q_{o3},\Gamma_o}CRy_{E_w}^{C_E,\bar{C}_1,\bar{C}_2}(\theta_E)H_{C_E}\ket{000}_{E_o,E_w,C_E}
+   \resizebox{.9\hsize}{!}{$\begin{split}
+        H_{C_E}&CX_{E_w}^{\bar{C}_E,q_{o1},q_{o2},q_{o3},\Gamma_o}CRy_{E_w}^{C_E,\bar{C}_1,\bar{C}_2}(\theta_E)H_{C_E}\ket{000}_{E,E_w,C_E}
         \frac{1}{4}\bigg(
         \ket{\sigma_q\sigma_q\sigma_q\sigma_\Gamma}_{q_{o(1,2,3)},\Gamma_{o}}\ket{00}_{C_1,C_2}\\&+
         \ket{0000}_{q_{o(1,2,3)},\Gamma_o}[\ket{01}+\ket{10}+\ket{11}]_{C_1,C_2}\bigg)\to\\
         H_{C_E}&\frac{1}{4}\bigg(\ket{0}\frac{1}{\sqrt{2}}\bigg[CX_{E_w}^{q_{o1},q_{o2},q_{o3},\Gamma_o}\ket{0}\ket{0}+Ry_{E_w}(\theta_E)\ket{0}\ket{1}\bigg]
         \ket{\sigma_q\sigma_q\sigma_q\sigma_\Gamma}_{q_{o(1,2,3)},\Gamma_{o}}\ket{00}_{C_1,C_2}\\&+
-        \ket{00+0000}_{E_o,E_w,C_E,q_{o(1,2,3)},\Gamma_o}[\ket{01}+\ket{10}+\ket{11}]_{C_1,C_2}\bigg)\to\\
+        \ket{00+0000}_{E,E_w,C_E,q_{o(1,2,3)},\Gamma_o}[\ket{01}+\ket{10}+\ket{11}]_{C_1,C_2}\bigg)\to\\
         H_{C_E}&\frac{1}{4}\bigg(\ket{0}\frac{1}{\sqrt{2}}\bigg[\ket{\sigma_E}_{E_w}\ket{0}_{C_E}+(cos\theta_E\ket{0}+\sin\theta_E\ket{1})_{E_w}\ket{1}_{C_E}\bigg]\ket{\sigma_q\sigma_q\sigma_q\sigma_\Gamma}_{q_{o(1,2,3)},\Gamma_{o}}\ket{00}_{C_1,C_2}\\&+
-        \ket{00+0000}_{E_o,E_w,C_E,q_{o(1,2,3)},\Gamma_o}[\ket{01}+\ket{10}+\ket{11}]_{C_1,C_2}\bigg)\to\\
+        \ket{00+0000}_{E,E_w,C_E,q_{o(1,2,3)},\Gamma_o}[\ket{01}+\ket{10}+\ket{11}]_{C_1,C_2}\bigg)\to\\
         &\frac{1}{4}\bigg(\ket{0}\frac{1}{\sqrt{2}}\bigg[\ket{\sigma_E}_{E_w}\ket{+}_{C_E}+(cos\theta_E\ket{0}+\sin\theta_E\ket{1})_{E_w}\ket{-}_{C_E}\bigg]\ket{\sigma_q\sigma_q\sigma_q\sigma_\Gamma}_{q_{o(1,2,3)},\Gamma_{o}}\ket{00}_{C_1,C_2}\\&+
-        \ket{000000}_{E_o,E_w,C_E,q_{o(1,2,3)},\Gamma_o}[\ket{01}+\ket{10}+\ket{11}]_{C_1,C_2}\bigg)\\
-    \end{split}
+        \ket{000000}_{E,E_w,C_E,q_{o(1,2,3)},\Gamma_o}[\ket{01}+\ket{10}+\ket{11}]_{C_1,C_2}\bigg)\\
+   \end{split}$}
 \end{equation}
 
 \newpage
 \noindent
-Now we can neglect the $q_{o(1,2,3),\Gamma_o,C_1,C_2}$ registers and do some preparatory manipulations before applying the final conditional not gate. 
+Now we can neglect the $q_{o(1,2,3),\Gamma_o,C_1,C_2}$ registers too and do some preparatory manipulations before applying the final conditional not gate. 
 \begin{equation}
-    \begin{split}
+   \resizebox{.9\hsize}{!}{$\begin{split}
         \frac{1}{4}\bigg(\ket{0}\frac{1}{\sqrt{2}}\bigg[&\ket{\sigma_E}_{E_w}\ket{+}_{C_E}+(cos\theta_E\ket{0}+\sin\theta_E\ket{1})_{E_w}\ket{-}_{C_E}\bigg]+3\ket{000}\bigg)=\\
         \frac{1}{4}\bigg(\ket{0}\frac{1}{2}\bigg[&\ket{\sigma_E}_{E_w}\ket{0}_{C_E}+\ket{\sigma_E}_{E_w}\ket{1}_{C_E}+(cos\theta_E\ket{0}+\sin\theta_E\ket{1})_{E_w}\ket{0}_{C_E}\\
         -(cos\theta_E&\ket{0}+\sin\theta_E\ket{1})_{E_w}\ket{1}_{C_E}\bigg]+3\ket{000}\bigg)=\\
@@ -421,27 +436,32 @@ Now we can neglect the $q_{o(1,2,3),\Gamma_o,C_1,C_2}$ registers and do some pre
         \frac{1}{8}\bigg(
         &(E_{other}+cos\theta_E)\ket{000}+(E_{sin}+sin\theta_E)\ket{010}\\+
         &(E_{other}-cos\theta_E)\ket{001}+(E_{sin}-sin\theta_E)\ket{011}+6\ket{000}\bigg)\\
-    \end{split}
+   \end{split}$}
 \end{equation}
 
 \noindent
 We now apply the final conditional not gate:
 \begin{equation}
-    \begin{split}
-        CX_{E_o}^{E_w,C_E}\frac{1}{8}\bigg(
+   \resizebox{.9\hsize}{!}{$\begin{split}
+        CX_{E}^{E_w,C_E}\frac{1}{8}\bigg(
         &(E_{other}+cos\theta_E)\ket{000}+(E_{sin}+sin\theta_E)\ket{010}\\+
         &(E_{other}-cos\theta_E)\ket{001}+(E_{sin}-sin\theta_E)\ket{011}+6\ket{000}\bigg)\to\\
         \frac{1}{8}\bigg(
         &(E_{other}+cos\theta_E)\ket{000}+(E_{sin}+sin\theta_E)\ket{010}\\+
-        &(E_{other}-cos\theta_E)\ket{001}+X_{E_o}(E_{sin}-sin\theta_E)\ket{011}+6\ket{000}\bigg)\to\\
+        &(E_{other}-cos\theta_E)\ket{001}+X_{E}(E_{sin}-sin\theta_E)\ket{011}+6\ket{000}\bigg)\to\\
         \frac{1}{8}\bigg(
         &(E_{other}+cos\theta_E)\ket{000}+(E_{sin}+sin\theta_E)\ket{010}\\+
         &(E_{other}-cos\theta_E)\ket{001}+(E_{sin}-sin\theta_E)\ket{111}+6\ket{000}\bigg)\\
-    \end{split}
+   \end{split}$}
 \end{equation}
-After applying those gates we see that the amplitude on $\ket{1}_{E_o}$ across the whole state is $\frac{1}{8}(E_{sin}-sin\theta_E)=(\Gamma_1sin\theta_1+\Gamma_2sin\theta_2+\Gamma_3sin\theta_3+\Gamma_4sin\theta_4)(q_1sin\theta_1+q_2sin\theta_2+q_3sin\theta_3+q_4sin\theta_4)^3-sin\theta_E$.
-Let us say we know the $E^\Gamma$ energy of some high energy molecule in the isomer space $E^\Gamma_H = (0b0.\Gamma_H)(0b0.q_H)^3$
-If we specify $\theta_i=arcsin\frac{1}{2^i},\theta_E=arcsin[(0b0.\Gamma_H)(0b0.q_H)^3]$ we get that $E_{sin}=(\frac{\Gamma_1}{2}+\frac{\Gamma_2}{2^2}+\frac{\Gamma_3}{2^3}+\frac{\Gamma_4}{2^8})(\frac{q_1}{2}+\frac{q_2}{2^2}+\frac{q_3}{2^3}+\frac{q_4}{2^8})^3=(0b0.\Gamma_1\Gamma_2\Gamma_3\Gamma_4)(0b0.q_1q_2q_3q_4)^3$ and that $\frac{1}{8}(E_{sin}-sin\theta_E)=\frac{1}{8}[(0b0.\Gamma_1\Gamma_2\Gamma_3\Gamma_4)(0b0.q_1q_2q_3q_4)^3-(0b0.\Gamma_H)(0b0.q_H)^3]$. This is proportional to $E^\Gamma-E^\Gamma_H$! 
+After applying those gates we see that the amplitude on $\ket{1}_{E}$ across the whole state is 
+\begin{equation*}
+   \resizebox{.9\hsize}{!}{$\frac{1}{8}(E_{sin}-sin\theta_E)=(\Gamma_1sin\theta_1+\Gamma_2sin\theta_2+\Gamma_3sin\theta_3+\Gamma_4sin\theta_4)(q_1sin\theta_1+q_2sin\theta_2+q_3sin\theta_3+q_4sin\theta_4)^3-sin\theta_E.$}
+\end{equation*}
+Let us say we know the $E^\Gamma$ energy of some high energy molecule in the isomer space $$E^\Gamma_H = (0b0.\Gamma_H)(0b0.q_H)^3$$
+If we specify 
+$$\theta_i=arcsin\frac{1}{2^i},\quad\theta_E=arcsin[(0b0.\Gamma_H)(0b0.q_H)^3]$$ 
+we get that $$E_{sin}=(\frac{\Gamma_1}{2}+\frac{\Gamma_2}{2^2}+\frac{\Gamma_3}{2^3}+\frac{\Gamma_4}{2^8})(\frac{q_1}{2}+\frac{q_2}{2^2}+\frac{q_3}{2^3}+\frac{q_4}{2^8})^3=(0b0.\Gamma_1\Gamma_2\Gamma_3\Gamma_4)(0b0.q_1q_2q_3q_4)^3$$ and that $$\frac{1}{8}(E_{sin}-sin\theta_E)=\frac{1}{8}[(0b0.\Gamma_1\Gamma_2\Gamma_3\Gamma_4)(0b0.q_1q_2q_3q_4)^3-(0b0.\Gamma_H)(0b0.q_H)^3]$$. This is proportional to $E^\Gamma-E^\Gamma_H$! 
 \subsection{Complexity}
 The second algorithm has, in terms of big O notation, the same complexity as the state preparation introduced in the QA-Arithmetic paper, as it is simply 4 applications of this circuit. The state preparation can be achieved using $O(\log n)$ extra qubits and $O(n\log n)$ Toffoli gates where $n$ is the number of bits used to represent $\varGamma_\mu, q_{A_n,\mu}$. Thus if we have a $m$ bit canonical fullerene ID we end up using on the order of $m+2n+4O(\log n)=O(n+m)$ qubits and $4O(n \log n)=O(n \log n)$ Toffoli gates. 
 
@@ -469,6 +489,7 @@ From the asymptotic resource use the second algorithm is clearly superior, even 
 QA-Amplification might be possible since we have a very clear "good" state in both algorithms. This would reduce the need for postselection and repetitions. Preparing the initial encoding of the isomer space seems less straight forwards in the second approach than in the first unfortunately. 
 
 
-
+\nocite{*}
+\printbibliography
 
 \end{document}
