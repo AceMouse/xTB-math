@@ -2,22 +2,87 @@
 
 \subsection{High Performance Parallel Computing}
 
-The xTB program computes multiple energy terms for each atom in a molecule based on the type of atom, the spin of their electrons and other properties.
-For a molecule on the smaller scale such as a caffeine molecule with 24 atoms, this is perceivably fairly instantanious. Even a fullerene with 200 carbon atoms does not take considerably long to compute. The point at which the computional time for even small molecules begins to be noticable, is when the problem size grows to thousands or even millions of molecules.
-This project aims to compute the energies of all fullerenes in the isomerspaces \(C_{20}, \cdots, C_{200} \), and for this purpose the computational time needed for individual molecules is of less importance, so trying to achieve speedups here should not be a priority, and would be considered premature optimization. What is truly interesting for this problem domain is speeding up largely concurrent xTB computations by running them in parallel on general purpose graphic processing units (GPGPUs).
+The xTB program uses a specified variant of the GFN-xTB algorithm to compute various energies for a molecule. By default the program is set to use GFN2-xTB, which is also the variant this project focuses on.
 
-The largest and most obvious level of parallelization is to compute all energy terms of a molecule in the same kernel. There are no data dependencies between the computations of multiple molecules, and this makes it a perfect case for massive parallelization by distributing these isolated workloads across the thousands of threads supported on modern GPGPUs.
-Within the area of computing, the idea of running the same operations in parallel is known as a lockstep system. With a focus on fullerenes, which are made exclusively of carbon atoms, this type of lockstep parallelization is exactly what we want to create a fast and fairly constant flow of data for the broader pipeline that this project is part of.
+For a molecule on the smaller scale such as a caffeine molecule which has 24 atoms, the time it takes to run xTB is perceivably fairly instantanious. Even a fullerene with 200 carbon atoms takes just about 2 seconds to compute on average on a 12th gen intel mobile processor. The computional time for even small molecules begins to be noticable, when the problem size grows to thousands or millions of molecules.
+
+This project aims to compute the energies of fullerenes in the isomerspaces \(C_{20}, \cdots, C_{200} \), and for this purpose the computational time needed for individual molecules is of less importance. What is truly interesting for this problem domain is speeding up largely concurrent xTB computations by running them in parallel on general purpose graphic processing units (GPGPUs).
+
+The highest level of parallelization here is to compute all the energy terms of a molecule in the same kernel. There are no data dependencies between the computations of multiple molecules, and this makes it a perfect case for massive parallelization by distributing these isolated workloads across the thousands of threads supported on modern GPGPUs.
+Within the area of computing, the idea of running the same operations in parallel is known as a lockstep system. With a focus on fullerenes, which consists exclusively of carbon atoms, this type of lockstep parallelization is exactly what we want to create a fast and constant flow of data for the broader pipeline that this project is part of.
 
 Since the executions of the xTB algorithm on each fullerene are completely isolated workloads, this means that the level of parallelization for a given isomer group, such as C20, scales with the amount of isomers in that group. This means that a much larger isomer group like C200 will also have a much greater level of parallelization.
 
 
+GPU cores are much slower than their CPU counterpart, so only working on a few fullerenes will have a massive overhead, but the scale of the problem size for this project, makes the much greater amount of slower GPU cores a great fit.
 
-The scale of parallelization scales with the amount of fullerenes (isomerrummet) as they are completely isolated workloads, so this problem space scales extremely well for parallelization.
+The xTB program takes a single molecule, but when doing lockstep parallization it would be interesting to have an implementation that takes multiple mulecules. This would avoid the overhead of starting multiple processes, and the program will have the data for all molecules, which gives opportunity for aligning the data as objects of arrays instead of arrays of objects. Essentially, we can realign the data so that relevant parts of the molecules are close in memory when the GPU threads access it. This is known as coalesced data access.
+
+The primary focus is to have one molecule for each thread, as each thread will have the same amount of work since the workload is the same within an isomer group.
+
+We can make use of data coalescing to make the relevant parts of the molecules be close together in memory when the threads need it. Doing this should decrease the amount of copies between host and device memory, resulting in faster execution.
+
+\begin{figure}[h]
+\centering
+\begin{tikzpicture}[
+squarednode/.style={
+    rectangle,
+    draw=black,
+    fill=violet,
+    text=white,
+    thin,
+    minimum size=5mm,
+    inner sep=0pt, % No inner spacing
+    outer sep=0pt, % No outer spacing
+},
+]
+
+\node[squarednode] (A1) at (0,0) {$A_1$};
+\node[squarednode, anchor=west] (A2) at (A1.east)   {$A_2$};
+\node[squarednode, anchor=west] (A3) at (A2.east)   {$A_3$};
+\node[squarednode, anchor=west] (A4) at (A3.east)   {$A_4$};
+
+\node[squarednode, anchor=west, fill=cyan, text=black] (A1-2) at (A4.east)   {$A_1$};
+\node[squarednode, anchor=west, fill=cyan, text=black] (A2-2) at (A1-2.east)   {$A_2$};
+\node[squarednode, anchor=west, fill=cyan, text=black] (A3-2) at (A2-2.east)   {$A_3$};
+\node[squarednode, anchor=west, fill=cyan, text=black] (A4-2) at (A3-2.east)   {$A_4$};
+
+\node[squarednode, anchor=west, fill=yellow, text=black] (A1-3) at (A4-2.east)   {$A_1$};
+\node[squarednode, anchor=west, fill=yellow, text=black] (A2-3) at (A1-3.east)   {$A_2$};
+\node[squarednode, anchor=west, fill=yellow, text=black] (A3-3) at (A2-3.east)   {$A_3$};
+\node[squarednode, anchor=west, fill=yellow, text=black] (A4-3) at (A3-3.east)   {$A_4$};
 
 
-GPU cores are much slower than CPU, so only working on a few fullerenes will have a massive overhead, but the scale of the problem size we work on, makes the much greater amount of slower GPU cores a great fit.
 
-This is where lockstep parallization comes in because the molecules have no data dependencies on eachother...
+\node[squarednode, anchor=west] (A1-4) [below=of A1-2] {$A_1$};
+\node[squarednode, anchor=west] (A2-4) at (A1-4.east)   {$A_2$};
+\node[squarednode, anchor=west] (A3-4) at (A2-4.east)   {$A_3$};
+\node[squarednode, anchor=west] (A4-4) at (A3-4.east)   {$A_4$};
+
+\node[squarednode, anchor=west, fill=cyan, text=black] (A1-5) [below=0pt of A1-4] {$A_1$};
+\node[squarednode, anchor=west, fill=cyan, text=black] (A2-5) at (A1-5.east)   {$A_2$};
+\node[squarednode, anchor=west, fill=cyan, text=black] (A3-5) at (A2-5.east)   {$A_3$};
+\node[squarednode, anchor=west, fill=cyan, text=black] (A4-5) at (A3-5.east)   {$A_4$};
+
+\node[squarednode, anchor=west, fill=yellow, text=black] (A1-6) [below=0pt of A1-5] {$A_1$};
+\node[squarednode, anchor=west, fill=yellow, text=black] (A2-6) at (A1-6.east)   {$A_2$};
+\node[squarednode, anchor=west, fill=yellow, text=black] (A3-6) at (A2-6.east)   {$A_3$};
+\node[squarednode, anchor=west, fill=yellow, text=black] (A4-6) at (A3-6.east)   {$A_4$};
+
+\draw[->, thick] ($(A2-2.south) + (0.25,-0.25)$) -- ($(A2-4.north) + (0.25,0.25)$);
+
+\node[draw=red, very thick, fit=(A1-4)(A1-5)(A1-6), inner sep=1pt] {};
+
+\node[draw=red, very thick, fit=(A1)(A2)(A3)(A4), inner sep=1pt] {};
+\end{tikzpicture}
+\caption{An example of aligning molecules in memory to allow for coalesced access of the data.}
+\label{fig:coalescing}
+\end{figure}
+
+An example of this can be seen in \autoref{fig:coalescing} where the data is realigned to allow for coalesced data access. If the code accesses only a few atoms of a molecule at a time, then it is a waste if the memory page contains the rest of a molecule as well. Instead of copying whole molecules at a time, the data should be structure such that only the required data of a molecule is copied as it allows the kernel to get that data for more molecules at a time, thus reducing unnecessary copies and speeding up the computation. 
+
+The types of memory we are working with when writing GPU code are host, device, global, shared, and register memory.
+
+
 
 Doing more fine grained parallelization can make use of SIMT(Single instruction multiple threads) like reduction.
