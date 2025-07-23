@@ -56,7 +56,7 @@ def compute(bytes_per_molecule):
     molecule_capacity_global = math.floor(MEM_GLOBAL / (bytes_per_molecule / 1_000_000))
     THREADS_TOTAL = THREADS_PER_WARP * MAX_WARPS * SM_COUNT
     # Number of threads available per molecule
-    threads_per_molecule = math.ceil((math.floor(THREADS_TOTAL / molecule_capacity_global)*molecule_capacity_global)/molecule_capacity_global)
+    threads_per_molecule = math.floor(THREADS_TOTAL / molecule_capacity_global)
 
     # Number of warps needed per molecule
     warps_per_molecule = math.ceil(threads_per_molecule / THREADS_PER_WARP)
