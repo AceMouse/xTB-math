@@ -1,4 +1,110 @@
-\documentclass{article}
+%% LLT: Turn off some annoying warnings...
+\RequirePackage{silence}
+\WarningFilter{titlesec}{Non standard sectioning command}
+\WarningFilter{scrreprt}{Usage of package}
+\WarningFilter{scrreprt}{Activating an ugly workaround}
+\RequirePackage[dvipsnames,table]{xcolor}
+% *********************************************************
+% CHOOSE THEME (ucph, sund, science, hum, samf, jura, teo)
+% *********************************************************
+\newcommand{\thesisTheme}{ucph} % to colortheme and titlepage image
+
+
+% *********************************************************
+% DOCUMENT CLASS
+% *********************************************************
+\documentclass[%
+	paper=A4,					% paper size
+	12pt,						% font size
+	twoside=true,				% two-sided printing
+	%openright,					% doublepage cleaning ends up right side
+	openany,                    % chapters ends up on any side
+	parskip=full,				% spacing value / method for paragraphs
+	chapterprefix=true,			% prefix for chapter marks
+	headings=normal,			% size of headings
+	bibliography=totoc,			% include bib in toc
+	listof=totoc,				% include listof entries in toc
+	titlepage=on,				% own page for each title page
+	captions=tableabove,		% display table captions above the float env
+	draft=false,				% value for draft version
+	abstract=on                 % abstract title on/off
+]{scrreprt}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{subcaption}
+\usepackage{mathtools}
+\usepackage{longtable}
+\usepackage{physics}
+\usepackage{amsmath}
+\allowdisplaybreaks[1]
+\numberwithin{equation}{chapter} % Change to select depth of equation numbering
+\usepackage{placeins}% adjust the language
+\usepackage{pdfpages}
+\usepackage{pgfplots}
+\usepackage{mathptmx}
+\usepackage{paralist}
+\usepackage{graphicx}
+\usepackage{mathrsfs}
+% \usepackage{epstopdf}
+\usepackage{multirow}
+\usepackage{listings}
+\usepackage{tabularx}
+% \usepackage{siunitx}
+\usepackage{wrapfig}
+\usepackage{lipsum}
+\usepackage[format=plain]{caption}
+\usepackage{array}
+\usepackage{float}
+\usepackage{tikz}
+\usepackage{bm}
+\usepackage[most]{tcolorbox}
+% \usepackage[mathscr]{euscript}
+\usepackage{amssymb}
+\usepackage[extra]{tipa}
+
+\raggedbottom
+\captionsetup{singlelinecheck=false}
+\pgfplotsset{compat=1.17}
+
+% **************************************************
+% COMMANDS FOR REUSE
+% **************************************************
+
+% Thesis
+\newcommand{\thesisTitle}{Massively lockstep-parallel algorithms for full-isomer space quantum chemistry}
+\newcommand{\thesisSubtitle}{subtitle}
+\newcommand{\thesisName}{
+  Anton M. Nielsen \& Asmus Tørsleff
+}
+\newcommand{\thesisSubject}{Masters} % May want to use (Bachelor, BSc, Masters or similar)
+\newcommand{\thesisDate}{August 15, 2025}
+\newcommand{\thesisVersion}{First Version}
+
+% Supervisors & Collaborators
+%\newcommand{\thesisExternalSupervisor}{}
+\newcommand{\thesisInternalSupervisor}{
+  <James title> James Avery
+}
+\newcommand{\thesisInternalCoSupervisor}{
+  Professor, Ph.D., Dr. Scient. Kurt V. Mikkelsen
+}
+\newcommand{\thesisCollab}{}
+
+% University of Copenhagen
+\newcommand{\thesisUniversity}{\protect{University of Copenhagen}}
+\newcommand{\thesisFaculty}{Faculty of Science}
+\newcommand{\thesisInstitute}{Department of Computer Science}
+\newcommand{\thesisInstituteSecond}{Department of Quantum Information Science}
+\newcommand{\thesisCity}{Copenhagen {\O}}
+\newcommand{\thesisAddress}{Universitetsparken 5}
+\newcommand{\thesisPostal}{2100}
+
+% *********************************************************
+% PACKAGES
+% *********************************************************
+
+% OUR OWN PACKAGES!
+
 \usepackage{amsmath}
 \usepackage{braket}
 \usepackage{dirtree}
@@ -8,9 +114,58 @@
 \usetikzlibrary{positioning}
 \usetikzlibrary{fit}
 \usetikzlibrary{calc}
-\usepackage[backend=biber]{biblatex}
 
-\addbibresource{theory/theory.bib}
+%%
+
+
+\usepackage[					% UCPH thesis style
+    figuresep=colon,        
+    sansserif=false,        
+    hangfigurecaption=false,
+    hangsection=true,       
+    hangsubsection=true,
+    hangsubsubsection=true, 
+    colorize=full,          
+    colortheme={\thesisTheme},  % ucph, sund, science, hum, etc.?
+    bibsys=biber,
+    bibfile=references,       % defines your .bib file
+    bibstyle=numeric-comp,        % refer to https://bit.ly/2YsvIJz
+]{ucphthesis}
+\hypersetup{					% setup the hyperref-package options
+	pdftitle={\thesisTitle},	% 	- title (PDF meta)
+	pdfsubject={\thesisSubject},% 	- subject (PDF meta)
+	pdfauthor={\thesisName},	% 	- author (PDF meta)
+	plainpages=false,			% 	-
+	colorlinks=false,			% 	- colorize links
+	pdfborder={0 0 0},			% 	-
+	breaklinks=true,			% 	- allow line break inside links
+	bookmarksnumbered=true,		%
+	bookmarksopen=true,			%
+}
+
+% *********************************************************
+% Cover page content
+% *********************************************************
+%\subject{\vspace{3.0cm} \thesisSubject}
+\subject{\vspace{2.5cm}}
+\title{\thesisTitle}
+\subtitle{\thesisSubtitle}
+\author{\small{\thesisSubject} \\
+        \thesisName \\
+        \small{Supervised by {\thesisInternalSupervisor}}\\[-1.5ex]
+        \small{Co-supervised by {\thesisInternalCoSupervisor}}\\
+        \small{\thesisInstitute}\\[-1.5ex]
+        \small{\thesisInstituteSecond}
+    }
+\date{\thesisDate}
+
+% ********************************************************* 
+% THESIS CONTENT
+% *********************************************************
+
+
+
+
 
 \makeatletter
 \newcommand\E{\@ifnextchar[{\@with}{\@without}}
@@ -28,6 +183,45 @@
 \makeatother
 
 \begin{document}
+
+% -------------------------- 
+% Front matter
+% --------------------------
+\pagenumbering{roman}
+\pagestyle{empty}				            % no header or footers
+\AddToShipoutPicture*{\TitleBackground}     % adding background picture
+\maketitle                                  % making the title
+\input{frontbackmatter/titlepage.tex}
+   % \clearpage
+
+\pagestyle{plain}
+\input{frontbackmatter/acknowledgements}
+\input{frontbackmatter/abstract} 
+\input{frontbackmatter/contributions to papers}
+
+    \clearpage
+
+\renewcommand{\cfttoctitlefont}{\thesischapterfont}
+\renewcommand{\cftchapfont}{\normalsize\bfseries}
+\renewcommand{\contentsname}{Table of Contents}
+\setcounter{tocdepth}{2}		% define depth of toc
+\tableofcontents				% display table of contents
+    \clearpage
+
+
+% -------------------------- 
+% Main matter
+% --------------------------
+\pagenumbering{arabic}			% arabic page numbering
+\setcounter{page}{1}			% set page counter
+\pagestyle{maincontentstyle} 	% fancy header and footer
+
+%Inkluder flere Chapters her
+
+\begin{refsection}
+
+\part{Thesis}
+
 \input{introduction.tex}
 \input{theory/theory.tex}
 \input{methodology/methodology.tex}
@@ -36,8 +230,33 @@
 \input{fock.tex}
 \input{energy.tex}
 \input{sad.tex}
+\input{ai_declaration.tex}
 %\input{quantum.tex}
 
 
+% % -------------------------- 
+% % Back matter
+% % --------------------------
 
+\renewcommand\thechapter{\Alph{chapter}}
+\setcounter{chapter}{0}
+
+\part{Appendicies}
+
+\input{frontbackmatter/Appendices/file}
+
+\input{frontbackmatter/bibliography.tex}
+
+\end{refsection}
+
+\renewcommand\thechapter{\arabic{chapter}}
+\setcounter{chapter}{0}
+
+\part{Articles}
+
+\input{frontbackmatter/Articles.tex}
+
+% ********************************************************* 
+% END OF THESIS
+% *********************************************************
 \end{document}
