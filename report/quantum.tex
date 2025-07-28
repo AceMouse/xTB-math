@@ -1,15 +1,3 @@
-\documentclass{article}
-\usepackage{amsmath}
-\usepackage{braket}
-\usepackage{graphicx}
-\usepackage{tikz}
-\usepackage{mathtools}
-\usepackage[
-backend=biber,
-style=numeric-comp,
-]{biblatex}
-\addbibresource{quantum.bib}
-\begin{document}
 \section{Introduction to quantum algorithmic approaches}
 In this section we will attempt to construct quantum algorithms for calculating three of the GFN2-xTB\cite{bannwarth2019} energy terms: $E^\Gamma, E^\gamma$ and $E^{EHT}$.
 We will showcase three different approaches to doing a calculation as a building block of a larger circuit.
@@ -610,9 +598,3 @@ This is of cause not as good but quite achievable. In both algorithms we can enc
 \subsection{Discussion}
 From the asymptotic resource use the second algorithm is clearly superior, even if some of the multiplications and additions can be run in parallel in the first one. We do have a factor 8 lower chance of getting a useful state out, but this again does not change the asymptotics, as we can just repeat it. 
 QA-Amplification might be possible since we have a very clear "good" state in both algorithms. This would reduce the need for postselection and repetitions. Preparing the initial encoding of the isomer space seems less straight forwards in the second approach than in the first unfortunately. 
-
-
-\nocite{*}
-\printbibliography
-
-\end{document}
