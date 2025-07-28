@@ -34,8 +34,8 @@ This along with the previously mentioned features have allowed a greatly simplif
 NixPkgs is also a collection of library functions, and the helper functions for making derivations called `mkDerivation` make it easy to define all the stages of packaging a program including unpacking, patching, building, checking, and installing the files.
 With this, the whole pipeline of patching, compiling, running, and passing the data over to the Python validation tests can be achieved with a single shell command.
 
-\begin{minted}{bash}
-nix run .#cmp-impls
+\begin{minted}[linenos=false]{bash}
+$ nix run .#cmp-impls
 \end{minted}
 
 
@@ -45,71 +45,71 @@ The new Nix command-line interface needed to interact with flakes is naturally a
 \newpage
 
 \begin{minted}{nix}
-{
-  inputs = {
-    nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
-  };
-
-  outputs = { self, nixpkgs, ... }: {
-    apps."x86_64-linux" = let
-      pkgs = nixpkgs.legacyPackages."x86_64-linux";
-      ...
-    in {
-      "cmp-impls" = let
-        python = (pkgs.python3.withPackages (python-pkgs: with python-pkgs; [
-          numpy scipy cvxopt
-        ]));
-      in {
-        type = "app";
-        program = toString (pkgs.writeShellScript "cmp-impls" ''
-          PYTHONPATH=${pkgs.lib.cleanSource ./xtb-python} exec ${python}/bin/python \
-            ${./xtb-python/cmp_impls.py} ${xtb_test_data}
-        '');
-      };
+  {
+    inputs = {
+      nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
     };
-    ...
-  };
-}
+
+    outputs = { self, nixpkgs, ... }: {
+      apps."x86_64-linux" = let
+        pkgs = nixpkgs.legacyPackages."x86_64-linux";
+        ...
+      in {
+        "cmp-impls" = let
+          python = (pkgs.python3.withPackages (python-pkgs: with python-pkgs; [
+            numpy scipy cvxopt
+          ]));
+        in {
+          type = "app";
+          program = toString (pkgs.writeShellScript "cmp-impls" ''
+            PYTHONPATH=${pkgs.lib.cleanSource ./xtb-python} exec ${python}/bin/python \
+              ${./xtb-python/cmp_impls.py} ${xtb_test_data}
+          '');
+        };
+      };
+      ...
+    };
+  }
 \end{minted}
 
 Python is declared with the required packages and is then used in the app to call the \verb|cmp_impls.py| script. The script is called with the test data acquired from running the Fortran xTB program. This data comes from another derivation which executes patched versions of xTB and DFT-D4 on a C200 fullerene to get the relevant function arguments and results as binary files.
 
 \begin{minted}{nix}
-xtb_test_data = builtins.derivation {
-  name = "xtb-test-data";
-  system = "x86_64-linux";
-  builder = "${pkgs.bash}/bin/bash";
-  src = ./xtb-python/data/C200.xyz;
-  args = ["-c" ''
-    PATH=$PATH:${pkgs.coreutils}/bin
-    mkdir -p ./calls/{build_SDQH0,coordination_number,\
-      dim_basis,dtrf2,electro,form_product,get_multiints,\
-      h0scal,horizontal_shift,multipole_3d,newBasisset, olapp}
-    ${xtb}/bin/xtb $src
-    ${dftd4}/bin/dftd4 $src
-    mv calls $out
-  ''];
-};
+  xtb_test_data = builtins.derivation {
+    name = "xtb-test-data";
+    system = "x86_64-linux";
+    builder = "${pkgs.bash}/bin/bash";
+    src = ./xtb-python/data/C200.xyz;
+    args = ["-c" ''
+      PATH=$PATH:${pkgs.coreutils}/bin
+      mkdir -p ./calls/{build_SDQH0,coordination_number,\
+        dim_basis,dtrf2,electro,form_product,get_multiints,\
+        h0scal,horizontal_shift,multipole_3d,newBasisset, olapp}
+      ${xtb}/bin/xtb $src
+      ${dftd4}/bin/dftd4 $src
+      mv calls $out
+    ''];
+  };
 \end{minted}
 
 The directories for the binary files are created in advance as checking whether they exist when writing the binary files has a large overhead.
 This derivation in turn uses derivations for xTB and DFT-D4. Luckily DFT-D4 is already in NixPkgs, but it still needs to be patched in order to extract the required data for validation. Thankfully the \verb|mkDerivation| function used in NixPkgs makes overriding and patching a package very straightforward. 
 
 \begin{minted}{nix}
-dftd4 = (pkgs.dftd4.overrideAttrs (finalAttrs: previousAttrs: {
-  src = pkgs.fetchFromGitHub {
-    owner = "dftd4";
-    repo = "dftd4";
-    rev = "502d7c59bf88beec7c90a71c4ecf80029794bd5e";
-    hash = "sha256-FEABtBAZK0xQ1P/Pbj5gUuvKf8/ZLITXaXYB+btAY/8=";
-  };
-  buildInputs = [ multicharge ] ++ previousAttrs.buildInputs;
-  doCheck = false;
-  patches = previousAttrs.patches ++ [
-    ./nix/patches/dftd4/use_gfn2.patch
-    ./nix/patches/dftd4/log_args_and_outputs.patch
-  ];
-}));
+  dftd4 = (pkgs.dftd4.overrideAttrs (finalAttrs: previousAttrs: {
+    src = pkgs.fetchFromGitHub {
+      owner = "dftd4";
+      repo = "dftd4";
+      rev = "502d7c59bf88beec7c90a71c4ecf80029794bd5e";
+      hash = "sha256-FEABtBAZK0xQ1P/Pbj5gUuvKf8/ZLITXaXYB+btAY/8=";
+    };
+    buildInputs = [ multicharge ] ++ previousAttrs.buildInputs;
+    doCheck = false;
+    patches = previousAttrs.patches ++ [
+      ./nix/patches/dftd4/use_gfn2.patch
+      ./nix/patches/dftd4/log_args_and_outputs.patch
+    ];
+  }));
 \end{minted}
 
 The version is bumped by overriding the source, and the multicharge project is added from NixPkgs and also bumped as a requirement of this newer version. Some of the tests were timing out, so they have been disabled by setting \verb|doCheck| to false. Lastly the patches are applied by providing the relevant patch files.
@@ -120,7 +120,7 @@ xTB and two of its dependencies, namely CPCM-X and numsa are not in NixPkgs and 
 All the patches follow the structure below where the original function is prefixed with a 'g', such that the new wrapper function will be called instead. The wrapper function writes the function arguments to a binary file before calling the actual function and then finally writes the result to the same file.
 Writing a file for each call to a function is a bit excessive and will produce a very large amount of files, so a threshold has been used to create an upperbound on the number of files that can be created for each function.
 
-\begin{minted}{diff}
+\begin{minted}[linenos=false]{diff}
 +   logical :: hit_threshold
 +   integer :: u
 +   character(len=200) :: path
@@ -154,28 +154,28 @@ Writing a file for each call to a function is a bit excessive and will produce a
 When all the data has been written, then the binary files are passed onto \verb|cmp-impls.py|, which is the test suite for comparing the Python reimplementation to the original Fortran code. 
 
 \begin{minted}{python}
-def test_electro():
-    fn_name = "electro"
-    for i, file_path in enumerate(glob.glob(f'{directory}/{fn_name}/*.bin')):
-        with open(file_path, 'rb') as f:
-            def read_ints(n=1):
-                return np.fromfile(f, dtype=np.int32, count=n)
+  def test_electro():
+      fn_name = "electro"
+      for i, file_path in enumerate(glob.glob(f'{directory}/{fn_name}/*.bin')):
+          with open(file_path, 'rb') as f:
+              def read_ints(n=1):
+                  return np.fromfile(f, dtype=np.int32, count=n)
 
-            nbf = read_ints(1)[0]
-            H01 = read_ints(1)[0]
-            H0 = np.fromfile(f, dtype=np.float64, count=H01)
-            m, n = read_ints(2)
-            P = np.fromfile(f, dtype=np.float64, count=m * n).reshape((n, m))
-            ...
-            atomicGam1 = read_ints(1)[0]
-            atomicGam = None  if atomicGam1 == 0
-                              else np.fromfile(f, dtype=np.float64, count=atomicGam1)
-            ...
-            es_res, scc_res = read_reals(2)
-            es, scc = electro(nbf, H0, P, dq, dqsh, atomicGam, shellGam, jmat, shift)
+              nbf = read_ints(1)[0]
+              H01 = read_ints(1)[0]
+              H0 = np.fromfile(f, dtype=np.float64, count=H01)
+              m, n = read_ints(2)
+              P = np.fromfile(f, dtype=np.float64, count=m * n).reshape((n, m))
+              ...
+              atomicGam1 = read_ints(1)[0]
+              atomicGam = None  if atomicGam1 == 0
+                                else np.fromfile(f, dtype=np.float64, count=atomicGam1)
+              ...
+              es_res, scc_res = read_reals(2)
+              es, scc = electro(nbf, H0, P, dq, dqsh, atomicGam, shellGam, jmat, shift)
 
-            is_equal(es, es_res, "es", fn_name)
-            is_equal(scc, scc_res, "scc", fn_name)
+              is_equal(es, es_res, "es", fn_name)
+              is_equal(scc, scc_res, "scc", fn_name)
 
-    print(f"matches! [{fn_name}]")
+      print(f"matches! [{fn_name}]")
 \end{minted}
