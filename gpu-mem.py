@@ -36,116 +36,88 @@ import math
 MEM_GLOBAL = 80_000 # MB
 SM_COUNT = 128
 THREADS_PER_WARP = 32
-L2_CACHE = 98_304 # KB
+L2_CACHE_SIZE = 98_304 # KB
 
 ## Per SM constants ##
-MAX_WARPS = 48
-MAX_BLOCKS = 24
-REGISTER_COUNT = 64_000 # 32-bit registers
+MAX_WARPS_PER_SM = 48
+MAX_BLOCKS_PER_SM = 24
+REGISTER_COUNT_PER_SM = 64_000 # 32-bit registers
 BITS_PER_REGISTER = 32
-MEM_SHARED = 100 # KB
+MEM_SHARED_PER_SM = 100 # KB
 ######################
 
-SM_THREADS_TOTAL = MAX_WARPS * THREADS_PER_WARP
+SM_THREADS_TOTAL = MAX_WARPS_PER_SM * THREADS_PER_WARP
+BLOCKS_TOTAL = SM_COUNT * MAX_BLOCKS_PER_SM
+THREADS_TOTAL = THREADS_PER_WARP * MAX_WARPS_PER_SM * SM_COUNT
 
-BLOCKS_TOTAL = SM_COUNT * MAX_BLOCKS
+USE_GLOBAL_MEMORY_IN_COMPUTATIONS = False
 
-def compute(bytes_per_molecule):
-    # Total number of molecules that fit in global memory
-    mb_per_molecule = bytes_per_molecule / 1_000_000
-    molecule_capacity_global = math.floor(MEM_GLOBAL / mb_per_molecule)
-    THREADS_TOTAL = THREADS_PER_WARP * MAX_WARPS * SM_COUNT
+def compute_threads_per_molecule(mb_per_molecule):
+    mem_shared_per_thread = (MEM_SHARED_PER_SM * SM_COUNT) / THREADS_TOTAL;
+    mem_register_per_thread = (REGISTER_COUNT_PER_SM * BITS_PER_REGISTER * SM_COUNT) / THREADS_TOTAL / 8 / 1_000_000; # MB
+    mem_l2_cache_per_thread = L2_CACHE_SIZE / 1000 / THREADS_TOTAL
 
     mem_global_per_thread = MEM_GLOBAL / THREADS_TOTAL;
-
-    mem_shared_per_thread = (MEM_SHARED * SM_COUNT) / THREADS_TOTAL;
-    mem_register_per_thread = (REGISTER_COUNT * BITS_PER_REGISTER * SM_COUNT) / THREADS_TOTAL / 8 / 1_000_000; # MB
-    mem_l2_cache_per_thread = L2_CACHE / 1000 / THREADS_TOTAL
-
     mem_non_global_per_thread = mem_shared_per_thread + mem_register_per_thread + mem_l2_cache_per_thread
-    mem_per_thread_total = mem_non_global_per_thread + mem_global_per_thread
-
-    print(f"mem global per thread: {mem_global_per_thread} MB")
-    print(f"mem non-global per thread: {mem_non_global_per_thread} MB")
-    print(f"mem per thread total: {mem_per_thread_total} MB")
-    print(f"mb per molecule: {mb_per_molecule} MB")
-
+    mem_per_thread_total = mem_non_global_per_thread + (mem_global_per_thread if USE_GLOBAL_MEMORY_IN_COMPUTATIONS else 0)
 
     # Number of threads needed per molecule
-    #threads_per_molecule = math.floor(THREADS_TOTAL / molecule_capacity_global)
     threads_per_molecule = math.ceil(mb_per_molecule / mem_per_thread_total)
+    return threads_per_molecule
 
-    print(f"threads per molecule: {threads_per_molecule}")
-
-    # Number of warps needed per molecule
+def compute_warps_per_molecule(threads_per_molecule):
     warps_per_molecule = math.ceil(threads_per_molecule / THREADS_PER_WARP)
-    used_warps_per_sm = MAX_WARPS - (MAX_WARPS % warps_per_molecule)
+    return warps_per_molecule
+
+def compute_molecules_per_block(warps_per_molecule):
     molecules_per_block = math.ceil(2 / warps_per_molecule)
-    warps_per_block = warps_per_molecule * molecules_per_block
+    return molecules_per_block
+
+
+def print_utilization(warps_per_molecule, molecules_per_block):
+    used_warps_per_sm = MAX_WARPS_PER_SM - (MAX_WARPS_PER_SM % warps_per_molecule)
     sm_threads_used = used_warps_per_sm * THREADS_PER_WARP
-    total_blocks_used_per_sm = ((MAX_WARPS / MAX_BLOCKS) / warps_per_block) * MAX_BLOCKS
+
+    warps_per_block = warps_per_molecule * molecules_per_block
+
+    total_blocks_used_per_sm = ((MAX_WARPS_PER_SM / MAX_BLOCKS_PER_SM) / warps_per_block) * MAX_BLOCKS_PER_SM
     total_blocks_used =  total_blocks_used_per_sm * SM_COUNT
     total_threads_used = sm_threads_used * SM_COUNT
-    mem_register_per_block = math.floor(REGISTER_COUNT / sm_threads_used) * (BITS_PER_REGISTER / 8) * sm_threads_used / 1000
-
-    l2_cache_per_block = L2_CACHE / total_blocks_used_per_sm
-    mem_shared_per_block = MEM_SHARED / total_blocks_used_per_sm
-    mem_global_per_block = MEM_GLOBAL / total_blocks_used
-
-    mem_non_global_per_block = mem_shared_per_block + mem_register_per_block + l2_cache_per_block
-    mem_per_block_total = (mem_non_global_per_block / 1000) + mem_global_per_block
 
     print(f"| Global memory | L2 cache | Total SMs | Threads per warp | Threads Available | Threads Used | Blocks Available | Blocks Used |")
-    print(f"|    {MEM_GLOBAL / 1000} GB    | {L2_CACHE} KB |    {SM_COUNT}    |        {THREADS_PER_WARP}        |      {THREADS_TOTAL}       |    {total_threads_used}    |       {BLOCKS_TOTAL}       |    {total_blocks_used}     |")
-
+    print(f"|    {MEM_GLOBAL / 1000} GB    | {L2_CACHE_SIZE} KB |    {SM_COUNT}    |        {THREADS_PER_WARP}        |      {THREADS_TOTAL}       |    {total_threads_used}    |       {BLOCKS_TOTAL}       |    {total_blocks_used}     |")
     print()
-
-    #print(f"Global memory: {MEM_GLOBAL / 1000} GB")
-    #print(f"L2 cache: {L2_CACHE} KB")
-    #print(f"Total SMs: {SM_COUNT}")
-    #print(f"Threads per warp: {THREADS_PER_WARP}")
-
-    #print()
 
     print(f"#################################### Per SM ####################################")
     print(f"| Warps | Blocks | Registers | Shared Memory | Threads Available | Threads Used |")
-    print(f"|  {MAX_WARPS}   |   {MAX_BLOCKS}   |   {REGISTER_COUNT}   |    {MEM_SHARED} KB     |       {SM_THREADS_TOTAL}        |     {sm_threads_used}     |")
-
+    print(f"|  {MAX_WARPS_PER_SM}   |   {MAX_BLOCKS_PER_SM}   |   {REGISTER_COUNT_PER_SM}   |    {MEM_SHARED_PER_SM} KB     |       {SM_THREADS_TOTAL}        |     {sm_threads_used}     |")
     print()
 
-    #print(f"Warps per SM: {MAX_WARPS}")
-    #print(f"Blocks per SM: {MAX_BLOCKS}")
-    #print(f"Registers per SM: {REGISTER_COUNT} {BITS_PER_REGISTER}-bit")
-    #print(f"Shared memory per SM: {MEM_SHARED} KB")
-    #print(f"Threads available per SM: {SM_THREADS_TOTAL}")
-    #print(f"Threads used per SM: {sm_threads_used}")
+    l2_cache_per_block = L2_CACHE_SIZE / total_blocks_used_per_sm
+    mem_shared_per_block = MEM_SHARED_PER_SM / total_blocks_used_per_sm
+    mem_global_per_block = MEM_GLOBAL / total_blocks_used
 
-    #print()
-
-    #print(f"Threads available on GPU: {THREADS_TOTAL}")
-    #print(f"Threads used on GPU: {total_threads_used}")
-    #print(f"Blocks available on GPU: {BLOCKS_TOTAL}")
-    #print(f"Blocks used on GPU: {total_blocks_used}")
-
-    #print()
-
+    mem_register_per_block = math.floor(REGISTER_COUNT_PER_SM / sm_threads_used) * (BITS_PER_REGISTER / 8) * sm_threads_used / 1000
+    mem_non_global_per_block = mem_shared_per_block + mem_register_per_block + l2_cache_per_block
+    mem_per_block_total = (mem_non_global_per_block / 1000) + (mem_global_per_block if USE_GLOBAL_MEMORY_IN_COMPUTATIONS else 0)
 
     print(f"########################### Per Block ###########################")
-    print(f"| L2 Cache | Register Mem | Shared Mem | Global Mem | Total mem |")
-    print(f"| {"%.1f" % l2_cache_per_block} KB|  {"%.3f" % mem_register_per_block} KB  |  {"%.3f" % mem_shared_per_block} KB  |  {"%.3f" % mem_global_per_block} MB | {"%.3f" % mem_per_block_total} MB |")
-
+    print(f"| L2 Cache | Register Mem | Shared Mem |{" Global Mem |" if USE_GLOBAL_MEMORY_IN_COMPUTATIONS else ""} Total mem |")
+    print(f"| {"%.1f" % l2_cache_per_block} KB|  {"%.3f" % mem_register_per_block} KB  |  {"%.3f" % mem_shared_per_block} KB  |{f"  {"%.3f" % mem_global_per_block} MB |" if USE_GLOBAL_MEMORY_IN_COMPUTATIONS else ""} {"%.3f" % mem_per_block_total} MB |")
     print()
 
-    #print(f"L2 cache per block: {l2_cache_per_block} KB")
-    #print(f"Register memory per block: {mem_register_per_block} KB")
-    #print(f"Shared memory per block: {mem_shared_per_block} KB")
-    #print(f"Global memory per block: {mem_global_per_block} MB")
-    #print(f"Total memory per block: {mem_per_block_total} MB")
+def compute(bytes_per_molecule):
+    mb_per_molecule = bytes_per_molecule / 1_000_000
 
-    #print()
+    threads_per_molecule = compute_threads_per_molecule(mb_per_molecule)
+    warps_per_molecule = compute_warps_per_molecule(threads_per_molecule)
+    molecules_per_block = compute_molecules_per_block(warps_per_molecule)
 
+    print_utilization(warps_per_molecule, molecules_per_block)
+
+    print(f"MB per molecule: {mb_per_molecule} MB")
+    print(f"Threads per molecule: {threads_per_molecule}")
     print(f"Warps per molecule: {warps_per_molecule}")
     print(f"Molecules per block: {molecules_per_block}")
-
 
 compute(8300000)
