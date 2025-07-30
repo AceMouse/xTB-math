@@ -7,6 +7,7 @@ element2id = {
     "O": 7
 }
 
+angstrom_to_bohr_conversion_constant = 1.8897259886
 def parse_xyz(file):
     element_ids = []
     positions = []
@@ -17,7 +18,7 @@ def parse_xyz(file):
         for line in f:
             e = line.split()
             element_ids.append(element2id[e[0]])
-            positions.append([float(e[1]), float(e[2]), float(e[3])])
+            positions.append([float(e)*angstrom_to_bohr_conversion_constant for e in e[1:4]])
     element_ids = np.array(element_ids)
     positions = np.array(positions, dtype=float)
     return element_ids, positions
@@ -33,7 +34,7 @@ def parse_xyz_with_symbols(file):
         for line in f:
             e = line.split()
             symbols.append(e[0])
-            positions.append([float(e[1]), float(e[2]), float(e[3])])
+            positions.append([float(e)*angstrom_to_bohr_conversion_constant for e in e[1:4]])
     symbols = np.array(symbols)
     positions = np.array(positions, dtype=float)
     return symbols, positions
