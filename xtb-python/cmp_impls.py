@@ -697,7 +697,7 @@ def test_coordination_number():
             cn_res = np.fromfile(f, dtype=np.float64, count=m)
 
             from xyz_reader import parse_xyz
-            element_ids, positions = parse_xyz("./xtb-python/data/caffeine.xyz")
+            element_ids, positions = parse_xyz("./xtb-python/data/C200.xyz")
             #cn = GFN2_coordination_numbers_np(element_ids, positions)
             cn = ncoordLatP(element_ids, positions)
 
@@ -796,7 +796,7 @@ test_horizontal_shift()
 test_form_product()
 test_dtrf2()
 test_get_multiints()
-test_build_SDQH0(compare_args_i=0)
+test_build_SDQH0(compare_args_i=1)
 test_dim_basis()
 test_atovlp()
 test_new_basis_set()
