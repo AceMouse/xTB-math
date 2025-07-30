@@ -55,8 +55,22 @@ def euclidian_dist_sqr(positions):
     dist_sqr = dist_sqr * (dist_sqr > 0) # remove sligthly negative values so the sqrt works fine.
     return dist_sqr
 
-def density_initial_guess(element_cnt): #TODO: Make good initial guess
-    return np.ones((element_cnt*3,element_cnt*3))/element_cnt*3
+def density_initial_guess(element_ids, nShell, angShell):
+    occs = []
+    for atom_A in element_ids:
+        Z = atom_A + 1
+        electrons_left = Z
+        for j in range(0, nShell[atom_A]):
+            l = angShell[atom_A,j] #angular momentum for the shell. 
+            orbitals_in_shell = l*2+1 
+            max_electrons_in_shell = orbitals_in_shell * 2
+            electrons_in_shell = min(max_electrons_in_shell, electrons_left)
+            electrons_per_orbital = electrons_in_shell/orbitals_in_shell
+            occs += [electrons_per_orbital]*orbitals_in_shell
+            electrons_left -= electrons_in_shell
+    return np.diag(occs)
+#def density_initial_guess(element_cnt): #TODO: Make good initial guess
+#    return np.ones((element_cnt*3,element_cnt*3))/element_cnt*3
 
 def overlap_initial_guess(element_cnt):
     return np.eye(element_cnt*3)

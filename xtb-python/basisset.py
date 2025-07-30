@@ -8,10 +8,10 @@ from util import euclidian_dist, euclidian_dist_sqr, dist, print_res2, density_i
 DIM = False
 rand = np.random.default_rng()
 element_cnt = 10
-element_ids = rand.choice(repZeff.shape[0], size=element_cnt)
+element_ids = rand.choice(repZeff.shape[0]-1, size=element_cnt)
 positions = rand.random((element_cnt,3))
 atoms = list(zip(element_ids, positions))
-density_matrix = density_initial_guess(element_cnt)
+density_matrix = density_initial_guess(element_ids, nShell, angShell)
 overlap_matrix = overlap_initial_guess(element_cnt)
 
 def dim_basis(element_ids):
