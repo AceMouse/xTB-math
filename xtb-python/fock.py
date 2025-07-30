@@ -44,6 +44,7 @@ def GFN2_coordination_numbers_np(element_ids, positions):
     R_covs = R_cov_stack + R_cov_stack.transpose()
     distances = euclidian_dist(positions)**2
 #    res = (1 + np.exp(-10 * (4 * R_covs/3 * distances - 1)))**-1 * (1 + np.exp(-20 * (4 * (R_covs+2)/3 * distances - 1)))**-1
+    #np.fill_diagonal(distances,1)
     res = 1.0/(1.0+np.exp(-10*(R_covs/distances-1.0)))*1.0/(1.0+np.exp(-2*10.0*((R_covs+2)/distances-1.0)))
     np.fill_diagonal(res,0)
     coordination_numbers = np.sum(res, axis=1)
@@ -312,7 +313,7 @@ if __name__ == "__main__":
     #positions = np.array([[1,0,0],[0,1,0],[0,0,1]])
     rand = np.random.default_rng()
     element_cnt = 10
-    element_ids = rand.choice(repZeff.shape[0], size=element_cnt)
+    element_ids = rand.choice(repZeff.shape[0]-1, size=element_cnt)
     positions = rand.random((element_cnt,3))
     atoms = list(zip(element_ids, positions))
     density_matrix = density_initial_guess(element_cnt)
