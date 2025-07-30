@@ -3,7 +3,8 @@ from gfn2 import kExpLight, kExpHeavy, repAlpha, repZeff, nShell, chemicalHardne
 import numpy as np
 import scipy
 import time
-from fock import huckel_matrix_np, GFN2_coordination_numbers_np
+
+from fock import huckel_matrix_np, getCoordinationNumbers
 from util import euclidian_dist, euclidian_dist_sqr, dist, print_res2, density_initial_guess, overlap_initial_guess, get_partial_mulliken_charges
 H = 0
 He = 1
@@ -15,15 +16,16 @@ ISO2 = False
 ISO3 = False
 EHT = False
 CN = False
+BUILD = True
 
 #element_ids = np.array([C,C,C])
 #positions = np.array([[1,0,0],[0,1,0],[0,0,1]])
 rand = np.random.default_rng()
 element_cnt = 100
-element_ids = rand.choice(repZeff.shape[0], size=element_cnt)
+element_ids = rand.choice(repZeff.shape[0]-1, size=element_cnt)
 positions = rand.random((element_cnt,3))
 atoms = list(zip(element_ids, positions))
-density_matrix = density_initial_guess(element_cnt)
+density_matrix = density_initial_guess(element_ids, nShell, angShell)
 overlap_matrix = overlap_initial_guess(element_cnt)
 
 
@@ -914,16 +916,17 @@ def getSelfEnergyFlat(hdata_selfEnergy, hdata_kCN, hdata_kQShell, hdata_kQAtom, 
 trans = np.zeros((1,3))
 acc = 1.0
 intcut = max(20.0, 25.0-10.0*np.log10(acc))
-BUILD = False
 if BUILD:
     from basisset import new_basis_set_simple, dim_basis_np
     _, basis_nao, basis_nbf = dim_basis_np(element_ids)
     basis_shells, basis_sh2ao, basis_sh2bf, basis_minalp, basis_level, basis_zeta, basis_valsh, basis_hdiag, basis_alp, basis_cont, basis_hdiag2, basis_aoexp, basis_ash, basis_lsh, basis_ao2sh, basis_nprim, basis_primcount, basis_caoshell, basis_saoshell, basis_fila, basis_fila2, basis_lao, basis_aoat, basis_valao, basis_lao2, basis_aoat2, basis_valao2, ok = new_basis_set_simple(element_ids)
-    cn = GFN2_coordination_numbers_np(element_ids, positions)
-    print(cn.shape)
+    cn = getCoordinationNumbers(element_ids, positions)
+    print("coordination numbers shape:",cn.shape)
     selfEnergy_H_kappa_kappa = getSelfEnergy(element_ids, cn)
     S, dpint, qpint, H0, H0_noovlp = build_SDQH0(element_cnt, element_ids, \
       basis_nbf, basis_nao, positions, trans, selfEnergy_H_kappa_kappa, intcut, \
       basis_caoshell, basis_saoshell, basis_nprim, basis_primcount, basis_alp, \
       basis_cont)
+    print("overlap matrix shape:",S.shape)
+    print("density matrix shape:",density_matrix.shape)
     
