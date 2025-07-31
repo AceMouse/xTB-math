@@ -15,7 +15,7 @@ Since the executions of the xTB algorithm on each fullerene are completely isola
 
 The streaming multiprocessors (SMs) on a GPU are slower and simpler than the cores on a CPU. They have no branch prediction or other smart optimization techniques, but instead an SM has more threads it can execute in parallel in comparison to a CPU core which can only execute threads concurrently. The difference is that SMs can truly run its threads simultaniously, while CPU cores rely on context switching to make it seem like proccesses are running simultaniously. With SMs, working only on a few fullerenes will have a massive overhead from spinning up a kernel and copying data from the host(CPU) to the device(GPU), but the problem size for this project makes SMs a great fit.
 
-The current Fortran implementation of the xTB program only takes a single molecule at a time, but when doing lockstep parallization it would be interesting to have an implementation that takes multiple molecules. This would avoid the overhead of starting multiple processes, and the program will have the data for all molecules, which gives opportunity for data coalescing by aligning the data as a structure of arrays (SOA) instead of and array of structures (AOS). It can also make copying data from the host to device more efficient since the data for multiple molecules can be moved together by the same instruction. To allow for coalesced access to the data on the device, we can essentially realign the data so that parts of the molecules that are accessed together, are also close together in memory. Doing this should also decrease the amount of copies needed between host and device memory, resulting in overall faster execution.
+The current Fortran implementation of the xTB program only takes a single molecule at a time, but when doing lockstep parallization it would be interesting to have an implementation that takes multiple molecules. This would avoid the overhead of starting multiple processes, and the program will have the data for all molecules, which gives opportunity for data coalescing by aligning the data as a structure of arrays (SOA) instead of and array of structures (AOS). It can also make copying data from the host to device more efficient since the data for multiple molecules can be moved together by the same instruction. To allow for coalesced access to the data on the device, we can essentially realign the data so that parts of the molecules that are accessed together, are also close together in memory.%Doing this should also decrease the amount of copies needed between host and device memory, resulting in overall faster execution.
 
 \begin{figure}[h]
 \centering
@@ -74,7 +74,14 @@ squarednode/.style={
 \label{fig:coalescing}
 \end{figure}
 
-An example of turning an AOS into a SOA can be seen in \autoref{fig:coalescing} where the data is realigned to allow for coalesced data access. If the code accesses only a few atoms of a molecule at a time, then it is a waste if the memory page contains the rest of a molecule as well. Instead of copying whole molecules at a time, the data should be structured such that only the required data of a molecule is copied as it allows the kernel to get that data for more molecules at a time, thus reducing unnecessary copies and speeding up the computation. 
+An example of turning an AOS into an SOA can be seen in \autoref{fig:coalescing} where the data is realigned to allow for coalesced data access. If the code accesses only a few atoms of a molecule at a time, then it is a waste if the memory page contains the rest of a molecule as well. Instead of copying whole molecules at a time, the data should be structured such that only the required data of a molecule is copied as it allows the kernel to get that data for more molecules at a time, thus reducing unnecessary copies and speeding up the computation.
+
+The geometric data for the fullerenes that are fed into the xTB implementation that our project focuses on, is already on the device and is never meant to leave the device before the final result is reached. The xTB implementation should therefore never move any data between the host and device. As such, memory coalescing is something to consider mainly when talking about the data transfer between the global and shared memory on a device. When we compute the energies for multiple molecules in the same SM, then we would like to move the necessary data for the current operation for all of the molecules in the SM together. The whole molecule will not fit in the lower memory levels, so we need to interweave the data of the molecules such that the necessary parts of the molecules can be moved together in as few operations as possible.
+
+% Maybe find an example where we for example iterated through indices of two matrices such as the density and overlap matrices. In this case it could make sense to interweave them such that the indices accessed in iteration 1 is together and so on.
+
+% We want to keep all data on the GPU, so we don't received in on the CPU, it is already on the GPU.
+% Maybe explain how data coalescing makes sense when moving data between memoery levels on a GPU?
 
 
 \subsection{Memory Types and Current Hardware}
@@ -176,7 +183,7 @@ Computing xTB-GFN2 for a molecule is completely isolated, so if we do the whole 
 
 The exact space needed to compute the GFN2 variant of xTB for a single fullerene is not yet clear to us, and it will also vary based on the size of the fullerene. To make finding the most optimal GPU configuration easier when optimizing for most possible parallel xTB computations, we have developed a script that computes such a configuration based on the space requirement of a single molecule.
 
-\begin{figure}[h]
+\begin{figure}[h!]
 \begin{minted}{python}
   def compute(bytes_per_molecule):
     mb_per_molecule = bytes_per_molecule / 1_000_000
@@ -198,7 +205,7 @@ The exact space needed to compute the GFN2 variant of xTB for a single fullerene
 The output of the script has information on how many threads are required for a single molecule, how many warps this fits within. It also includes general information about the utilization of the GPUs resources with the configuration presented. An example of the full output can be seen in \autoref{fig:gpu-mem-output}.
 
 
-\begin{figure}[h]
+\begin{figure}[h!]
 \begin{minted}[linenos=false]{text}
 | Global memory | L2 cache | Total SMs | Threads per warp |
 |    80.0 GB    | 98304 KB |    128    |        32        |
