@@ -50,7 +50,7 @@ SM_THREADS_TOTAL = MAX_WARPS_PER_SM * THREADS_PER_WARP
 BLOCKS_TOTAL = SM_COUNT * MAX_BLOCKS_PER_SM
 THREADS_TOTAL = THREADS_PER_WARP * MAX_WARPS_PER_SM * SM_COUNT
 
-USE_GLOBAL_MEMORY_IN_COMPUTATIONS = False
+USE_GLOBAL_MEMORY_IN_COMPUTATIONS = True
 
 def compute_threads_per_molecule(mb_per_molecule):
     mem_shared_per_thread = (MEM_SHARED_PER_SM * SM_COUNT) / THREADS_TOTAL;
@@ -84,26 +84,30 @@ def print_utilization(warps_per_molecule, molecules_per_block):
     total_blocks_used =  total_blocks_used_per_sm * SM_COUNT
     total_threads_used = sm_threads_used * SM_COUNT
 
-    print(f"| Global memory | L2 cache | Total SMs | Threads per warp | Threads Available | Threads Used | Blocks Available | Blocks Used |")
-    print(f"|    {MEM_GLOBAL / 1000} GB    | {L2_CACHE_SIZE} KB |    {SM_COUNT}    |        {THREADS_PER_WARP}        |      {THREADS_TOTAL}       |    {total_threads_used}    |       {BLOCKS_TOTAL}       |    {total_blocks_used}     |")
+    print(f"| Global memory | L2 cache | Total SMs | Threads per warp |")
+    print(f"|    {MEM_GLOBAL / 1000} GB    | {L2_CACHE_SIZE} KB |    {SM_COUNT}    |        {THREADS_PER_WARP}        |")
+    print(f"| Threads Available | Threads Used | Blocks Available | Blocks Used |")
+    print(f"|      {THREADS_TOTAL}       |    {total_threads_used}    |       {BLOCKS_TOTAL}       |    {total_blocks_used}   |")
     print()
 
     print(f"#################################### Per SM ####################################")
     print(f"| Warps | Blocks | Registers | Shared Memory | Threads Available | Threads Used |")
     print(f"|  {MAX_WARPS_PER_SM}   |   {MAX_BLOCKS_PER_SM}   |   {REGISTER_COUNT_PER_SM}   |    {MEM_SHARED_PER_SM} KB     |       {SM_THREADS_TOTAL}        |     {sm_threads_used}     |")
+    print(f"| Blocks Available | Blocks Used |")
+    print(f"|        {MAX_BLOCKS_PER_SM}        |     {total_blocks_used_per_sm}    |")
     print()
 
-    l2_cache_per_block = L2_CACHE_SIZE / total_blocks_used_per_sm
+    l2_cache_per_block = L2_CACHE_SIZE / (total_blocks_used_per_sm * SM_COUNT)
     mem_shared_per_block = MEM_SHARED_PER_SM / total_blocks_used_per_sm
     mem_global_per_block = MEM_GLOBAL / total_blocks_used
 
-    mem_register_per_block = math.floor(REGISTER_COUNT_PER_SM / sm_threads_used) * (BITS_PER_REGISTER / 8) * sm_threads_used / 1000
+    mem_register_per_block = math.floor(REGISTER_COUNT_PER_SM / sm_threads_used) * (BITS_PER_REGISTER / 8) * 64 / 1000
     mem_non_global_per_block = mem_shared_per_block + mem_register_per_block + l2_cache_per_block
     mem_per_block_total = (mem_non_global_per_block / 1000) + (mem_global_per_block if USE_GLOBAL_MEMORY_IN_COMPUTATIONS else 0)
 
     print(f"########################### Per Block ###########################")
     print(f"| L2 Cache | Register Mem | Shared Mem |{" Global Mem |" if USE_GLOBAL_MEMORY_IN_COMPUTATIONS else ""} Total mem |")
-    print(f"| {"%.1f" % l2_cache_per_block} KB|  {"%.3f" % mem_register_per_block} KB  |  {"%.3f" % mem_shared_per_block} KB  |{f"  {"%.3f" % mem_global_per_block} MB |" if USE_GLOBAL_MEMORY_IN_COMPUTATIONS else ""} {"%.3f" % mem_per_block_total} MB |")
+    print(f"| {"%.1f" % l2_cache_per_block} KB  |  {"%.3f" % mem_register_per_block} KB   |  {"%.3f" % mem_shared_per_block} KB  |{f"  {"%.3f" % mem_global_per_block} MB |" if USE_GLOBAL_MEMORY_IN_COMPUTATIONS else ""} {"%.3f" % mem_per_block_total} MB |")
     print()
 
 def compute(bytes_per_molecule):
