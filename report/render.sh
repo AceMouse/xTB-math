@@ -1,4 +1,4 @@
-#!/usr/bin/env -S nix shell nixpkgs#texliveFull nixpkgs#zathura nixpkgs#ghostscript_headless nixpkgs#enscript --command bash
+#!/usr/bin/env -S nix shell nixpkgs#texliveFull nixpkgs#zathura nixpkgs#ghostscript_headless nixpkgs#enscript nixpkgs#inotify-tools --command bash
 
 mainfile="$1"
 
