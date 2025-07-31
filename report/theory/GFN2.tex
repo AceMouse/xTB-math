@@ -1,0 +1,123 @@
+\section{Theory}
+\subsection{GFN2-xTB}
+GFN2-xTB is a part of the GFNn-xTB (Geometry, Frequency, Non covalent, eXtended Tight Binding) family of semi-empirical methods for computational chemistry. 
+The method gives good approximations for molecular geometries, vibrational frequencies, and non-covalent interaction energies but also does well on a variety other properties. 
+Over all it strives to hit a balance between being accurate, close to the physics, general over a wide range of elements and not too computationally expensive.
+This is achieved by approximating a true quantum mechanical simulation, using carefully chosen approximations and parameters. 
+In contrast to forcefield methods that often operate on the level of atoms or even functional groups interacting the method is still treating the calculations at the level of individual shells in many places. 
+GFN2-xTB uses A Self-Consistent Charges approach i.e. it makes an initial guess at a density matrix and an energy which it then iteratively refines until both have converged. 
+
+\begin{figure}[H]
+\begin{minted}{python}
+def get_GFN2_energy(atoms: list[int], positions : list[list[float]]) -> float:
+    density = P(atoms)
+    overlap = S(atoms, positions)
+    dipol_dipol = D(atoms, positions, overlap)
+    charge_quadrupol = Q(atoms, positions, overlap, dipol_dipol)
+    initial_hamiltonian = H0(atoms, positions)
+    huckel_theory_matrix = H_EHT(atoms, positions, overlap, initial_hamiltonian)
+    charges = mulliken_population_analysis(density,atoms)
+    E_repulsion = repulsion(atoms, positions)
+    E_dispersion = D4Prime(charges, atoms, positions)
+    E_huckel = Huckel(density, extended_huckel_theory_matrix)
+    E_anisotropic = AES(charges, overlap, dipol_dipol, charge_quadrupol, positions)
+    E_isotropic = IES(charges, positions)
+    E = E_repulsion + E_dispersion + E_huckel + E_anisotropic + E_isotropic
+    # ...
+    while not (energy_converged and densities_converged):
+        eigen_values = diagonalize(hamiltonian, overlap) # HC=SCe 
+        new_density = compute_density_matrix_from_fermi(eigen_values,...)
+        # ... update everything with new density
+        energy_converged = (E-E_new)**2 < tolerance
+        densities_converged = error_squared(density,new_density) < tolerance
+        E = E_new
+        density = new_density
+\end{minted}
+\caption{Python like code illustrating the main loop of a GFN2-xTB implementation.
+Line 2-14 computes the energy in a non SCC manner, line 15-23 iteratively improves the energy using SCC.
+}
+\end{figure}
+
+The initial density matrix guess is formulated as a superposition of neutral atomic reference densities $P_0 = \sum_{A}P_{A_0}$. This means that we let $P_0$ be a diagonal matrix that is $n$ by $n$ where $n$ is the total number of orbitals across the whole molecule. The values on the diagonal are the fractional number of electrons in the orbitals, the fractional occupations. The shells are filled from the nucleus and outwards. QUESTION(Kurt): Var der noget med at det ikke var alle skaller der var med i GFNn-xTB udregningerne? At man nogle gange så bort fra de inderste i atomer med mange skaller. Hvordan tager vi højde for det når vi fordeler elektronerne?
+\begin{figure}[H]
+\begin{minted}{python}
+def density_initial_guess(atoms: list[int]) -> list[list[float]]:
+    occs = []
+    for atom in atoms:
+        Z = atom + 1
+        electrons_left = Z
+        for shell in range(GFN2_number_of_shells[atom]):
+            l = GFN2_angular_momentum_of_shell[atom,shell] 
+            orbitals_in_shell = l*2+1 
+            max_electrons_in_shell = orbitals_in_shell * 2
+            electrons_in_shell = min(max_electrons_in_shell, electrons_left)
+            electrons_per_orbital = electrons_in_shell/orbitals_in_shell
+            for _ in range(orbitals_in_shell):
+                occs.append(electrons_per_orbital)
+            electrons_left -= electrons_in_shell
+    return diag(occs)
+\end{minted}
+\caption{Python like code illustrating computation of $P_0$}
+\end{figure}
+In this example the atoms are zero indexed and we therefore have to add $1$ to get the atomic number $Z$. 
+Since the atoms are presumed to be neutral there are $Z$ electrons to distribute over the orbitals.
+The overlap matrix, $S$, is computed in the following way.
+\begin{equation}
+S_{\nu\mu} = \braket{\nu|\mu}\quad\quad\quad\quad\forall \nu \in l \in A,\mu \in l' \in B
+\end{equation}
+\begin{figure}[H]
+\begin{minted}{python}
+def overlap(atoms: list[int]) -> list[list[float]]:
+    S = []
+    for atom_A in atoms:
+        for shell_A in range(GFN2_number_of_shells[atom_A]):
+            l_A = GFN2_angular_momentum_of_shell[atom,shell] 
+            for orbital_nu in range(l_A*2+1):
+                row = []
+                for atom_B in atoms:
+                    for shell_B in range(GFN2_number_of_shells[atom_B]):
+                        l_B = GFN2_angular_momentum_of_shell[atom,shell] 
+                        for orbital_mu in range(l_B*2+1):
+                            orbital_overlap = compute_integral(...)
+                            row.append(orbital_overlap)
+                S.append(row)
+    return S
+def compute_integral(atom_A:int, atom_B:int, shell_A:int, shell_B:int, orbital_mu:int, orbital_nu:int)-> float:
+    if atom_A == atom_B and mu == nu:
+        return 1
+    #...
+\end{minted}
+\caption{Python like code illustrating construction of $S$}
+\end{figure}
+NOTE(Asmus) Explain D and Q as well
+
+
+The huckel matrix is calculated using extended huckel theory. This is the calculation.
+\begin{gather}
+    H_{\nu\nu} = H_A^l - H_{CN_A}CN_A' \quad\quad\quad\quad\forall \nu \in l \in A\\
+    \begin{split}
+        CN_A' = &\sum_{B\neq A}\left(1+e^{-10\left(\frac{4\left(R_{A,cov}+R_{B,cov}\right)}{3R_{AB}}-1\right)}\right)^{-1}\left(1+e^{-20\left(\frac{4\left(R_{A,cov}+R_{B,cov}+2\right)}{3R_{AB}}-1\right)}\right)^{-1}
+    \end{split}
+\end{gather}
+\begin{figure}[H]
+\begin{minted}{python}
+
+def huckel_matrix(atoms: list[int], positions: list[list[float]], overlap: list[list[float]]) -> list[list[float]]:
+    H_ETH_diagonal = []
+    CN = get_coordination_numbers(atoms,positions)
+    for atom_A in atoms:
+        CN_A = CN[atom_A]
+        for shell_A in range(GFN2_number_of_shells[atom_A]):
+            H_A = self_energy[atom_A][shell_A] # constant
+            H_CN_A = GFN2_H_CN_A[atom_A][shell_A] # constant
+            l_A = GFN2_angular_momentum_of_shell[atom,shell] 
+            H_nunu = H_A-H_CN_A*CN_A
+            for _ in range(l_A*2+1):
+                H_EHT_diagonal.append(H_AA)
+    # TODO: compute rest
+    return H_EHT
+\end{minted}
+\caption{Python like code illustrating construction of $H_{KK}$}
+\end{figure}
+
+
