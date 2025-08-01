@@ -31,7 +31,6 @@ stdenv.mkDerivation rec {
   sourceRoot = "numsa";
 
   doCheck = true;
-  dontFixup = true;
 
   nativeBuildInputs = [
     pkg-config
@@ -96,5 +95,11 @@ stdenv.mkDerivation rec {
     meson install -C _build
 
     runHook postInstall
+  '';
+
+  fixupPhase = ''
+    if [ -d "$out/lib64" ]; then
+      mv "$out/lib64" "$out/lib"
+    fi
   '';
 }
