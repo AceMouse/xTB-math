@@ -121,6 +121,7 @@
               ${xtb}/bin/xtb $f
               popd
             done
+            mkdir -p $out
             mv * $out
           ''];
         };
@@ -135,6 +136,7 @@
               ${./xtb-python/cmp_impls.py} "$dir"
             c=$((c + 1))
           done
+          echo "$c"
         '');
       };
 
