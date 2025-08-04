@@ -37,54 +37,70 @@ def get_GFN2_energy(atoms: list[int], positions : list[list[float]]) -> float:
 Line 2-14 computes the energy in a non SCC manner, line 15-23 iteratively improves the energy using SCC.
 }
 \end{figure}
+Let us define a small helper function to decrease the amount of indentation in the later code examples. 
+\begin{figure}[H]
+\begin{minted}{python}
+def get_orbitals(atoms: list[int]) -> list[tuple[int]]:
+    orbitals = []
+    for atom_idx,atom in enumerate(atoms):
+        for subshell in range(number_of_subshells[atom]):
+            l = angular_momentum_of_subshell[atom][subshell] 
+            for orbital in range(l*2+1):
+                orbitals.append((atom_idx,atom,subshell,orbital))
+    return orbitals
+\end{minted}
+\caption{Python like code for generating a convenient list of orbitals to iterate though. }
+\end{figure}
+And a helper function to create a square matrix.
+\begin{figure}[H]
+\begin{minted}{python}
+def get_square_matrix(n: int) -> list[list[float]]:
+    matrix = []
+    for _ in range(n):
+        row = []
+        for _ in range(n):
+            row.append(0.0)
+        matrix.append(row)
+    return matrix
+\end{minted}
+\caption{Python like code for generating a square matrix.}
+\end{figure}
 
-The initial density matrix guess is formulated as a superposition of neutral atomic reference densities $P_0 = \sum_{A}P_{A_0}$. This means that we let $P_0$ be a diagonal matrix that is $n$ by $n$ where $n$ is the total number of orbitals across the whole molecule. The values on the diagonal are the fractional number of electrons in the orbitals, the fractional occupations. The shells are filled from the nucleus and outwards. QUESTION(Kurt): Var der noget med at det ikke var alle skaller der var med i GFNn-xTB udregningerne? At man nogle gange så bort fra de inderste i atomer med mange skaller. Hvordan tager vi højde for det når vi fordeler elektronerne?
+
+The initial density matrix guess is formulated as a superposition of neutral atomic reference densities $P_0 = \sum_{A}P_{A_0}$. This means that we let $P_0$ be a diagonal matrix that is $n$ by $n$ where $n$ is the total number of orbitals across the whole molecule. The values on the diagonal are the fractional number of electrons in the orbitals, the fractional occupations. The shells are filled from the nucleus and outwards. 
 \begin{figure}[H]
 \begin{minted}{python}
 def density_initial_guess(atoms: list[int]) -> list[list[float]]:
-    occs = []
-    for atom in atoms:
-        Z = atom + 1
-        electrons_left = Z
-        for shell in range(GFN2_number_of_shells[atom]):
-            l = GFN2_angular_momentum_of_shell[atom,shell] 
-            orbitals_in_shell = l*2+1 
-            max_electrons_in_shell = orbitals_in_shell * 2
-            electrons_in_shell = min(max_electrons_in_shell, electrons_left)
-            electrons_per_orbital = electrons_in_shell/orbitals_in_shell
-            for _ in range(orbitals_in_shell):
-                occs.append(electrons_per_orbital)
-            electrons_left -= electrons_in_shell
-    return diag(occs)
+    orbitals = get_orbitals(atoms)
+    occs = get_square_matrix(len(orbitals))
+    for idx,(_,atom,subshell,orbital) in enumerate(orbitals):
+        l = angular_momentum_of_subshell[atom][subshell] 
+        orbitals_in_subshell = l*2+1 
+        electrons_in_subshell = reference_occupations[atom][subshell]
+        electrons_per_orbital = electrons_in_subshell/orbitals_in_subshell
+        occs[idx][idx] = electrons_per_orbital
+    return occs
 \end{minted}
 \caption{Python like code illustrating computation of $P_0$}
 \end{figure}
-In this example the atoms are zero indexed and we therefore have to add $1$ to get the atomic number $Z$. 
-Since the atoms are presumed to be neutral there are $Z$ electrons to distribute over the orbitals.
-The overlap matrix, $S$, is computed in the following way.
+For fullerenes the guess is simply all ones on the diagonal as number\_of\_subshells[C] = 2, angular\_momentum\_of\_subshell[C] = [0,1,0] and reference\_occupations[C] = [1.0,3.0,0.0]. Thus occ will be a repeating series of [$\frac{1.0}{1},\frac{3.0}{3},\frac{3.0}{3},\frac{3.0}{3}$].
+We also need the overlap matrix, $S$, which is computed in the following way.
 \begin{equation}
 S_{\nu\mu} = \braket{\nu|\mu}\quad\quad\quad\quad\forall \nu \in l \in A,\mu \in l' \in B
 \end{equation}
 \begin{figure}[H]
 \begin{minted}{python}
 def overlap(atoms: list[int]) -> list[list[float]]:
-    S = []
-    for atom_A in atoms:
-        for shell_A in range(GFN2_number_of_shells[atom_A]):
-            l_A = GFN2_angular_momentum_of_shell[atom,shell] 
-            for orbital_nu in range(l_A*2+1):
-                row = []
-                for atom_B in atoms:
-                    for shell_B in range(GFN2_number_of_shells[atom_B]):
-                        l_B = GFN2_angular_momentum_of_shell[atom,shell] 
-                        for orbital_mu in range(l_B*2+1):
-                            orbital_overlap = compute_integral(...)
-                            row.append(orbital_overlap)
-                S.append(row)
+    orbitals = get_orbitals(atoms)
+    S = get_square_matrix(len(orbitals))
+    for idx_A, (_,atom_A,subshell_A,orbital_A) in enumerate(orbitals):
+        for idx_B, (_,atom_B,subshell_B,orbital_B) in enumerate(orbitals):
+            if idx_A == idx_B:
+                S[idx_A][idx_B] = 1
+            else:
+                S[idx_A][idx_B] = compute_integral(...)
     return S
-def compute_integral(atom_A:int, atom_B:int, shell_A:int, shell_B:int, orbital_mu:int, orbital_nu:int)-> float:
-    if atom_A == atom_B and mu == nu:
-        return 1
+def compute_integral(atom_A:int, atom_B:int, shell_A:int, shell_B:int, orbital_A:int, orbital_B:int)-> float:
     #...
 \end{minted}
 \caption{Python like code illustrating construction of $S$}
@@ -101,20 +117,44 @@ The huckel matrix is calculated using extended huckel theory. This is the calcul
 \end{gather}
 \begin{figure}[H]
 \begin{minted}{python}
-
 def huckel_matrix(atoms: list[int], positions: list[list[float]], overlap: list[list[float]]) -> list[list[float]]:
-    H_ETH_diagonal = []
+    orbitals = get_orbitals(atoms)
+    H_EHT = get_square_matrix(len(orbitals))
     CN = get_coordination_numbers(atoms,positions)
-    for atom_A in atoms:
-        CN_A = CN[atom_A]
-        for shell_A in range(GFN2_number_of_shells[atom_A]):
-            H_A = self_energy[atom_A][shell_A] # constant
-            H_CN_A = GFN2_H_CN_A[atom_A][shell_A] # constant
-            l_A = GFN2_angular_momentum_of_shell[atom,shell] 
-            H_nunu = H_A-H_CN_A*CN_A
-            for _ in range(l_A*2+1):
-                H_EHT_diagonal.append(H_AA)
-    # TODO: compute rest
+    for orbital_idx, (atom_idx,atom,subshell,orbital) in enumerate(orbitals):
+        CN_A = CN[atom_idx]
+        H_A = self_energy[atom][subshell] # constant
+        H_CN_A = GFN2_H_CN_A[atom][subshell] # constant
+        H_EHT[orbital_idx][orbital_idx] = H_A - H_CN_A*CN_A
+
+    for idx_A,(atom_A_idx,atom_A,subshell_A,_) in enumerate(orbitals):
+        l_A = angular_momentum_of_subshell[atom_A][subshell_A]
+        EN_A = electro_negativity[atom_A]
+        R_A = positions[atom_A_idx]
+        Rcov_A = covalent_radii[atom_A]
+        k_poly_A = k_poly[atom_A][l_A]
+        for idx_B,(atom_B_idx,atom_B,subshell_B,_) in enumerate(orbitals):
+            if idx_A == idx_B:
+                continue
+            l_B = angular_momentum_of_subshell[atom_B][subshell_B]
+            EN_B = electro_negativity[atom_B]
+            R_B = positions[atom_B_idx]
+            Rcov_B = covalent_radii[atom_B]
+            k_poly_B = k_poly[atom_B][l_B]
+            K_ll = GFN2_K_AB[l_A][l_B]
+            delta_EN_squared = (EN_A-EN_B)**2
+            k_EN = 0.02
+            X = 1+k_EN*delta_EN_squared
+            R_AB = euclidean_distance(R_A,R_B) 
+            Rcov_AB = Rcov_A + Rcov_B 
+            PI = (1+k_poly_A*sqrt(R_AB/Rcov_AB)) * (1+k_poly_B*sqrt(R_AB/Rcov_AB))
+            slater_exp_A = slater_exponent[atom_A][l_A]
+            slater_exp_B = slater_exponent[atom_B][l_B]
+            Y = sqrt((2*sqrt(slater_exp_A*slater_exp_B)) / (slater_exp_A+slater_exp_B))
+            H_nn = H_EHT[idx_A][idx_A]
+            H_mm = H_EHT[idx_B][idx_B]
+            S_nm = overlap[idx_B][idx_B]
+            H_EHT[idx_A][idx_B] = k_ll*(1/2)*(H_nn+H_mm)*S_nm*Y*X*PI
     return H_EHT
 \end{minted}
 \caption{Python like code illustrating construction of $H_{KK}$}
