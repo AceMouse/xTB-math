@@ -1,7 +1,7 @@
 
-\subsection{High Performance Parallel Computing}
+\section{High Performance Parallel Computing}
 
-The xTB program uses a specified variant of the GFN-xTB algorithm to compute various energies for a molecule. By default the program is set to use GFN2-xTB, which is also the variant this project focuses on.
+The xTB program uses a specified version of the GFN-xTB algorithm to compute various energies for a molecule. By default the program is set to use GFN2-xTB, which is also the version this project focuses on.
 
 For a molecule on the smaller scale such as a caffeine molecule which has 24 atoms, the time it takes to run xTB is fairly instantanious. Even a fullerene with 200 carbon atoms takes just about 2 seconds to compute on average on a 12th gen intel mobile processor. The computional time for even small molecules begins to be noticable, when the problem size grows to thousands or millions of molecules.
 
@@ -180,7 +180,7 @@ Distributing the global memory across the blocks gives each of them $26.042$ MB.
 
 Computing xTB-GFN2 for a molecule is completely isolated, so if we do the whole xTB computation in lockstep, then we only have to concern ourselves with how many warps and blocks a single molecule needs in order to keep all its data in device memory. When we know these details, then we can simply scale up the number of molecules to be computed in lockstep until all the resources on the GPU are saturated. With this approach, expanding to multiple GPUs should be rather trivial as there are no interdependencies.
 
-The exact space needed to compute the GFN2 variant of xTB for a single fullerene is not yet clear to us, and it will also vary based on the size of the fullerene. To make finding the most optimal GPU configuration easier when optimizing for most possible parallel xTB computations, we have developed a script that computes such a configuration based on the space requirement of a single molecule.
+The exact space needed to compute the GFN2 version of xTB for a single fullerene is not yet clear to us, and it will also vary based on the size of the fullerene. To make finding the most optimal GPU configuration easier when optimizing for most possible parallel xTB computations, we have developed a script that computes such a configuration based on the space requirement of a single molecule.
 
 \begin{figure}[h!]
 \begin{minted}{python}

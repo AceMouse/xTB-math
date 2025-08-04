@@ -1,6 +1,8 @@
-\section{Methodology}
+\chapter{Methodology}
 
-\subsection{Testing}
+\section{Porting the Reference Implementation}
+
+\section{Testing}
 
 The xTB algorithm computes a lot of different energies, corrections, and other additions to the energy terms. There is a lot of overlap between the different variants of xTB, so even focusing on just one of them still requires a great amount of code.
 Dealing with large computations with so many small parts makes proper validation especially important, as it becomes increasingly easy to make mistakes.
@@ -13,6 +15,8 @@ With this realization the obvious approach forward was to lean towards the exist
 One of the hurdles from testing against an existing program becomes the lack of transparency regarding the logic that takes place between the initial input and the final output presented to the user. Thankfully, the source code is publicly available allowing for easy manipulation of the original flow of execution, thus avoiding the hassle of testing against a black box or the need to resort to methods of reverse engineering.
 
 On behalf of these considerations it was decided to write patches that allow to intercept the arguments and results of arbitrary functions just by running the program as normal. This meant that smaller parts could be implemented without the need to implement all the code needed to compute its arguments.
+
+\subsection{Towards Reproducability with Nix}
 
 An important part of any software is reproducability, and applying certain patches in certain scenarios is something that should preferably be automated, reproducable, and optimally also portable. This is especially important for this approach to validation as it requires a way to reproduce a specific version of xTB linked to the same versions of dependencies. Essentially an exact copy of the original shell environment to ensure that patches work, results are the same, and no new bugs appear in the program itself or its dependencies. All of this should be achievable without having to add, remove, downgrade or upgrade system packages on your system.
 
@@ -44,6 +48,7 @@ The new Nix command-line interface needed to interact with flakes is naturally a
 
 \newpage
 
+\begin{figure}[H]
 \begin{minted}{nix}
   {
     inputs = {
@@ -71,9 +76,13 @@ The new Nix command-line interface needed to interact with flakes is naturally a
     };
   }
 \end{minted}
+\caption{This is a snippet of our Nix flake which shows the app declaration for running our test suite. The app depends on the derivation that generates the test data.}
+\label{fig:nix_flake}
+\end{figure}
 
 Python is declared with the required packages and is then used in the app to call the \verb|cmp_impls.py| script. The script is called with the test data acquired from running the Fortran xTB program. This data comes from another derivation which executes patched versions of xTB and DFT-D4 on a C200 fullerene to get the relevant function arguments and results as binary files.
 
+\begin{figure}[H]
 \begin{minted}{nix}
   xtb_test_data = builtins.derivation {
     name = "xtb-test-data";
@@ -91,10 +100,14 @@ Python is declared with the required packages and is then used in the app to cal
     ''];
   };
 \end{minted}
+\caption{This is the Nix derivation for generating the test data from our patched versions of xTB and dftd4.}
+\label{fig:xtb-test-data}
+\end{figure}
 
 The directories for the binary files are created in advance as checking whether they exist when writing the binary files has a large overhead.
 This derivation in turn uses derivations for xTB and DFT-D4. Luckily DFT-D4 is already in NixPkgs, but it still needs to be patched in order to extract the required data for validation. Thankfully the \verb|mkDerivation| function used in NixPkgs makes overriding and patching a package very straightforward. 
 
+\begin{figure}[H]
 \begin{minted}{nix}
   dftd4 = (pkgs.dftd4.overrideAttrs (finalAttrs: previousAttrs: {
     src = pkgs.fetchFromGitHub {
@@ -111,15 +124,21 @@ This derivation in turn uses derivations for xTB and DFT-D4. Luckily DFT-D4 is a
     ];
   }));
 \end{minted}
+\caption{This is the Nix expression for overriding the dftd4 package derivation. We essentially update dftd4 to a newer revision and add patches to logs arguments and results to a binary file, and another patch to use GFN2.}
+\label{fig:dftf4_drv}
+\end{figure}
 
 The version is bumped by overriding the source, and the multicharge project is added from NixPkgs and also bumped as a requirement of this newer version. Some of the tests were timing out, so they have been disabled by setting \verb|doCheck| to false. Lastly the patches are applied by providing the relevant patch files.
 
-
 xTB and two of its dependencies, namely CPCM-X and numsa are not in NixPkgs and had to be packaged from scratch.
 
-All the patches follow the structure below where the original function is prefixed with a 'g', such that the new wrapper function will be called instead. The wrapper function writes the function arguments to a binary file before calling the actual function and then finally writes the result to the same file.
+\subsection{Patching xTB}
+
+Now we have a way to apply patches and repoduce our tests. Next we will dive into what the patches do and how they are used.
+All the patches follow the structure seen in \autoref{fig:patchfile} where the original function is prefixed with a 'g', such that the new wrapper function will be called instead. The wrapper function writes the function arguments to a binary file before calling the actual function before finally writing the result of the function to the same binary file.
 Writing a file for each call to a function is a bit excessive and will produce a very large amount of files, so a threshold has been used to create an upperbound on the number of files that can be created for each function.
 
+\begin{figure}[H]
 \begin{minted}[linenos=false]{diff}
 +   logical :: hit_threshold
 +   integer :: u
@@ -150,9 +169,23 @@ Writing a file for each call to a function is a bit excessive and will produce a
 +     close(u)
 +   end if
 \end{minted}
+\caption{This is a diff file for the electro energy function. A diff file reflects the changes between two files and can be used to patch code by applying these changes. All our patches follow this structure of writing the arguments to a file, then running the original function before finally writing the result to the same binary file.}
+\label{fig:patchfile}
+\end{figure}
 
-When all the data has been written, then the binary files are passed onto \verb|cmp-impls.py|, which is the test suite for comparing the Python reimplementation to the original Fortran code. 
+\subsection{Implementing the Tests}
 
+With the binary files containing the arguments and results, we now have all the data necessary to compare against our Python implementation. We have made a test suite in the file \verb|cmp-impls.py| where all tests follow these same steps:
+
+\begin{enumerate}
+   \item Load an deserialize a binary file for the appropriate function
+   \item Call the corresponding Python function with the deserialized arguments
+   \item Compare the result against the deserialized Fortran result
+   \item Repeat until there are no more binary files for this function
+\end{enumerate}
+
+
+\begin{figure}[H]
 \begin{minted}{python}
   def test_electro():
       fn_name = "electro"
@@ -179,3 +212,6 @@ When all the data has been written, then the binary files are passed onto \verb|
 
       print(f"matches! [{fn_name}]")
 \end{minted}
+\caption{This is some of the code from the test for the electro function. It shows how we iterate through each binary file, deserialize its data, call the corresponding Python implementation, and then compare the results.}
+\label{fig:testcode}
+\end{figure}
