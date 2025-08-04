@@ -1,4 +1,4 @@
-from gfn2 import angShell, nShell, repZeff, valenceShell, slaterExponent, selfEnergy, principalQuantumNumber, numberOfPrimitives
+from gfn2 import angShell, nShell, repZeff, valenceShell, slaterExponent, selfEnergy, principalQuantumNumber, numberOfPrimitives, referenceOcc
 import numpy as np
 import time
 
@@ -11,7 +11,7 @@ element_cnt = 10
 element_ids = rand.choice(repZeff.shape[0]-1, size=element_cnt)
 positions = rand.random((element_cnt,3))
 atoms = list(zip(element_ids, positions))
-density_matrix = density_initial_guess(element_ids, nShell, angShell)
+density_matrix = density_initial_guess(element_ids, nShell, angShell, referenceOcc)
 overlap_matrix = overlap_initial_guess(element_cnt)
 
 def dim_basis(element_ids):

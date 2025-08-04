@@ -1,5 +1,5 @@
 from math import sqrt, exp, pi
-from gfn2 import kExpLight, kExpHeavy, repAlpha, repZeff, nShell, chemicalHardness, shellHardness, thirdOrderAtom, selfEnergy, kCN, shellPoly, slaterExponent, atomicRadii, paulingEN, kEN, angShell, llao, llao2, itt, wExp, kdiff, kScale, pairParam, enScale, enScale4, electronegativity, maxElem, trafo, valenceShell
+from gfn2 import kExpLight, kExpHeavy, repAlpha, repZeff, nShell, chemicalHardness, shellHardness, thirdOrderAtom, selfEnergy, kCN, shellPoly, slaterExponent, atomicRadii, paulingEN, kEN, angShell, llao, llao2, itt, wExp, kdiff, kScale, pairParam, enScale, enScale4, electronegativity, maxElem, trafo, valenceShell, referenceOcc
 import numpy as np
 import scipy
 import time
@@ -25,7 +25,7 @@ element_cnt = 100
 element_ids = rand.choice(repZeff.shape[0]-1, size=element_cnt)
 positions = rand.random((element_cnt,3))
 atoms = list(zip(element_ids, positions))
-density_matrix = density_initial_guess(element_ids, nShell, angShell)
+density_matrix = density_initial_guess(element_ids, nShell, angShell, referenceOcc)
 overlap_matrix = overlap_initial_guess(element_cnt)
 
 
