@@ -16,7 +16,7 @@ ISO2 = False
 ISO3 = False
 EHT = False
 CN = False
-BUILD = True
+BUILD = False
 
 #element_ids = np.array([C,C,C])
 #positions = np.array([[1,0,0],[0,1,0],[0,0,1]])

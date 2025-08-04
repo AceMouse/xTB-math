@@ -92,6 +92,54 @@
         '');
       };
 
+      "check-electro" = let
+        python = (pkgs.python3.withPackages (python-pkgs: with python-pkgs; [
+          numpy
+          scipy
+          cvxopt
+        ]));
+        electro_test_data = let
+          xtb = (self.packages."x86_64-linux".xtb.overrideAttrs (finalAttrs: previousAttrs: {
+            patches = [
+              ./nix/patches/xtb/log_utils.patch
+              ./nix/patches/xtb/electro_correctness_check.patch
+            ];
+          }));
+        in builtins.derivation {
+          name = "electro-test-data";
+          system = "x86_64-linux";
+          builder = "${pkgs.bash}/bin/bash";
+          src = ./xtb-python/data/C100-IPR;
+          args = ["-c" ''
+            PATH=$PATH:${pkgs.coreutils}/bin
+
+            for f in $src/*.xyz; do
+              base="$(basename "''${f%.*}")"
+              mkdir -p $base/calls/electro
+
+              pushd $base
+              ${xtb}/bin/xtb $f
+              popd
+            done
+            mkdir -p $out
+            mv * $out
+          ''];
+        };
+      in {
+        type = "app";
+        program = toString (pkgs.writeShellScript "cmp-impls" ''
+          c=0
+          for dir in ${electro_test_data}/*/; do
+            [ -d "$dir" ] || continue
+
+            PYTHONPATH=${pkgs.lib.cleanSource ./xtb-python} exec ${python}/bin/python \
+              ${./xtb-python/cmp_impls.py} "$dir"
+            c=$((c + 1))
+          done
+          echo "$c"
+        '');
+      };
+
       "bench-electro" = {
         type = "app";
         program = toString (pkgs.writeShellScript "bench-electro" ''

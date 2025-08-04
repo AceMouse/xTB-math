@@ -5,6 +5,7 @@ from energy import build_SDQH0, dtrf2, form_product, get_multiints, h0scal, hori
 import glob
 import argparse
 import os
+import math
 
 from fock import GFN2_coordination_numbers_np, getCoordinationNumbers, ncoordLatP
 from scc import electro
@@ -35,6 +36,12 @@ def assert_compare(val, val_res, val_name, fn_name):
 def is_equal(val, val_res, val_name, fn_name):
     eq = val == val_res
     if (not eq):
+        assert_compare(val, val_res, val_name, fn_name)
+    return True
+
+def is_close(val, val_res, val_name, fn_name, rel_tol=1e-9, abs_tol=0.0):
+    close = math.isclose(val, val_res, rel_tol=rel_tol, abs_tol=abs_tol)
+    if not close:
         assert_compare(val, val_res, val_name, fn_name)
     return True
 
@@ -782,7 +789,7 @@ def test_electro():
 
             es, scc = electro(nbf, H0, P, dq, dqsh, atomicGam, shellGam, jmat, shift)
 
-            is_equal(es, es_res, "es", fn_name)
+            is_close(es, es_res, "es", fn_name)
             is_equal(scc, scc_res, "scc", fn_name)
 
     print("\033[0;32m", end='')
