@@ -2,6 +2,21 @@
 
 \section{Porting the Reference Implementation}
 
+With all the equations from the xTB paper now in place, the next step is to implement them in code. Writing another Python re-implementation might seem rendundant, but the purpose of doing so is to start with a sequential version that is hopefully easier to reason about, and which is structured in a way that can more easily be translated to parallel GPU code.
+
+We started implementing the equations from the paper directly, but found that it gave results different from the Fortran implementation. It is not that the Fortran code does it differently from what is described in the paper, but rather that details that might appear obvious to a chemist is not explicitly described in the paper. For example, it is not specified in the equation for repulsion energy \eqref{eq:repulsion1}, that A and B cannot be the same atom index. The reason for this is that $R_{AB}$ is the distance between the two atoms, so if A and B is the same, then the distance is $0$, which will result in division by zero.
+
+\begin{align}
+  \E{rep} &= \frac{1}{2}\sum_{A,B}\frac{Z^{eff}_A Z^{eff}_B}{R_{AB}}e^{-\sqrt{a_Aa_B}(R_{AB})^{(k_f)}} \label{eq:repulsion1}
+\end{align}
+
+Another thing is that they do not explain clearly that the covalent radii of the atoms are different for equation 18 and 19 in the paper. For equation 19, the covalent radii is apparently computed from the dispersion model.
+
+
+They do not mention they use Broyden, but just say scc. They also do not mention unit convertions, angstrom.
+They don't mention that repulsion should not be computed when the atom index is the same, because the distance from an atom to itself is 0, so we end up dividing by zero. There is no repulsion happening between an atom an itself.
+
+
 \section{Testing}
 
 The xTB algorithm computes a lot of different energies, corrections, and other additions to the energy terms. There is a lot of overlap between the different variants of xTB, so even focusing on just one of them still requires a great amount of code.
@@ -77,7 +92,7 @@ The new Nix command-line interface needed to interact with flakes is naturally a
   }
 \end{minted}
 \caption{This is a snippet of our Nix flake which shows the app declaration for running our test suite. The app depends on the derivation that generates the test data.}
-\label{fig:nix_flake}
+\label{fig:nix-flake}
 \end{figure}
 
 Python is declared with the required packages and is then used in the app to call the \verb|cmp_impls.py| script. The script is called with the test data acquired from running the Fortran xTB program. This data comes from another derivation which executes patched versions of xTB and DFT-D4 on a C200 fullerene to get the relevant function arguments and results as binary files.
@@ -125,7 +140,7 @@ This derivation in turn uses derivations for xTB and DFT-D4. Luckily DFT-D4 is a
   }));
 \end{minted}
 \caption{This is the Nix expression for overriding the dftd4 package derivation. We essentially update dftd4 to a newer revision and add patches to logs arguments and results to a binary file, and another patch to use GFN2.}
-\label{fig:dftf4_drv}
+\label{fig:dftf4-drv}
 \end{figure}
 
 The version is bumped by overriding the source, and the multicharge project is added from NixPkgs and also bumped as a requirement of this newer version. Some of the tests were timing out, so they have been disabled by setting \verb|doCheck| to false. Lastly the patches are applied by providing the relevant patch files.
