@@ -265,8 +265,10 @@ if EHT:
 # intcut = max(20.0, 25.0-10.0*log10(acc)) where acc is the accuracy, a number between 1e-4 and 1e+3 (higher than 3.16 results in intcut = 20.0 though). acc is set with -a (--acc) and defaults to 1.0 resulting in intcut=25.0
 # 
 # What are the rest of the args?
+def build_SDQ_simple(element_ids, positions, intcut): 
+    pass
 def build_SDQH0(nat, at, nbf, nao, xyz, trans, selfEnergy, \
-       intcut, caoshell, saoshell, nprim, primcount, alp, cont): # TODO: We need to find these arg values
+       intcut, caoshell, saoshell, nprim, primcount, alp, cont): 
     H0 = np.zeros(nao*(nao+1)//2)
     H0_noovlp = np.zeros(nao*(nao+1)//2)
 
@@ -631,6 +633,18 @@ def multipole_3d(ri, rj, rc, rp, li, lj, s1d, s3d):
     s3d[8] = val[1,0] * val[0,1] * val[1,2]
     s3d[9] = val[0,0] * val[1,1] * val[1,2]
 
+def horizontal_shift_simple(distance, l, cfs):
+    pyramidal_numbers = [
+     [     1     ],
+     [    1,1    ],
+     [   1,2,1   ],
+     [  1,3,3,1  ],
+     [ 1,4,6,4,1 ]
+    ][l]
+
+    for i,pyr in enumerate(pyramidal_numbers[:-1]):
+        cfs[i] += pyr*distance**(l-i)*cfs[l]
+
 def horizontal_shift(ae, l, cfs):
     match l:
         #case 0: # s
@@ -649,6 +663,14 @@ def horizontal_shift(ae, l, cfs):
             cfs[1] = cfs[1] + 4 * ae * ae * ae * cfs[4]
             cfs[2] = cfs[2] + 6 * ae * ae * cfs[4]
             cfs[3] = cfs[3] + 4 * ae * cfs[4]
+
+def form_product_simple(a, b, la, lb, d):
+    max_l = max(la,lb)
+    min_l = min(la,lb)
+    for i in range(min_l+1):
+        d[i+i] += a[i]*b[i]
+        for j in range(i+1,max_l+1):
+            d[i+j] += a[i] * b[j] + a[j] * b[i]
 
 def form_product(a, b, la, lb, d):
     if (la > 4 or lb > 4):

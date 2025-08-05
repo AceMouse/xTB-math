@@ -816,9 +816,21 @@ def generateValenceShellData(nShell, angShell):
             if (valShell[lAng]):
                 valShell[lAng] = False
                 valenceShell[iZp, iSh] = 1
+
     return valenceShell
 
+def generateValenceShellData_simple(nShell, angShell):
+    mShell = np.max(nShell)
+    valenceShell = np.zeros((maxElem, mShell), dtype=int)
+    for atom in range(maxElem):
+        is_first_subshell_with_angular_momentum = [1,1,1,1]
+        for subshell in range(nShell[atom]):
+            angular_momentum = angShell[atom, subshell]
+            valenceShell[atom, subshell] = is_first_subshell_with_angular_momentum[angular_momentum]
+            is_first_subshell_with_angular_momentum[angular_momentum] = 0
+    return valenceShell
 valenceShell = generateValenceShellData(nShell, angShell)
+#print("valShell\n", valenceShell)
 
 #subroutine setGFN2NumberOfPrimitives(self, nShell)
 #

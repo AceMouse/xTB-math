@@ -1,7 +1,7 @@
 import numpy as np
 from basisset import atovlp, dim_basis, new_basis_set
 #from dftd4 import new_d4_model
-from energy import build_SDQH0, dtrf2, form_product, get_multiints, h0scal, horizontal_shift, multipole_3d, olapp
+from energy import build_SDQH0, dtrf2, form_product_simple, get_multiints, h0scal, horizontal_shift_simple, multipole_3d, olapp
 import glob
 import argparse
 import os
@@ -251,7 +251,7 @@ def test_form_product():
             d1_res = read_ints(1)[0]
             d_res = np.fromfile(f, dtype=np.float64, count=d1_res)
 
-            form_product(a, b, la, lb, d)
+            form_product_simple(a, b, la, lb, d)
 
             d_equal = np.array_equal(d, d_res)
             if (not d_equal):
@@ -287,7 +287,7 @@ def test_horizontal_shift():
             cfs_res1 = read_ints(1)[0]
             cfs_res = np.fromfile(f, dtype=np.float64, count=cfs_res1)
 
-            horizontal_shift(ae, l, cfs)
+            horizontal_shift_simple(ae, l, cfs)
 
             cfs_equal = np.array_equal(cfs, cfs_res)
             if (not cfs_equal):
@@ -412,7 +412,7 @@ def test_h0scal():
 
             km_res = read_reals(1)[0]
 
-            km = h0scal(il, jl, izp-1, jzp-1, valaoi, valaoj)
+            km = h0scal(il-1, jl-1, izp-1, jzp-1, valaoi, valaoj)
 
             km_equal = np.array_equal(km, km_res)
             if (not km_equal):
