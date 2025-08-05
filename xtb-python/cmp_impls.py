@@ -484,7 +484,7 @@ def test_build_SDQH0(compare_args_i = -1):
 
             ### Print argument comparison ###
             if (compare_args_i == i):
-                from energy import trans as ptrans, getSelfEnergy, GFN2_coordination_numbers_np, intcut as pintcut
+                from energy import trans as ptrans, getSelfEnergy, intcut as pintcut
                 from basisset import dim_basis_np, new_basis_set_simple
                 element_ids = at-1
                 element_cnt = element_ids.shape[0]

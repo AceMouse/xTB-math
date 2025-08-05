@@ -1,20 +1,20 @@
 
 \section{High Performance Parallel Computing}
 
-The xTB program uses a specified version of the GFN-xTB algorithm to compute various energies for a molecule. By default the program is set to use GFN2-xTB, which is also the version this project focuses on.
+The xTB program uses a specified method of the GFN-xTB algorithm to compute various energies for a molecule. By default the program is set to use GFN2-xTB, which is also the method this project focuses on.
 
-For a molecule on the smaller scale such as a caffeine molecule which has 24 atoms, the time it takes to run xTB is fairly instantanious. Even a fullerene with 200 carbon atoms takes just about 2 seconds to compute on average on a 12th gen intel mobile processor. The computional time for even small molecules begins to be noticable, when the problem size grows to thousands or millions of molecules.
+For a molecule on the smaller scale such as a caffeine molecule which has 24 atoms, the Fortran xTB program takes around $100$ms on a 12th gen intel mobile processor, while a fullerene with 200 carbon atoms takes about 23 seconds to compute. The computional time for even small molecules begins to be noticable, when the problem size grows to thousands or millions of molecules.
 
-This project aims to compute the energies of fullerenes in the isomerspaces \(C_{20}, \cdots, C_{200} \), and for this purpose the computational time needed for individual molecules is of less importance. What is truly interesting for this problem domain is speeding up largely concurrent xTB computations by running them in parallel on general purpose graphic processing units (GPGPUs).
+This project aims to compute the energies of fullerenes in the isomerspaces \(C_{20}, \cdots, C_{200} \). For isomerspaces of this scale, rather than improving the performance for individual molecules, what is truly interesting for this problem domain is speeding up largely concurrent xTB computations by running them in parallel on general purpose graphic processing units (GPGPUs).
 
 The highest level of parallelization here is to compute all the energy terms of a molecule in the same kernel. There are no data dependencies between the computations of multiple molecules, and this makes it a perfect case for massive parallelization by distributing these isolated workloads across the thousands of threads supported on modern GPGPUs.
-Within the area of computing, the idea of running the same operations in parallel is known as a lockstep system. With a focus on fullerenes, which consists exclusively of carbon atoms, this type of lockstep parallelization is exactly what we want to create a fast and constant flow of data for the broader pipeline that this project is part of.
+Within the area of computing, the idea of running the same operations in parallel is known as a lockstep system. With a focus on fullerenes, which consists exclusively of carbon atoms, this type of lockstep parallelization is exactly what we want to create, namely a fast and constant flow of data for the broader pipeline that this project is part of.
 
 Since the executions of the xTB algorithm on each fullerene are completely isolated workloads, this means that the level of parallelization for a given isomer group, such as C20, scales with the amount of isomers in that group. This means that a much larger isomer group like C200 will also have a much greater level of parallelization.
 
 The streaming multiprocessors (SMs) on a GPU are slower and simpler than the cores on a CPU. They have no branch prediction or other smart optimization techniques, but instead an SM has more threads it can execute in parallel in comparison to a CPU core which can only execute threads concurrently. The difference is that SMs can truly run its threads simultaniously, while CPU cores rely on context switching to make it seem like proccesses are running simultaniously. With SMs, working only on a few fullerenes will have a massive overhead from spinning up a kernel and copying data from the host(CPU) to the device(GPU), but the problem size for this project makes SMs a great fit.
 
-The current Fortran implementation of the xTB program only takes a single molecule at a time, but when doing lockstep parallization it would be interesting to have an implementation that takes multiple molecules. This would avoid the overhead of starting multiple processes, and the program will have the data for all molecules, which gives opportunity for data coalescing by aligning the data as a structure of arrays (SOA) instead of and array of structures (AOS). It can also make copying data from the host to device more efficient since the data for multiple molecules can be moved together by the same instruction. To allow for coalesced access to the data on the device, we can essentially realign the data so that parts of the molecules that are accessed together, are also close together in memory.%Doing this should also decrease the amount of copies needed between host and device memory, resulting in overall faster execution.
+The current Fortran implementation of the xTB program only takes a single molecule at a time, but when doing lockstep parallization it would be interesting to have an implementation that takes multiple molecules. This would avoid the overhead of starting multiple processes, and the program will have the data for all molecules, which gives opportunity for data coalescing by aligning the data as a structure of arrays (SOA) instead of an array of structures (AOS). It can also make copying data from the host to device more efficient since the data for multiple molecules can be moved together by the same instruction. To allow for coalesced access to the data on the device, we can essentially realign the data so that parts of the molecules that are accessed together, are also close together in memory.%Doing this should also decrease the amount of copies needed between host and device memory, resulting in overall faster execution.
 
 \begin{figure}[h]
 \centering
@@ -48,28 +48,29 @@ squarednode/.style={
 
 
 
-\node[squarednode, anchor=west] (A1-4) [below=of A1-2] {$A_1$};
-\node[squarednode, anchor=west] (A2-4) at (A1-4.east)   {$A_2$};
-\node[squarednode, anchor=west] (A3-4) at (A2-4.east)   {$A_3$};
-\node[squarednode, anchor=west] (A4-4) at (A3-4.east)   {$A_4$};
+\node[squarednode, anchor=west] (A1-4) [below=of A1] {$A_1$};
+\node[squarednode, anchor=west, fill=cyan, text=black] (A1-5) at (A1-4.east)   {$A_1$};
+\node[squarednode, anchor=west, fill=yellow, text=black] (A1-6) at (A1-5.east)   {$A_1$};
 
-\node[squarednode, anchor=west, fill=cyan, text=black] (A1-5) [below=0pt of A1-4] {$A_1$};
-\node[squarednode, anchor=west, fill=cyan, text=black] (A2-5) at (A1-5.east)   {$A_2$};
-\node[squarednode, anchor=west, fill=cyan, text=black] (A3-5) at (A2-5.east)   {$A_3$};
-\node[squarednode, anchor=west, fill=cyan, text=black] (A4-5) at (A3-5.east)   {$A_4$};
+\node[squarednode, anchor=west] (A2-4) at (A1-6.east)   {$A_2$};
+\node[squarednode, anchor=west, fill=cyan, text=black] (A2-5) at (A2-4.east) {$A_2$};
+\node[squarednode, anchor=west, fill=yellow, text=black] (A2-6) at (A2-5.east)   {$A_2$};
 
-\node[squarednode, anchor=west, fill=yellow, text=black] (A1-6) [below=0pt of A1-5] {$A_1$};
-\node[squarednode, anchor=west, fill=yellow, text=black] (A2-6) at (A1-6.east)   {$A_2$};
-\node[squarednode, anchor=west, fill=yellow, text=black] (A3-6) at (A2-6.east)   {$A_3$};
-\node[squarednode, anchor=west, fill=yellow, text=black] (A4-6) at (A3-6.east)   {$A_4$};
+\node[squarednode, anchor=west] (A3-4) at (A2-6.east)   {$A_3$};
+\node[squarednode, anchor=west, fill=cyan, text=black] (A3-5) at (A3-4.east)   {$A_3$};
+\node[squarednode, anchor=west, fill=yellow, text=black] (A3-6) at (A3-5.east) {$A_3$};
 
-\draw[->, thick] ($(A2-2.south) + (0.25,-0.25)$) -- ($(A2-4.north) + (0.25,0.25)$);
+\node[squarednode, anchor=west] (A4-4) at (A3-6.east)   {$A_4$};
+\node[squarednode, anchor=west, fill=cyan, text=black] (A4-5) at (A4-4.east)   {$A_4$};
+\node[squarednode, anchor=west, fill=yellow, text=black] (A4-6) at (A4-5.east)   {$A_4$};
 
-\node[draw=red, very thick, fit=(A1-4)(A1-5)(A1-6), inner sep=1pt] {};
+\draw[->, thick] ($(A2-2.south) + (0.25,-0.25)$) -- ($(A2-6.north) + (0.25,0.25)$);
 
-\node[draw=red, very thick, fit=(A1)(A2)(A3)(A4), inner sep=1pt] {};
+\node[draw=red, very thick, fit=(A1-4)(A1-5)(A1-6), inner sep=2pt] {};
+\node[draw=red, very thick, fit=(A1)(A2)(A3), inner sep=2pt] {};
+
 \end{tikzpicture}
-\caption{This figure transforms an array of structures where the memory for each structure is laid out contiguously, into a structure of arrays where data relevant for a computation is close together. This way of grouping related data close together is known as spatial locality and allows for coalesced access of the data.}
+\caption{Transforms arrays of structures where the memory for each structure is laid out contiguously, into a structure of arrays where data relevant for a computation is close together. This way of grouping related data close together is known as spatial locality and allows for coalesced access of the data.}
 \label{fig:coalescing}
 \end{figure}
 
@@ -180,7 +181,7 @@ Distributing the global memory across the blocks gives each of them $26.042$ MB.
 
 Computing xTB-GFN2 for a molecule is completely isolated, so if we do the whole xTB computation in lockstep, then we only have to concern ourselves with how many warps and blocks a single molecule needs in order to keep all its data in device memory. When we know these details, then we can simply scale up the number of molecules to be computed in lockstep until all the resources on the GPU are saturated. With this approach, expanding to multiple GPUs should be rather trivial as there are no interdependencies.
 
-The exact space needed to compute the GFN2 version of xTB for a single fullerene is not yet clear to us, and it will also vary based on the size of the fullerene. To make finding the most optimal GPU configuration easier when optimizing for most possible parallel xTB computations, we have developed a script that computes such a configuration based on the space requirement of a single molecule.
+The exact space needed to compute the GFN2 method of xTB for a single fullerene is not yet clear to us, and it will also vary based on the size of the fullerene. To make finding the most optimal GPU configuration easier when optimizing for most possible parallel xTB computations, we have developed a script that computes such a configuration based on the space requirement of a single molecule.
 
 \begin{figure}[h!]
 \begin{minted}{python}
