@@ -49,34 +49,34 @@
         ''];
       };
 
-      electro_data = let
-        xtb = (self.packages."x86_64-linux".xtb.overrideAttrs (finalAttrs: previousAttrs: {
-          patches = [
-            ./nix/patches/xtb/log_utils.patch
-            ./nix/patches/xtb/log_electro.patch
-          ];
-        }));
-      in builtins.derivation {
-        name = "xtb-electro-data";
-        system = "x86_64-linux";
-        builder = "${pkgs.bash}/bin/bash";
-        src = ./bin2xyz;
-        args = ["-c" ''
-          PATH=$PATH:${pkgs.coreutils}/bin:${pkgs.clang}/bin
-          cp $src/* .
-          clang++ -o bin2xyz bin2xyz.cpp -O3
-          ./bin2xyz ./C200_10000_fullerenes.float64 10000
+      #electro_data = let
+      #  xtb = (self.packages."x86_64-linux".xtb.overrideAttrs (finalAttrs: previousAttrs: {
+      #    patches = [
+      #      ./nix/patches/xtb/log_utils.patch
+      #      ./nix/patches/xtb/log_electro.patch
+      #    ];
+      #  }));
+      #in builtins.derivation {
+      #  name = "xtb-electro-data";
+      #  system = "x86_64-linux";
+      #  builder = "${pkgs.bash}/bin/bash";
+      #  src = ./bin2xyz;
+      #  args = ["-c" ''
+      #    PATH=$PATH:${pkgs.coreutils}/bin:${pkgs.clang}/bin
+      #    cp $src/* .
+      #    clang++ -o bin2xyz bin2xyz.cpp -O3
+      #    ./bin2xyz ./C200_10000_fullerenes.float64 10000
 
-          count=0
-          for file in ./output/*; do
-            count=$((count + 1))
-            ${xtb}/bin/xtb "$file" > /dev/null
-            echo "[$count/10000] Processing: $file"
-          done
+      #    count=0
+      #    for file in ./output/*; do
+      #      count=$((count + 1))
+      #      ${xtb}/bin/xtb "$file" > /dev/null
+      #      echo "[$count/10000] Processing: $file"
+      #    done
 
-          mv calls $out
-        ''];
-      };
+      #    mv calls $out
+      #  ''];
+      #};
     in {
       "cmp-impls" = let
         python = (pkgs.python3.withPackages (python-pkgs: with python-pkgs; [
@@ -127,25 +127,22 @@
         };
       in {
         type = "app";
-        program = toString (pkgs.writeShellScript "cmp-impls" ''
-          c=0
+        program = toString (pkgs.writeShellScript "check-electro" ''
           for dir in ${electro_test_data}/*/; do
             [ -d "$dir" ] || continue
 
-            PYTHONPATH=${pkgs.lib.cleanSource ./xtb-python} exec ${python}/bin/python \
-              ${./xtb-python/cmp_impls.py} "$dir"
-            c=$((c + 1))
+            PYTHONPATH=${pkgs.lib.cleanSource ./xtb-python} ${python}/bin/python \
+              ${./xtb-python/check_electro.py} "$dir" >> electro-validation.data
           done
-          echo "$c"
         '');
       };
 
-      "bench-electro" = {
-        type = "app";
-        program = toString (pkgs.writeShellScript "bench-electro" ''
-          echo ${electro_data}
-        '');
-      };
+      #"bench-electro" = {
+      #  type = "app";
+      #  program = toString (pkgs.writeShellScript "bench-electro" ''
+      #    echo ${electro_data}
+      #  '');
+      #};
     };
 
     packages."x86_64-linux" = let
@@ -166,6 +163,7 @@
           numpy
           scipy
           cvxopt
+          matplotlib
         ]))
       ];
     };
