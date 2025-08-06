@@ -1,5 +1,5 @@
 from math import sqrt, exp, pi
-from gfn2 import kExpLight, kExpHeavy, repAlpha, repZeff, nShell, chemicalHardness, shellHardness, thirdOrderAtom, selfEnergy, kCN, shellPoly, slaterExponent, atomicRadii, paulingEN, kEN, angShell, llao, llao2, itt, wExp, kdiff, kScale, pairParam, enScale, enScale4, electronegativity, maxElem, trafo, valenceShell, referenceOcc
+from gfn2 import kExpLight, kExpHeavy, repAlpha, repZeff, nShell, chemicalHardness, shellHardness, thirdOrderAtom, selfEnergy, kCN, shellPoly, slaterExponent, atomicRadii, paulingEN, kEN, angShell, llao, llao2, itt, wExp, kdiff, kScale, pairParam, enScale, enScale4, electronegativity, maxElem, trafo, valenceShell, referenceOcc,principalQuantumNumber
 import numpy as np
 import scipy
 import time
@@ -254,6 +254,156 @@ if EHT:
     t3 = time.time()
     print_res2(x1,x2,t1,t2,t3,"extended huckel energy")
 
+# index with [l][m][dim] with m in [0,l*2+1], dim in x=0, y=1, z=2
+dimensional_components_of_angular_momentum = [
+    [
+        [0,0,0]
+    ],
+    [
+        [1,0,0],
+        [0,1,0],
+        [0,0,1]
+    ],
+    [
+        [2,0,0],
+        [0,2,0],
+        [0,0,2],
+        [1,1,0],
+        [1,0,1],
+        [0,1,1]
+    ],
+    [
+        [3,0,0],
+        [0,3,0],
+        [0,0,3],
+        [2,1,0],
+        [2,0,1],
+        [1,2,0],
+        [0,2,1],
+        [1,0,2],
+        [0,1,2],
+        [1,1,1]],
+    [
+        [4,0,0],
+        [0,4,0],
+        [0,0,4],
+        [3,1,0],
+        [3,0,1],
+        [1,3,0],
+        [0,3,1],
+        [1,0,3],
+        [0,1,3],
+        [2,2,0],
+        [2,0,2],
+        [0,2,2],
+        [2,1,1],
+        [1,2,1],
+        [1,1,2]
+    ],
+    [
+        [5,0,0],
+        [0,5,0],
+        [0,0,5],
+        [3,2,0],
+        [3,0,2],
+        [2,3,0],
+        [2,0,3],
+        [0,3,2],
+        [0,2,3],
+        [4,1,0],
+        [4,0,1],
+        [1,4,0],
+        [0,4,1],
+        [0,1,4],
+        [1,0,4],
+        [1,1,3],
+        [3,1,1],
+        [1,3,1],
+        [2,2,1],
+        [2,1,2],
+        [1,2,2],
+    ],
+    [
+        [6,0,0],
+        [0,6,0],
+        [0,0,6],
+        [3,3,0],
+        [3,0,3],
+        [0,3,3],
+        [5,1,0],
+        [5,0,1],
+        [1,0,5],
+        [0,1,5],
+        [0,5,1],
+        [1,5,0],
+        [4,2,0],
+        [4,0,2],
+        [2,0,4],
+        [0,2,4],
+        [2,4,0],
+        [0,4,2],
+        [3,2,1],
+        [3,1,2],
+        [1,3,2],
+        [2,1,3],
+        [2,3,1],
+        [1,2,3],
+        [4,1,1],
+        [1,4,1],
+        [1,1,4],
+        [2,2,2],
+    ]
+]
+def build_S_simple(element_ids, positions, intcut, nprim, alp, cont): 
+    number_of_orbitals = 0
+    for atom in element_ids:
+        for shell in range(nShell[atom]):
+            l = angShell[atom,shell]
+            number_of_orbitals += l*2+1
+
+    S = np.zeros((number_of_orbitals,number_of_orbitals))
+    orbital_idx_A = 0
+    orbital_idx_B = 0
+    for atom_A,position_A in zip(element_ids,positions):
+        for shell_A in range(nShell[atom_A]):
+            l_A = angShell[atom_A,shell_A]
+            n_A = principalQuantumNumber[atom_A,shell_A]
+            for orbital_A,m_A in enumerate(range(-l_A,l_A+1)):
+                number_of_gaussians_A = n_A
+                for gausian_A in enumerate(number_of_gaussians_A):
+                    for atom_B,position_B in zip(element_ids,positions):
+                        euclidean_distance_AB_squared = (position_A[0]-position_B[0])**2+(position_A[1]-position_B[1])**2+(position_A[2]-position_B[2])**2
+                        if euclidean_distance_AB_squared > 2000:
+                            continue
+                        for shell_B in range(nShell[atom_B]):
+                            l_B = angShell[atom_B,shell_B]
+                            n_B = principalQuantumNumber[atom_B,shell_B]
+                            for orbital_B,m_B in enumerate(range(-l_B,l_B+1)):
+                                number_of_gaussians_B = n_B
+                                sum_over_gaussians = 0
+                                for gausian_B in enumerate(number_of_gaussians_B):
+                                    product_over_dims = 1
+                                    point = ...
+
+                                    for dim_a,_ in enumerate("xyz"):
+                                        l_A_dim = dimensional_components_of_angular_momentum[l_A][orbital_A][dim_a]
+                                        l_B_dim = dimensional_components_of_angular_momentum[l_B][orbital_B][dim_a]
+                                        v_A = np.zeros(l_A_dim+1)
+                                        v_B = np.zeros(l_B_dim+1)
+                                        v_A[l_A_dim] = 1.0
+                                        v_B[l_B_dim] = 1.0
+                                        difference_AP_dim = position_A[dim_a]-point[dim_a]
+                                        difference_BP_dim = position_B[dim_a]-point[dim_a]
+                                        horizontal_shift_simple(difference_AP_dim, l_A_dim, v_A)
+                                        horizontal_shift_simple(difference_BP_dim, l_B_dim, v_B)
+                                        prod = form_product_simple(v_A, v_B, l_A_dim, l_B_dim)
+                                        for summed_l, prod_l in enumerate(prod):
+                                            product_over_dims *=  s1d[summed_l]  * prod_l
+                                    sum_over_gaussians += product_over_dims*cc
+                                S[orbital_idx_A,orbital_idx_B] = sum_over_gaussians
+                                orbital_idx_B += 1
+                orbital_idx_A += 1
+
 
 # nShell[len(element_ids)]: Number of shells for each element
 # nat: Number of atoms
@@ -265,8 +415,6 @@ if EHT:
 # intcut = max(20.0, 25.0-10.0*log10(acc)) where acc is the accuracy, a number between 1e-4 and 1e+3 (higher than 3.16 results in intcut = 20.0 though). acc is set with -a (--acc) and defaults to 1.0 resulting in intcut=25.0
 # 
 # What are the rest of the args?
-def build_SDQ_simple(element_ids, positions, intcut): 
-    pass
 def build_SDQH0(nat, at, nbf, nao, xyz, trans, selfEnergy, \
        intcut, caoshell, saoshell, nprim, primcount, alp, cont): 
     H0 = np.zeros(nao*(nao+1)//2)
@@ -633,7 +781,62 @@ def multipole_3d(ri, rj, rc, rp, li, lj, s1d, s3d):
     s3d[8] = val[1,0] * val[0,1] * val[1,2]
     s3d[9] = val[0,0] * val[1,1] * val[1,2]
 
-def horizontal_shift_simple(distance, l, cfs):
+def multipole_3d_simple(R_A, R_B, R_point_minus_center, dimensional_components_of_angular_momentum_A, dimensional_components_of_angular_momentum_B, s1d):
+    s3d = np.zeros(10)
+    val = [
+        [0.0,0.0,0.0],
+        [0.0,0.0,0.0],
+        [0.0,0.0,0.0]
+    ]
+    difference_AP = R_point_minus_center-R_A 
+    difference_BP = R_point_minus_center-R_B 
+    for dim_a,_ in enumerate("xyz"):
+        l_A = dimensional_components_of_angular_momentum_A[dim_a]
+        l_B = dimensional_components_of_angular_momentum_B[dim_a]
+        v_A = np.zeros(l_A+1)
+        v_B = np.zeros(l_B+1)
+        v_A[l_A] = 1.0
+        v_B[l_B] = 1.0
+
+        horizontal_shift_simple(difference_AP[dim_a], l_A, v_A)
+        horizontal_shift_simple(difference_BP[dim_a], l_B, v_B)
+        integral = form_product_simple(v_A, v_B, l_A, l_B)
+        for summed_l, integral_l in enumerate(integral):
+            for dim_b,_ in enumerate("xyz"):
+                pyramidal_numbers = [
+                 [     1     ],
+                 [    1,1    ],
+                 [   1,2,1   ]
+                ][dim_b]
+                maximal_power = len(pyramidal_numbers)-1
+                for additional_l,pyr in enumerate(pyramidal_numbers):
+                    val[dim_b][dim_a] += pyr * (R_point_minus_center[dim_a]**(maximal_power-additional_l)) * s1d[summed_l+additional_l]  * integral_l
+
+    # S
+    s3d[0] = val[0][0] * val[0][1] * val[0][2] # xx * xy * xz 
+
+    # D^x
+    s3d[1] = val[1][0] * val[0][1] * val[0][2] # yx * xy * xz
+    # D^y
+    s3d[2] = val[0][0] * val[1][1] * val[0][2] # xx * yy * xz
+    # D^z
+    s3d[3] = val[0][0] * val[0][1] * val[1][2] # xx * xy * yz
+
+    # Q^00
+    s3d[4] = val[2][0] * val[0][1] * val[0][2] # zx * xy * xz
+    # Q^01 Q^10
+    s3d[5] = val[0][0] * val[2][1] * val[0][2] # xx * zy * xz
+    # Q^11
+    s3d[6] = val[0][0] * val[0][1] * val[2][2] # xx * xy * zz
+    # Q^02 Q^20
+    s3d[7] = val[1][0] * val[1][1] * val[0][2] # yx * yy * xz
+    # Q^12 Q^21
+    s3d[8] = val[1][0] * val[0][1] * val[1][2] # yx * xy * yz
+    # Q^22
+    s3d[9] = val[0][0] * val[1][1] * val[1][2] # xx * yy * yz
+    return s3d
+
+def horizontal_shift_simple(difference_in_dim, l, cfs):
     pyramidal_numbers = [
      [     1     ],
      [    1,1    ],
@@ -641,9 +844,9 @@ def horizontal_shift_simple(distance, l, cfs):
      [  1,3,3,1  ],
      [ 1,4,6,4,1 ]
     ][l]
-
     for i,pyr in enumerate(pyramidal_numbers[:-1]):
-        cfs[i] += pyr*distance**(l-i)*cfs[l]
+        cfs[i] += pyr*(difference_in_dim**(l-i))*cfs[l]
+
 
 def horizontal_shift(ae, l, cfs):
     match l:
@@ -664,16 +867,18 @@ def horizontal_shift(ae, l, cfs):
             cfs[2] = cfs[2] + 6 * ae * ae * cfs[4]
             cfs[3] = cfs[3] + 4 * ae * cfs[4]
 
-def form_product_simple(a, b, la, lb, d):
+def form_product_simple(a, b, la, lb):
     max_l = max(la,lb)
     min_l = min(la,lb)
+    d = [0]*(max_l+min_l+1)
     for i in range(min_l+1):
         d[i+i] += a[i]*b[i]
         for j in range(i+1,max_l+1):
             d[i+j] += a[i] * b[j] + a[j] * b[i]
+    return d
 
 def form_product(a, b, la, lb, d):
-    if (la > 4 or lb > 4):
+    if (la >= 4 or lb >= 4):
         # <s|g> = <s|*(|s>+|p>+|d>+|f>+|g>)
         #       = <s> + <p> + <d> + <f> + <g>
         d[0] = a[0] * b[0]
