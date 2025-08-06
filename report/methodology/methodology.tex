@@ -4,17 +4,39 @@
 
 With all the equations from the xTB paper now in place, the next step is to implement them in code. Writing another Python re-implementation might seem rendundant, but the purpose of doing so is to start with a sequential version that is hopefully easier to reason about, and which is structured in a way that can more easily be translated to parallel GPU code.
 
-We started implementing the equations from the paper directly, but found that it gave results different from the Fortran implementation. It is not that the Fortran code does it differently from what is described in the paper, but rather that details that might appear obvious to a chemist is not explicitly described in the paper. For example, it is not specified in the equation for repulsion energy \eqref{eq:repulsion1}, that A and B cannot be the same atom index. The reason for this is that $R_{AB}$ is the distance between the two atoms, so if A and B is the same, then the distance is $0$, which will result in division by zero.
+We started implementing the equations from the paper directly, but found that it gave results different from the Fortran implementation. It is not that the Fortran code does it differently from what is described in the paper, but rather that there are details that might appear obvious to a chemist, which is not explicitly described in the paper. In \cite{bannwarth2019} it is not specified in equation $9$ for repulsion energy \eqref{eq:repulsion1}, that A and B cannot be the same atom index. They cannot be the same because $R_{AB}$ is the distance between the two atoms, so if A and B is the same, then the distance is $0$, which will result in division by zero. This makes sense intuitively because an atom does not repulse itself, but this is not always immediatly apparent to someone outside the field.
 
 \begin{align}
   \E{rep} &= \frac{1}{2}\sum_{A,B}\frac{Z^{eff}_A Z^{eff}_B}{R_{AB}}e^{-\sqrt{a_Aa_B}(R_{AB})^{(k_f)}} \label{eq:repulsion1}
 \end{align}
 
-Another thing is that they do not explain clearly that the covalent radii of the atoms are different for equation 18 and 19 in the paper. For equation 19, the covalent radii is apparently computed from the dispersion model.
+%Another example is that they do not explain clearly that the covalent radii of the atoms are different for equation 18 and 19 in the paper. For equation 19, the covalent radii is apparently computed from the dispersion model.
 
 
-They do not mention they use Broyden, but just say scc. They also do not mention unit convertions, angstrom.
-They don't mention that repulsion should not be computed when the atom index is the same, because the distance from an atom to itself is 0, so we end up dividing by zero. There is no repulsion happening between an atom an itself.
+In \cite{grimme2017} they write that they use SCC, but they do not mention which method they use. It turns out that they use Broyden's method. The unit convertions between angström and bohr that are applied to the input geometry data, does also not seem to be mentioned anywhere.
+
+Suffice to say, at the time we were not aware of all these details, so for the sake of correctness it was safer to follow the code rather than the papers. This approach came with its own challenges as we had to become acquainted with Fortran as a programming language while deciphering the hopefully unconventional shenanigans that comes with all the quirks Fortran has.
+Here is an overview of challenges, inconsistencies, and confusing language quirks we have encountered while working with the xTB project.
+
+\begin{itemize}
+        \item The project is written in object-oriented Fortran, which makes the execution flow difficult to follow.
+        \item Arrays in Fortran start at 1 by default, but it is possible to specify that it should start at any other index. We have encountered a wide mix of start indices including 0, 1, 5, and 11.
+        \item Variable names in Fortran are case-insensitive, and we encountered a variable that was defined with uppercase but referenced with lowercase.
+        \item Fortran uses column-major indexing, so we have swapped the indices in Python.
+        \item The goto statement exists in Fortran, and has been used inconsistently for something that should have been a simple for loop.
+        \item Interfaces in Fortran are a way to overload a method, and it can be difficult to know which function it calls without digging into the subtle type differences of the arguments.
+        \item In Fortran 'pure elemental' functions are pure functions that can be given an array in place of any single value argument of the same type. The function will essentially unpack the array and call the function with each element.
+        \item Fortran uses parenthesis to index into an array. A subroutine is called by using the 'call' keyword, but pure functions does not. This makes it unclear whether we are calling a pure function or indexing into an array.
+\end{itemize}
+
+In addition to these confusing language specifics, there are also numerous structural oddities within the code. They love symmetric cantor pairing functions which are functions that map some multi-dimensional index into a flat 1-dimensional index. They use them to save memory on symmetric matrices where they only need one of the triangles. This works by having a cantor function where indices $(x,y)$ and $(y,x)$ maps to the same index. They use the variable name '\verb|lin|' for the cantor function, which says nothing about what it is. It would be much simpler to understand had they just used a 2-dimensional array.
+The non-descriptive variable name leads us to the next point, being that they are allergic to long variable names and therefore desperately tries to keep all names within three letters. This makes it impossible to know what the values actually are and makes the codebase almost unapproachable for new contributors.
+Another weird thing we have seen is the use of flag arrays to skip values that are never used in multi-dimensional arrays instead of just having the values we need in a a 1-dimensional array.
+
+Among all of this, even the command-line arguments for the program are poorly described. 
+
+Bad argument/flag names for xTB.
+
 
 
 \section{Testing}
