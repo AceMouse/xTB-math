@@ -356,13 +356,13 @@ def new_basis_set_simple(element_ids):
                 basis_hdiag    [ibf] = level
 
                 idum=ipr
-                for p in range(0,additional_prim):
+                for p in range(0,additional_prim): #for Double zeta
                     basis_alp[ipr] = aR[p]
                     basis_cont[ipr] = cR[p]
                     ipr+=1
 
                 for p in range(0,nprim):
-                    if l == 0 and ati >= 2:
+                    if l == 0 and ati >= 2: # for s orbitals in anything heavier than H, He
                         basis_alp[ipr]=aS[p]
                         basis_cont[ipr]=-ss*cS[p]
                     else:
@@ -370,7 +370,7 @@ def new_basis_set_simple(element_ids):
                         basis_cont[ipr]=-ss*c[p]*trafo[j]
                     ipr += 1
 
-                if normalize_basis_cont:
+                if normalize_basis_cont: # for Double zeta
                     ss = atovlp(0,basis_nprim[ibf],basis_nprim[ibf],basis_alp[idum],basis_alp[idum],basis_cont[idum],basis_cont[idum])
                     for p in range(0,basis_nprim[ibf]):
                         basis_cont[idum+p]/=np.sqrt(ss)
