@@ -1,7 +1,7 @@
 import numpy as np
 from basisset import atovlp, dim_basis, new_basis_set
 #from dftd4 import new_d4_model
-from energy import build_SDQH0, dtrf2, form_product_simple, get_multiints, h0scal, horizontal_shift_simple, multipole_3d, olapp
+from energy import build_SDQH0, dtrf2, form_product, get_multiints, h0scal, horizontal_shift, multipole_3d, olapp, form_product_simple, horizontal_shift_simple, multipole_3d_simple
 import glob
 import argparse
 import os
@@ -251,7 +251,7 @@ def test_form_product():
             d1_res = read_ints(1)[0]
             d_res = np.fromfile(f, dtype=np.float64, count=d1_res)
 
-            form_product_simple(a, b, la, lb, d)
+            form_product(a, b, la, lb, d)
 
             d_equal = np.array_equal(d, d_res)
             if (not d_equal):
@@ -268,8 +268,81 @@ def test_form_product():
     print("matches! [form_product]")
     print("\033[0;0m", end='')
 
+def test_form_product_simple():
+    for file_path in glob.glob(f'{directory}/form_product/*.bin'):  # Matches all .bin files in the directory
+        with open(file_path, 'rb') as f:
+            def read_ints(n=1):
+                return np.fromfile(f, dtype=np.int32, count=n)
+
+            la, lb = read_ints(2)
+
+            a1 = read_ints(1)[0]
+            a = np.fromfile(f, dtype=np.float64, count=a1)
+
+            b1 = read_ints(1)[0]
+            b = np.fromfile(f, dtype=np.float64, count=b1)
+
+            d1 = read_ints(1)[0]
+            d = np.fromfile(f, dtype=np.float64, count=d1)
+
+            d1_res = read_ints(1)[0]
+            d_res = np.fromfile(f, dtype=np.float64, count=d1_res)
+
+            d = form_product_simple(a, b, la, lb)
+            d_expanded = np.zeros(13)
+            for i,dd in enumerate(d):
+                d_expanded[i] = dd
+            d_equal = np.array_equal(d_expanded, d_res)
+            if (not d_equal):
+                print("Fortran:")
+                print("d: ", d_res)
+
+                print("Python:")
+                print("d: ", d_expanded)
+
+                print("\033[1;31m")
+                assert d_equal, "[form_product_simple] d matrices do not match"
+
+    print("\033[0;32m", end='')
+    print("matches! [form_product_simple]")
+    print("\033[0;0m", end='')
 
 def test_horizontal_shift():
+    for file_path in glob.glob(f'{directory}/horizontal_shift/*.bin'):  # Matches all .bin files in the directory
+        with open(file_path, 'rb') as f:
+            def read_ints(n=1):
+                return np.fromfile(f, dtype=np.int32, count=n)
+
+            def read_reals(n=1):
+                return np.fromfile(f, dtype=np.float64, count=n)  # match `real(wp)`
+
+            ae = read_reals(1)[0]
+            l = read_ints(1)[0]
+
+            cfs1 = read_ints(1)[0]
+            cfs = np.fromfile(f, dtype=np.float64, count=cfs1)
+
+            cfs_res1 = read_ints(1)[0]
+            cfs_res = np.fromfile(f, dtype=np.float64, count=cfs_res1)
+
+            horizontal_shift(ae, l, cfs)
+
+            cfs_equal = np.array_equal(cfs, cfs_res)
+            if (not cfs_equal):
+                print("Fortran:")
+                print("cfs: ", cfs_res)
+
+                print("Python:")
+                print("cfs: ", cfs)
+
+                print("\033[1;31m")
+                assert cfs_equal, "[horizontal_shift] cfs matrices do not match"
+
+    print("\033[0;32m", end='')
+    print("matches! [horizontal_shift]")
+    print("\033[0;0m", end='')
+
+def test_horizontal_shift_simple():
     for file_path in glob.glob(f'{directory}/horizontal_shift/*.bin'):  # Matches all .bin files in the directory
         with open(file_path, 'rb') as f:
             def read_ints(n=1):
@@ -298,10 +371,10 @@ def test_horizontal_shift():
                 print("cfs: ", cfs)
 
                 print("\033[1;31m")
-                assert cfs_equal, "[horizontal_shift] cfs matrices do not match"
+                assert cfs_equal, "[horizontal_shift_simple] cfs matrices do not match"
 
     print("\033[0;32m", end='')
-    print("matches! [horizontal_shift]")
+    print("matches! [horizontal_shift_simple]")
     print("\033[0;0m", end='')
 
 
@@ -357,6 +430,56 @@ def test_multipole_3d():
     print("\033[0;0m", end='')
 
 
+def test_multipole_3d_simple():
+    for file_path in glob.glob(f'{directory}/multipole_3d/*.bin'):
+        with open(file_path, 'rb') as f:
+            def read_ints(n=1):
+                return np.fromfile(f, dtype=np.int32, count=n)
+
+            ri1 = read_ints(1)[0]
+            ri = np.fromfile(f, dtype=np.float64, count=ri1)
+
+            rj1 = read_ints(1)[0]
+            rj = np.fromfile(f, dtype=np.float64, count=rj1)
+
+            rc1 = read_ints(1)[0]
+            rc = np.fromfile(f, dtype=np.float64, count=rc1)
+
+            rp1 = read_ints(1)[0]
+            rp = np.fromfile(f, dtype=np.float64, count=rp1)
+
+            li1 = read_ints(1)[0]
+            li = np.fromfile(f, dtype=np.int32, count=li1)
+
+            lj1 = read_ints(1)[0]
+            lj = np.fromfile(f, dtype=np.int32, count=lj1)
+
+            s1d1 = read_ints(1)[0]
+            s1d = np.fromfile(f, dtype=np.float64, count=s1d1)
+
+            s3d1 = read_ints(1)[0]
+            s3d = np.fromfile(f, dtype=np.float64, count=s3d1)
+
+            s3d_res1 = read_ints(1)[0]
+            s3d_res = np.fromfile(f, dtype=np.float64, count=s3d_res1)
+
+
+            s3d = multipole_3d_simple(ri, rj, rp-rc, li, lj, s1d)
+
+            s3d_equal = np.array_equal(s3d, s3d_res)
+            if (not s3d_equal):
+                print("Fortran:")
+                print("s3d: ", s3d_res)
+
+                print("Python:")
+                print("s3d: ", s3d)
+
+                print("\033[1;31m")
+                assert s3d_equal, "[multipole_3d_simple] s3d matrices do not match"
+
+    print("\033[0;32m", end='')
+    print("matches! [multipole_3d_simple]")
+    print("\033[0;0m", end='')
 
 def test_olapp():
     for file_path in glob.glob(f'{directory}/olapp/*.bin'):
@@ -799,8 +922,11 @@ def test_electro():
 
 test_olapp()
 test_multipole_3d()
+test_multipole_3d_simple()
 test_horizontal_shift()
 test_form_product()
+test_horizontal_shift_simple()
+test_form_product_simple()
 test_dtrf2()
 test_get_multiints()
 test_build_SDQH0(compare_args_i=1)
