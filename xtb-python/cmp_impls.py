@@ -1,7 +1,7 @@
 import numpy as np
 from basisset import atovlp, dim_basis, new_basis_set
 #from dftd4 import new_d4_model
-from energy import build_SDQH0, dtrf2, form_product, get_multiints, h0scal, horizontal_shift, multipole_3d, olapp, form_product_simple, horizontal_shift_simple, multipole_3d_simple
+from energy import build_SDQH0, dtrf2, form_product, get_multiints, h0scal, horizontal_shift, multipole_3d, olapp, form_product_simple, horizontal_shift_simple, multipole_3d_simple,build_overlap_dipol_quadrupol
 import glob
 import argparse
 import os
@@ -554,6 +554,61 @@ def test_h0scal():
 
 
         
+def test_build_overlap_dipol_quadrupol():
+    for i, file_path in enumerate(glob.glob(f'{directory}/build_SDQH0/*.bin')):
+        with open(file_path, 'rb') as f:
+            def read_ints(n=1):
+                return np.fromfile(f, dtype=np.int32, count=n)
+
+            def read_reals(n=1):
+                return np.fromfile(f, dtype=np.float64, count=n)
+
+            nat = read_ints(1)[0]
+            at1 = read_ints(1)[0]
+            at = np.fromfile(f, dtype=np.int32, count=at1)
+            nbf = read_ints(1)[0]
+            nao = read_ints(1)[0]
+            xyz1, xyz2 = read_ints(2)
+            xyz = np.fromfile(f, dtype=np.float64, count=xyz1 * xyz2).reshape((xyz2, xyz1))
+            trans1, trans2 = read_ints(2)
+            trans = np.fromfile(f, dtype=np.float64, count=trans1 * trans2).reshape((trans2, trans1))
+            selfEnergy1, selfEnergy2 = read_ints(2)
+            selfEnergy = np.fromfile(f, dtype=np.float64, count=selfEnergy1 * selfEnergy2).reshape((selfEnergy2, selfEnergy1))
+            intcut = read_reals(1)[0]
+            caoshell1, caoshell2 = read_ints(2)
+            caoshell = np.fromfile(f, dtype=np.int32, count=caoshell1 * caoshell2).reshape((caoshell2, caoshell1))
+            saoshell1, saoshell2 = read_ints(2)
+            saoshell = np.fromfile(f, dtype=np.int32, count=saoshell1 * saoshell2).reshape((saoshell2, saoshell1))
+            nprim1 = read_ints(1)[0]
+            nprim = np.fromfile(f, dtype=np.int32, count=nprim1)
+            primcount1 = read_ints(1)[0]
+            primcount = np.fromfile(f, dtype=np.int32, count=primcount1)
+            alp1 = read_ints(1)[0]
+            alp = np.fromfile(f, dtype=np.float64, count=alp1)
+            cont1 = read_ints(1)[0]
+            cont = np.fromfile(f, dtype=np.float64, count=cont1)
+
+
+            sint_res1, sint_res2 = read_ints(2)
+            sint_res = np.fromfile(f, dtype=np.float64, count=sint_res1 * sint_res2).reshape((sint_res2, sint_res1))
+            dpint_res1, dpint_res2, dpint_res3 = read_ints(3)
+            dpint_res = np.fromfile(f, dtype=np.float64, count=dpint_res1 * dpint_res2 * dpint_res3).reshape((dpint_res3, dpint_res2, dpint_res1))
+            qpint_res1, qpint_res2, qpint_res3 = read_ints(3)
+            qpint_res = np.fromfile(f, dtype=np.float64, count=qpint_res1 * qpint_res2 * qpint_res3).reshape((qpint_res3, qpint_res2, qpint_res1))
+            H0_res1 = read_ints(1)[0]
+            H0_res = np.fromfile(f, dtype=np.float64, count=H0_res1)
+            H0_noovlp_res1 = read_ints(1)[0]
+            H0_noovlp_res = np.fromfile(f, dtype=np.float64, count=H0_noovlp_res1)
+
+            S, D, Q = build_overlap_dipol_quadrupol(at-1, xyz, intcut)
+            compare(sint_res,  S, "[build_overlap_dipol_quadrupol] S")
+            #compare(dpint_res, D, "[build_overlap_dipol_quadrupol] D")
+            #compare(qpint_res, Q, "[build_overlap_dipol_quadrupol] Q")
+        
+
+    print("\033[0;32m", end='')
+    print("matches! [build_overlap_dipol_quadrupol]")
+    print("\033[0;0m", end='')
 
 # compare_args_i: compare fortran args to python for iteration i
 def test_build_SDQH0(compare_args_i = -1):
@@ -929,6 +984,7 @@ test_horizontal_shift_simple()
 test_form_product_simple()
 test_dtrf2()
 test_get_multiints()
+test_build_overlap_dipol_quadrupol()
 test_build_SDQH0(compare_args_i=1)
 test_dim_basis()
 test_atovlp()

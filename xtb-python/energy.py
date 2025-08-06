@@ -1,9 +1,9 @@
 from math import sqrt, exp, pi
-from gfn2 import kExpLight, kExpHeavy, repAlpha, repZeff, nShell, chemicalHardness, shellHardness, thirdOrderAtom, selfEnergy, kCN, shellPoly, slaterExponent, atomicRadii, paulingEN, kEN, angShell, llao, llao2, itt, wExp, kdiff, kScale, pairParam, enScale, enScale4, electronegativity, maxElem, trafo, valenceShell, referenceOcc,principalQuantumNumber
+from gfn2 import kExpLight, kExpHeavy, repAlpha, repZeff, nShell, chemicalHardness, shellHardness, thirdOrderAtom, selfEnergy, kCN, shellPoly, slaterExponent, atomicRadii, paulingEN, kEN, angShell, llao, llao2, itt, wExp, kdiff, kScale, pairParam, enScale, enScale4, electronegativity, maxElem, trafo, valenceShell, referenceOcc,principalQuantumNumber, numberOfPrimitives
 import numpy as np
 import scipy
 import time
-
+from slater import slaterToGauss_simple
 from fock import huckel_matrix_np, getCoordinationNumbers
 from util import euclidian_dist, euclidian_dist_sqr, dist, print_res2, density_initial_guess, overlap_initial_guess, get_partial_mulliken_charges
 H = 0
@@ -354,55 +354,123 @@ dimensional_components_of_angular_momentum = [
         [2,2,2],
     ]
 ]
-def build_S_simple(element_ids, positions, intcut, nprim, alp, cont): 
+dftr = [1.0, 1.0, 3.0, 15.0, 105.0, 945.0, 10395.0, 135135.0]
+def build_overlap_dipol_quadrupol(element_ids, positions, intcut): 
     number_of_orbitals = 0
     for atom in element_ids:
         for shell in range(nShell[atom]):
             l = angShell[atom,shell]
-            number_of_orbitals += l*2+1
-
-    S = np.zeros((number_of_orbitals,number_of_orbitals))
+            number_of_orbitals += np.int32(l*2+1)
+    zeroth_moment_slater = np.zeros((number_of_orbitals,number_of_orbitals))
+    first_moment_slater = np.zeros((number_of_orbitals,number_of_orbitals,3))
+    second_moment_slater = np.zeros((number_of_orbitals,number_of_orbitals,6))
     orbital_idx_A = 0
-    orbital_idx_B = 0
+    x = 0
+    y = 1
+    z = 2
+    xx = 0
+    yy = 1
+    zz = 2
+    xy = 3
+    xz = 4
+    yz = 5
     for atom_A,position_A in zip(element_ids,positions):
         for shell_A in range(nShell[atom_A]):
             l_A = angShell[atom_A,shell_A]
+            number_of_gaussians_A = numberOfPrimitives[atom_A,shell_A]
+            slater_exponent_A = slaterExponent[atom_A,shell_A]
             n_A = principalQuantumNumber[atom_A,shell_A]
-            for orbital_A,m_A in enumerate(range(-l_A,l_A+1)):
-                number_of_gaussians_A = n_A
-                for gausian_A in enumerate(number_of_gaussians_A):
+            gaussian_exponents_A, linear_coeficients_A, info = slaterToGauss_simple(number_of_gaussians_A, n_A, l_A, slater_exponent_A, True)
+            for orbital_A in range(l_A*2+1):
+                l_A_dims = dimensional_components_of_angular_momentum[l_A][orbital_A]
+                for gaussian_A in range(number_of_gaussians_A):
+                    gaussian_exponent_A = gaussian_exponents_A[gaussian_A]
+                    linear_coeficient_A = linear_coeficients_A[gaussian_A]
+                    orbital_idx_B = 0
                     for atom_B,position_B in zip(element_ids,positions):
                         euclidean_distance_AB_squared = (position_A[0]-position_B[0])**2+(position_A[1]-position_B[1])**2+(position_A[2]-position_B[2])**2
-                        if euclidean_distance_AB_squared > 2000:
-                            continue
                         for shell_B in range(nShell[atom_B]):
                             l_B = angShell[atom_B,shell_B]
+                            if euclidean_distance_AB_squared > 2000:
+                                continue
+                            number_of_gaussians_B = numberOfPrimitives[atom_B,shell_B]
+                            slater_exponent_B = slaterExponent[atom_B,shell_B]
                             n_B = principalQuantumNumber[atom_B,shell_B]
-                            for orbital_B,m_B in enumerate(range(-l_B,l_B+1)):
-                                number_of_gaussians_B = n_B
-                                sum_over_gaussians = 0
-                                for gausian_B in enumerate(number_of_gaussians_B):
-                                    product_over_dims = 1
-                                    point = ...
+                            gaussian_exponents_B, linear_coeficients_B, info = slaterToGauss_simple(number_of_gaussians_B, n_B, l_B, slater_exponent_B, True)
+                            for orbital_B in range(l_B*2+1):
+                                l_B_dims = dimensional_components_of_angular_momentum[l_B][orbital_B]
+                                for gaussian_B in range(number_of_gaussians_B):
+                                    gaussian_exponent_B = gaussian_exponents_B[gaussian_B]
+                                    linear_coeficient_B = linear_coeficients_B[gaussian_B]
+                                    combined_gaussian_exponent = gaussian_exponent_A+gaussian_exponent_B
+                                    gaussian_product_exponent = (gaussian_exponent_A*gaussian_exponent_B)/combined_gaussian_exponent
+                                    estimate = euclidean_distance_AB_squared*gaussian_product_exponent 
+                                    if estimate > intcut:
+                                        continue
+                                    gaussian_product_center = [
+                                            (gaussian_exponent_A*position_A[x]+gaussian_exponent_B*position_B[x])/combined_gaussian_exponent,
+                                            (gaussian_exponent_A*position_A[y]+gaussian_exponent_B*position_B[y])/combined_gaussian_exponent,
+                                            (gaussian_exponent_A*position_A[z]+gaussian_exponent_B*position_B[z])/combined_gaussian_exponent
+                                    ]
+                                    gaussian_overlap = exp(-euclidean_distance_AB_squared*gaussian_product_exponent) * (pi / combined_gaussian_exponent)**(3/2)
+                                    prefactor = gaussian_overlap * linear_coeficient_A * linear_coeficient_B
 
-                                    for dim_a,_ in enumerate("xyz"):
-                                        l_A_dim = dimensional_components_of_angular_momentum[l_A][orbital_A][dim_a]
-                                        l_B_dim = dimensional_components_of_angular_momentum[l_B][orbital_B][dim_a]
-                                        v_A = np.zeros(l_A_dim+1)
-                                        v_B = np.zeros(l_B_dim+1)
+                                    zeroth_moment_gaussian_components = [0,0,0]
+                                    first_moment_gaussian_components = [0,0,0]
+                                    second_moment_gaussian_components = [0,0,0]
+                                    for dimension in [x,y,z]:
+                                        l_A_dim = l_A_dims[dimension]
+                                        l_B_dim = l_B_dims[dimension]
+                                        l_max = max(l_A_dim, l_B_dim)
+                                        v_A = np.zeros(l_max+1)
+                                        v_B = np.zeros(l_max+1)
                                         v_A[l_A_dim] = 1.0
                                         v_B[l_B_dim] = 1.0
-                                        difference_AP_dim = position_A[dim_a]-point[dim_a]
-                                        difference_BP_dim = position_B[dim_a]-point[dim_a]
-                                        horizontal_shift_simple(difference_AP_dim, l_A_dim, v_A)
-                                        horizontal_shift_simple(difference_BP_dim, l_B_dim, v_B)
+                                        difference_PA_dim = gaussian_product_center[dimension]-position_A[dimension]
+                                        difference_PB_dim = gaussian_product_center[dimension]-position_B[dimension]
+                                        horizontal_shift_simple(difference_PA_dim, l_A_dim, v_A)
+                                        horizontal_shift_simple(difference_PB_dim, l_B_dim, v_B)
                                         prod = form_product_simple(v_A, v_B, l_A_dim, l_B_dim)
+                                        gaussian_overlap_dim_component = []
+                                        for l in range(l_A_dim+l_B_dim+3):
+                                            if l%2 == 0:
+                                                half_l = l//2
+                                                average_gaussian_exponent = combined_gaussian_exponent/2
+                                                gaussian_overlap_dim_component.append(average_gaussian_exponent**half_l*dftr[half_l])
+                                            else: 
+                                                gaussian_overlap_dim_component.append(0)
                                         for summed_l, prod_l in enumerate(prod):
-                                            product_over_dims *=  s1d[summed_l]  * prod_l
-                                    sum_over_gaussians += product_over_dims*cc
-                                S[orbital_idx_A,orbital_idx_B] = sum_over_gaussians
+                                            zeroth_moment_gaussian_components[dimension] += (
+                                                1*gaussian_product_center[dimension]**0 * gaussian_overlap_dim_component[summed_l+0]
+                                            ) * prod_l
+                                            gaussian_overlap_dim_component[summed_l] * prod_l
+                                            first_moment_gaussian_components[dimension] += (
+                                                1*gaussian_product_center[dimension]**1 * gaussian_overlap_dim_component[summed_l+0] + 
+                                                1*gaussian_product_center[dimension]**0 * gaussian_overlap_dim_component[summed_l+1]
+                                            ) * prod_l
+                                            second_moment_gaussian_components[dimension] += (
+                                                1*gaussian_product_center[dimension]**2 * gaussian_overlap_dim_component[summed_l+0] + 
+                                                2*gaussian_product_center[dimension]**1 * gaussian_overlap_dim_component[summed_l+1] + 
+                                                1*gaussian_product_center[dimension]**0 * gaussian_overlap_dim_component[summed_l+2]
+                                            ) * prod_l
+
+
+                                    zeroth_moment_slater[orbital_idx_A, orbital_idx_B] += prefactor * zeroth_moment_gaussian_components[x] * zeroth_moment_gaussian_components[y] * zeroth_moment_gaussian_components[z]
+
+                                    first_moment_slater[orbital_idx_A, orbital_idx_B, x] += prefactor * first_moment_gaussian_components [x] * zeroth_moment_gaussian_components[y] * zeroth_moment_gaussian_components[z]
+                                    first_moment_slater[orbital_idx_A, orbital_idx_B, y] += prefactor * zeroth_moment_gaussian_components[x] * first_moment_gaussian_components [y] * zeroth_moment_gaussian_components[z]
+                                    first_moment_slater[orbital_idx_A, orbital_idx_B, z] += prefactor * zeroth_moment_gaussian_components[x] * zeroth_moment_gaussian_components[y] * first_moment_gaussian_components [z]
+
+                                    second_moment_slater[orbital_idx_A, orbital_idx_B, xx] += prefactor * second_moment_gaussian_components[x] * zeroth_moment_gaussian_components[y] * zeroth_moment_gaussian_components[z]
+                                    second_moment_slater[orbital_idx_A, orbital_idx_B, yy] += prefactor * zeroth_moment_gaussian_components[x] * second_moment_gaussian_components[y] * zeroth_moment_gaussian_components[z]
+                                    second_moment_slater[orbital_idx_A, orbital_idx_B, zz] += prefactor * zeroth_moment_gaussian_components[x] * zeroth_moment_gaussian_components[y] * second_moment_gaussian_components[z]
+                                                                       
+                                    second_moment_slater[orbital_idx_A, orbital_idx_B, xy] += prefactor * first_moment_gaussian_components [x] * first_moment_gaussian_components [y] * zeroth_moment_gaussian_components[z]
+                                    second_moment_slater[orbital_idx_A, orbital_idx_B, xz] += prefactor * first_moment_gaussian_components [x] * zeroth_moment_gaussian_components[y] * first_moment_gaussian_components [z]
+                                    second_moment_slater[orbital_idx_A, orbital_idx_B, yz] += prefactor * zeroth_moment_gaussian_components[x] * first_moment_gaussian_components [y] * first_moment_gaussian_components [z]
                                 orbital_idx_B += 1
                 orbital_idx_A += 1
+    return zeroth_moment_slater, first_moment_slater, second_moment_slater
 
 
 # nShell[len(element_ids)]: Number of shells for each element
@@ -747,7 +815,6 @@ def olapp(l, gama):
         gm = 0.5 / gama
         s.append(gm**lh*dftr[lh])
     return s
-
 maxl = 6
 maxl2 = maxl*2
 
@@ -802,38 +869,37 @@ def multipole_3d_simple(R_A, R_B, R_point_minus_center, dimensional_components_o
         horizontal_shift_simple(difference_BP[dim_a], l_B, v_B)
         integral = form_product_simple(v_A, v_B, l_A, l_B)
         for summed_l, integral_l in enumerate(integral):
-            for dim_b,_ in enumerate("xyz"):
+            for moment in [0,1,2]:
                 pyramidal_numbers = [
                  [     1     ],
                  [    1,1    ],
                  [   1,2,1   ]
-                ][dim_b]
-                maximal_power = len(pyramidal_numbers)-1
+                ][moment]
                 for additional_l,pyr in enumerate(pyramidal_numbers):
-                    val[dim_b][dim_a] += pyr * (R_point_minus_center[dim_a]**(maximal_power-additional_l)) * s1d[summed_l+additional_l]  * integral_l
+                    val[moment][dim_a] += pyr * (R_point_minus_center[dim_a]**(moment-additional_l)) * s1d[summed_l+additional_l]  * integral_l
 
     # S
-    s3d[0] = val[0][0] * val[0][1] * val[0][2] # xx * xy * xz 
+    s3d[0] = val[0][0] * val[0][1] * val[0][2]  
 
     # D^x
-    s3d[1] = val[1][0] * val[0][1] * val[0][2] # yx * xy * xz
+    s3d[1] = val[1][0] * val[0][1] * val[0][2]
     # D^y
-    s3d[2] = val[0][0] * val[1][1] * val[0][2] # xx * yy * xz
+    s3d[2] = val[0][0] * val[1][1] * val[0][2]
     # D^z
-    s3d[3] = val[0][0] * val[0][1] * val[1][2] # xx * xy * yz
+    s3d[3] = val[0][0] * val[0][1] * val[1][2]
 
-    # Q^00
-    s3d[4] = val[2][0] * val[0][1] * val[0][2] # zx * xy * xz
-    # Q^01 Q^10
-    s3d[5] = val[0][0] * val[2][1] * val[0][2] # xx * zy * xz
-    # Q^11
-    s3d[6] = val[0][0] * val[0][1] * val[2][2] # xx * xy * zz
-    # Q^02 Q^20
-    s3d[7] = val[1][0] * val[1][1] * val[0][2] # yx * yy * xz
-    # Q^12 Q^21
-    s3d[8] = val[1][0] * val[0][1] * val[1][2] # yx * xy * yz
-    # Q^22
-    s3d[9] = val[0][0] * val[1][1] * val[1][2] # xx * yy * yz
+    # Q^xx
+    s3d[4] = val[2][0] * val[0][1] * val[0][2]
+    # Q^yy
+    s3d[5] = val[0][0] * val[2][1] * val[0][2]
+    # Q^zz
+    s3d[6] = val[0][0] * val[0][1] * val[2][2]
+    # Q^xy
+    s3d[7] = val[1][0] * val[1][1] * val[0][2]
+    # Q^xz
+    s3d[8] = val[1][0] * val[0][1] * val[1][2]
+    # Q^yz
+    s3d[9] = val[0][0] * val[1][1] * val[1][2] 
     return s3d
 
 def horizontal_shift_simple(difference_in_dim, l, cfs):
