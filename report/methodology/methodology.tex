@@ -33,25 +33,29 @@ In addition to these confusing language specifics, there are also numerous struc
 The non-descriptive variable name leads us to the next point, being that they are allergic to long variable names and therefore desperately tries to keep all names within three letters. This makes it impossible to know what the values actually are and makes the codebase almost unapproachable for new contributors.
 Another weird thing we have seen is the use of flag arrays to skip values that are never used in multi-dimensional arrays instead of just having the values we need in a a 1-dimensional array.
 
-Among all of this, even the command-line arguments for the program are poorly described. 
+Among all of this, even some of the command-line arguments for the program are poorly described. We noticed that it caches previous computations for a molecule, so running it twice on say a C200 molecule, will make the second run much faster. This is undesirable when we need to know what the total computational time is, and so to disable this behavior, the program has the flag seen in \autoref{fig:norestart}.
+\begin{figure}[H]
+\begin{minted}{text}
+    --[no]restart
+        restarts calculation from xtbrestart (default = true)
+\end{minted}
+\caption{The xTB command-line flag that controls whether to continue the computation from the last run.}
+\label{fig:norestart}
+\end{figure}
 
-Bad argument/flag names for xTB.
+The description is ambiguous as it can both mean that we recompute the data stored in \verb|xtbrestart|, or that we reuse the value and continue the computation from there. At first we thought that we would specify \verb|--restart| because we want to restart the whole computation without any caching. In reality what we need is \verb|--norestart| because it should not use \verb|xtbrestart| which is the cache from the previous run.
 
+When porting code from an implementation and a language with so many quirks and pitfalls, it becomes exceedingly important to have tests in place to catch these errors. Having a test suite that enables us to compare our implementation to the original has been indispensible to us for a fast iteration loop that gives insight into the mismatches and any potential patterns in the discrepancies.
 
 
 \section{Testing}
 
-The xTB algorithm computes a lot of different energies, corrections, and other additions to the energy terms. There is a lot of overlap between the different variants of xTB, so even focusing on just one of them still requires a great amount of code.
-Dealing with large computations with so many small parts makes proper validation especially important, as it becomes increasingly easy to make mistakes.
-In the case of the xTB algorithm, the original Fortran implementation becomes an important point of reference for comparison. Throughout the coding process it became apparent that the xTB implementation by the Grimme research group does not match the equations described in the original xTB paper by the same authors.
+The xTB Fortran codebase has a large footprint, and there is a lot of overlap between the xTB methods, so even focusing on just one of them still requires a great amount of code.
+The large amount of computations we have to deal with when porting the code makes proper validation especially important, as it becomes increasingly easy to make mistakes.With the discrepancies between the paper and the code, in addition to details that seem to go unexplained, we realized that the obvious approach forward was to lean towards the existing implementation rather than the paper.
 
-% TODO: Give examples of code that does not follow the paper!
+One of the hurdles from testing against an existing program becomes the lack of transparency regarding the logic that takes place between the initial input and the final output presented to the user. Thankfully, the source code is publicly available, which allows for easy manipulation of the original flow of execution, thus avoiding the hassle of testing against a black box or the need to resort to methods of reverse engineering.
 
-With this realization the obvious approach forward was to lean towards the existing implementation rather than the paper. This choice would allow us to continue doing validation against the existing code as a reference.
-
-One of the hurdles from testing against an existing program becomes the lack of transparency regarding the logic that takes place between the initial input and the final output presented to the user. Thankfully, the source code is publicly available allowing for easy manipulation of the original flow of execution, thus avoiding the hassle of testing against a black box or the need to resort to methods of reverse engineering.
-
-On behalf of these considerations it was decided to write patches that allow to intercept the arguments and results of arbitrary functions just by running the program as normal. This meant that smaller parts could be implemented without the need to implement all the code needed to compute its arguments.
+On behalf of these considerations we decided to write patches that allow to intercept the arguments and results of arbitrary functions just by running the program as normal. This gave us the ability to implement and test abritrary functions in an isolated manner, by eliminating the need to compute their arguments.
 
 \subsection{Towards Reproducability with Nix}
 
