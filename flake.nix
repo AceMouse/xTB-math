@@ -75,6 +75,32 @@
           mv calls $out
         ''];
       };
+      xtb_test_data_c4 = builtins.derivation {
+        name = "xtb-test-data";
+        system = "x86_64-linux";
+        builder = "${pkgs.bash}/bin/bash";
+        src = ./xtb-python/data/C4.xyz;
+        args = ["-c" ''
+          PATH=$PATH:${pkgs.coreutils}/bin
+          mkdir -p ./calls/{build_SDQH0,coordination_number,dim_basis,dtrf2,electro,form_product,get_multiints,h0scal,horizontal_shift,multipole_3d,newBasisset,olapp}
+          ${xtb}/bin/xtb $src
+          ${dftd4}/bin/dftd4 $src
+          mv calls $out
+        ''];
+      };
+      xtb_test_data_c2 = builtins.derivation {
+        name = "xtb-test-data";
+        system = "x86_64-linux";
+        builder = "${pkgs.bash}/bin/bash";
+        src = ./xtb-python/data/C2.xyz;
+        args = ["-c" ''
+          PATH=$PATH:${pkgs.coreutils}/bin
+          mkdir -p ./calls/{build_SDQH0,coordination_number,dim_basis,dtrf2,electro,form_product,get_multiints,h0scal,horizontal_shift,multipole_3d,newBasisset,olapp}
+          ${xtb}/bin/xtb $src
+          ${dftd4}/bin/dftd4 $src
+          mv calls $out
+        ''];
+      };
 
       #electro_data = let
       #  xtb = (self.packages."x86_64-linux".xtb.overrideAttrs (finalAttrs: previousAttrs: {
@@ -143,6 +169,32 @@
         program = toString (pkgs.writeShellScript "cmp-impls" ''
           PYTHONPATH=${pkgs.lib.cleanSource ./xtb-python} exec ${python}/bin/python \
             ${./xtb-python/cmp_impls.py} ${xtb_test_data_caf}
+        '');
+      };
+      "cmp-impls-c4" = let
+        python = (pkgs.python3.withPackages (python-pkgs: with python-pkgs; [
+          numpy
+          scipy
+          cvxopt
+        ]));
+      in {
+        type = "app";
+        program = toString (pkgs.writeShellScript "cmp-impls" ''
+          PYTHONPATH=${pkgs.lib.cleanSource ./xtb-python} exec ${python}/bin/python \
+            ${./xtb-python/cmp_impls.py} ${xtb_test_data_c4}
+        '');
+      };
+      "cmp-impls-c2" = let
+        python = (pkgs.python3.withPackages (python-pkgs: with python-pkgs; [
+          numpy
+          scipy
+          cvxopt
+        ]));
+      in {
+        type = "app";
+        program = toString (pkgs.writeShellScript "cmp-impls" ''
+          PYTHONPATH=${pkgs.lib.cleanSource ./xtb-python} exec ${python}/bin/python \
+            ${./xtb-python/cmp_impls.py} ${xtb_test_data_c2}
         '');
       };
 
