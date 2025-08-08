@@ -50,19 +50,11 @@ Let us to our initial $\Gamma, Q, E$ registers add two ancillary registers, $W_1
 We can now apply the following unitary 
 \begin{equation}
     \resizebox{.9\hsize}{!}{${E_i^\Gamma}_{(\Gamma,Q,W_1,W_2,E)} = \text{MADD}^\dagger_{\Gamma,Q,W_1}\text{MADD}^\dagger_{Q,W_1,W_2}\text{MADD}_{Q,W_2,E}\text{MADD}_{Q,W_1,W_2}\text{MADD}_{\Gamma,Q,W_1}$}
+    \label{EiG}
 \end{equation}
-Let us follow the process:
-
-\begin{align}
-    &{E_i^\Gamma}_{(\Gamma,Q,W_1,W_2,E)}\ket{\varGamma_\mu}_\Gamma\ket{q_{A,\mu}}_Q\ket{0}_{W_1}\ket{0}_{W_2}\ket{acc}_E\\
-    =&\resizebox{.9\hsize}{!}{$\text{MADD}^\dagger_{\Gamma,Q,W_1}\text{MADD}^\dagger_{Q,W_1,W_2}\text{MADD}_{Q,W_2,E}\text{MADD}_{Q,W_1,W_2}\ket{\varGamma_\mu}_\Gamma\ket{q_{A,\mu}}_Q\ket{\varGamma_\mu q_{A,\mu}}_{W_1}\ket{0}_{W_2}\ket{acc}_E$}\\
-    =&\resizebox{.9\hsize}{!}{$\text{MADD}^\dagger_{\Gamma,Q,W_1}\text{MADD}^\dagger_{Q,W_1,W_2}\text{MADD}_{Q,W_2,E}\ket{\varGamma_\mu}_\Gamma\ket{q_{A,\mu}}_Q\ket{\varGamma_\mu q_{A,\mu}}_{W_1}\ket{\varGamma_\mu (q_{A,\mu})^2}_{W_2}\ket{acc}_E$}\\
-    =&\resizebox{.9\hsize}{!}{$\text{MADD}^\dagger_{\Gamma,Q,W_1}\text{MADD}^\dagger_{Q,W_1,W_2}\ket{\varGamma_\mu}_\Gamma\ket{q_{A,\mu}}_Q\ket{\varGamma_\mu q_{A,\mu}}_{W_1}\ket{\varGamma_\mu (q_{A,\mu})^2}_{W_2}\ket{acc+\varGamma_\mu (q_{A,\mu})^3}_E\label{comp}$}\\
-    =&\text{MADD}^\dagger_{\Gamma,Q,W_1}\ket{\varGamma_\mu}_\Gamma\ket{q_{A,\mu}}_Q\ket{\varGamma_\mu q_{A,\mu}}_{W_1}\ket{0}_{W_2}\ket{acc+\varGamma_\mu (q_{A,\mu})^3}_E\\
-    =&\ket{\varGamma_\mu}_\Gamma\ket{q_{A,\mu}}_Q\ket{0}_{W_1}\ket{0}_{W_2}\ket{acc+\varGamma_\mu (q_{A,\mu})^3}_E\\
-\end{align}
-
-\begin{tikzpicture}[scale=1, transform shape]
+\begin{figure}[H]
+    \centering
+\begin{tikzpicture}[scale=1.5, transform shape]
     \node[rectangle,anchor=east] at (-1.5,4) {$\ket{\Gamma_\mu}$};
     \node[rectangle,anchor=east] at (-1.5,3) {$\ket{q_{A,\mu}}$};
     \node[rectangle,anchor=east] at (-1.5,2) {$\ket{0}$};
@@ -115,7 +107,18 @@ Let us follow the process:
         \node[] at (-0.4+\x*1.3+4,1+\x-.1) {D}; 
     }
 \end{tikzpicture}
+    \caption{Circuit implementing equation \ref{EiG}}
+\end{figure}
+Let us follow the process:
 
+\begin{align}
+    &{E_i^\Gamma}_{(\Gamma,Q,W_1,W_2,E)}\ket{\varGamma_\mu}_\Gamma\ket{q_{A,\mu}}_Q\ket{0}_{W_1}\ket{0}_{W_2}\ket{acc}_E\\
+    =&\resizebox{.9\hsize}{!}{$\text{MADD}^\dagger_{\Gamma,Q,W_1}\text{MADD}^\dagger_{Q,W_1,W_2}\text{MADD}_{Q,W_2,E}\text{MADD}_{Q,W_1,W_2}\ket{\varGamma_\mu}_\Gamma\ket{q_{A,\mu}}_Q\ket{\varGamma_\mu q_{A,\mu}}_{W_1}\ket{0}_{W_2}\ket{acc}_E$}\\
+    =&\resizebox{.9\hsize}{!}{$\text{MADD}^\dagger_{\Gamma,Q,W_1}\text{MADD}^\dagger_{Q,W_1,W_2}\text{MADD}_{Q,W_2,E}\ket{\varGamma_\mu}_\Gamma\ket{q_{A,\mu}}_Q\ket{\varGamma_\mu q_{A,\mu}}_{W_1}\ket{\varGamma_\mu (q_{A,\mu})^2}_{W_2}\ket{acc}_E$}\\
+    =&\resizebox{.9\hsize}{!}{$\text{MADD}^\dagger_{\Gamma,Q,W_1}\text{MADD}^\dagger_{Q,W_1,W_2}\ket{\varGamma_\mu}_\Gamma\ket{q_{A,\mu}}_Q\ket{\varGamma_\mu q_{A,\mu}}_{W_1}\ket{\varGamma_\mu (q_{A,\mu})^2}_{W_2}\ket{acc+\varGamma_\mu (q_{A,\mu})^3}_E\label{comp}$}\\
+    =&\text{MADD}^\dagger_{\Gamma,Q,W_1}\ket{\varGamma_\mu}_\Gamma\ket{q_{A,\mu}}_Q\ket{\varGamma_\mu q_{A,\mu}}_{W_1}\ket{0}_{W_2}\ket{acc+\varGamma_\mu (q_{A,\mu})^3}_E\\
+    =&\ket{\varGamma_\mu}_\Gamma\ket{q_{A,\mu}}_Q\ket{0}_{W_1}\ket{0}_{W_2}\ket{acc+\varGamma_\mu (q_{A,\mu})^3}_E\\
+\end{align}
 We see that already in eq. \ref{comp} we have the result we want in the accumulation register. We continue with the uncomputation of the $W_1,W_2$ registers purely to be able to reuse them in the remaining calculations. This saves the qubits required for having a 2 ancillary registers for every calculation. The MADD gates here could be implementing using QFT multipliers\cite{perez2017} in which case we wouldn't need any additional ancillaries. If we decompose our QFT multiplier into its components it is essentially a chain of QFT additions\cite{draper2000,perez2017} and multiplications by a constant power of two. These additions are built up of two components: (inverse) Fourier transforms and conditional rotations. When we chain them together like this however many of the transforms can be taken out as they are always followed or preceded by their inverse except for in the beginning and end. 
 
 
@@ -162,9 +165,11 @@ Here we would encode a molecule as follows
 \end{equation}
 
 Let us apply the following example circuit to our encoding. Here we focus on one pair of $q$ and $\Gamma$. 
-
-\begin{tikzpicture}[scale=0.65, transform shape]
-    \draw[fill=purple!50] (-2.5,-.5) -- (-2.5,10) -- (9.25,10) -- (9.25,1.5) -- (13,1.5) -- (13,-.5) -- cycle;
+\begin{figure}[H]
+    \centering
+\begin{tikzpicture}[scale=0.9, transform shape]
+    \draw[fill=purple!50] (-2.5,-.5) -- (-2.5,6) -- (0,6) -- (0,7) -- (4,7) -- (4,10) -- (9.25,10) -- (9.25,1.5) -- (13,1.5) -- (13,-.5) -- cycle;
+    \draw[fill=blue!50] (7,12.5) -- (7,14.5) -- (13.5,14.5) -- (13.5,12.5) -- cycle;
     \foreach \y in {1,...,3}{
         \node[rectangle,anchor=east] at (-1,12.5-0.5*\y) {$\ket{0}_{q_{o\y}}$};
         \node[rectangle,anchor=east] at (-1,10.5-\y) { $\ket{0}_{q_{w\y}}$};
@@ -255,7 +260,8 @@ Let us apply the following example circuit to our encoding. Here we focus on one
         \filldraw[white,draw=black] (\x+1,1) circle (2pt);
     }
 \end{tikzpicture}
-
+\caption{Circuit for computing $E^\Gamma-E^\Gamma_H$ on a one atom molecule where the charge $q$ and $\Gamma$ are described using 4 bytes. The crimson shaded area scales with the number of bits. The blue shaded area is for subtracting $E^\Gamma_H$ and is completely optional. }
+\end{figure}
 This circuit is built from the addition and multiplication primitives introduced in the QA-Arithmetic paper\cite{wang2020}. We also do a trivial modification to get subtraction. The diagram is for a n=4 bit example i.e. $q$ and $\Gamma$ are encoded as 4 bit numbers. The crimson region in the diagram is the only part which needs to be scaled up if using larger n. 
 
 If using more than one $q$ and $\Gamma$ the contribution to the final $E_w$ register should include those as well which would just need an extra addition. $C_E$ should be scaled appropriately as the base 2 logarithm of the number of $q,\Gamma$ pairs plus 1.   
@@ -460,23 +466,23 @@ The $E_\gamma$ term is formulated as follows:
     \gamma_{AB,ll'}=\frac{1}{\sqrt{R_{AB}^2+\eta_{AB,ll'}^{-2}}}\\
     E_\gamma=\frac{1}{2}\sum_{A,B}\sum_{l\in A}\sum_{l'\in B} q_lq_{l'}\gamma_{AB,ll'}\\
 \end{gather}
-For fullerenes we can view $\eta_{AB,ll'}$ as only dependant on the values of $l$ and $l'$, so there are 4 configurations as there are only 2 shells for carbon in GFN2-xTB. 
-A small circuit for calculating $R_{AB}^2$ could be made up of the $diff^2$ circuit described bellow:
-
-\begin{tikzpicture}[scale=1, transform shape]
+For fullerenes we can view $\eta_{AB,ll'}$ as only dependant on the angular momenta $l$ and $l'$, so there are 4 configurations as there are only 2 shells for carbon in GFN2-xTB. Additionally $l=0,l'=1$ and $l=1,l'=0$ are equivalent. Thus we don't actually have to compute it and can just bake in those 3 configurations as constants.  
+A small circuit for calculating $R_{AB}^2$ could be made up of 3 repetitions of the $\text{DIFF}^2$ circuit described bellow which for 2 numbers $a,b$ and an accumulator $acc$ computes $acc + (a-b)^2$ :
+\begin{figure}[H]
+\begin{tikzpicture}[scale=.9, transform shape]
     \filldraw[fill=purple!50] (-1,5) rectangle (5.5,-1) ;
     \node[anchor=north] at (2.25,5) {DIFF$ ^2$};
-    \node[rectangle,anchor=east] at (-1.5,4) {$\ket{x}$};
-    \node[rectangle,anchor=east] at (-1.5,3) {$\ket{y}$};
+    \node[rectangle,anchor=east] at (-1.5,4) {$\ket{a}$};
+    \node[rectangle,anchor=east] at (-1.5,3) {$\ket{b}$};
     \node[rectangle,anchor=east] at (-1.5,2) {$\ket{0}$};
     \node[rectangle,anchor=east] at (-1.5,1) {$\ket{0}$};
     \node[rectangle,anchor=east] at (-1.5,0) {$\ket{acc}$};
 
-    \node[rectangle,anchor=west] at (6,4) {$\ket{x}$};
-    \node[rectangle,anchor=west] at (6,3) {$\ket{y}$};
+    \node[rectangle,anchor=west] at (6,4) {$\ket{a}$};
+    \node[rectangle,anchor=west] at (6,3) {$\ket{b}$};
     \node[rectangle,anchor=west] at (6,2) {$\ket{0}$};
     \node[rectangle,anchor=west] at (6,1) {$\ket{0}$};
-    \node[rectangle,anchor=west] at (6,0) {$\ket{acc+(x-y)^2}$};
+    \node[rectangle,anchor=west] at (6,0) {$\ket{acc+(a-b)^2}$};
     \foreach \y in {0,...,4}
         \draw (-1.5,\y) -- (6,\y) ;
     \foreach \y in {1,...,4}
@@ -519,8 +525,7 @@ A small circuit for calculating $R_{AB}^2$ could be made up of the $diff^2$ circ
         \node[] at (-0.4+\x*1.3+4,1+\x-.1) {D}; 
     }
 \end{tikzpicture}
-
-\begin{tikzpicture}[scale=1, transform shape]
+\begin{tikzpicture}[scale=.9, transform shape]
     \filldraw[fill=purple!50] (-1.3,9) rectangle (3.3,-1) ;
     \node[anchor=north] at (1,9) {$R_{AB}^2$};
     
@@ -563,8 +568,9 @@ A small circuit for calculating $R_{AB}^2$ could be made up of the $diff^2$ circ
         \node[] at (\x*1.3-0.4,.5+2) {F}; 
     }
 \end{tikzpicture}
-
-So using this circuit along with a constant addition of $\eta_{AB,ll'}$ and the use of an inverse square root circuit\cite{häner2018} we get a fixed point approximation of $\gamma_{AB,ll'}$. We can use this with our QFT fused multiply add operation to get the inner sum of the $E^\gamma$ term. When repeating this over all the pairs it is a good optimisation to see that saving a little under half the computation.
+\caption{Circuits for calculating $a,b,acc\to a,b,acc+(a-b)^2$ and $A,B,0\to A,B, R_{AB}^2$}
+\end{figure}
+So using this circuit along with a constant addition of $\eta_{AB,ll'}$ and the use of an inverse square root circuit\cite{häner2018} we get a fixed point approximation of $\gamma_{AB,ll'}$. We can use this with our QFT fused multiply add operation to get the inner sum of the $E^\gamma$ term. There could potentially be a lot of pairs, however we can skip almost half with the following rewrite:
 \begin{gather}
     \begin{split}
     E^\gamma&=\frac{1}{2}\sum_{A,B}\sum_{l\in A}\sum_{l'\in B} q_lq_{l'}\gamma_{AB,ll'}\\
