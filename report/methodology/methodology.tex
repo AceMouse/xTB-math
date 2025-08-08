@@ -87,8 +87,6 @@ With this, the whole pipeline of patching, compiling, running, and passing the d
 This command takes the form '\verb|nix run <path to flake>#<output>|'. Path to flake refers to a file-tree whose root directory contains a file called 'flake.nix'. Nix flakes is an experimental but widely adopted feature, which provides a standard way to write Nix expressions and a way to manager their dependencies through a version-pinned lock file. The 'flake.nix' file follows a uniform naming schema for declaring inputs and outputs, where inputs are the dependencies, and outputs are Nix expressions to be exposed.
 The new Nix command-line interface needed to interact with flakes is naturally also an experimental feature that has to be enabled explicitly. The run command instructs Nix to build and run the derivation 'cmp-impls', which is defined as an app in the flake outputs.
 
-\newpage
-
 \begin{figure}[H]
 \begin{minted}{nix}
   {
