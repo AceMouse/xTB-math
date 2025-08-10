@@ -36,7 +36,9 @@ This project focuses on large isomer spaces of fullerenes in the range \(C_{20},
 \label{fig:carbon-degree}
 \end{figure}
 
-For each isomerspace we essentially have two matrices, one for the coordinates of each carbon atom, and one containing the three neighbors for each of the atoms. The first matrix as seen in \autoref{fig:isomerspace_atom_coords}, is of size $N \times 3 \times M$ where $N$ is the amount of atoms for each of the fullerenes within the same isomerspace, $3$ is the three coordinates for each atom, and $M$ is the amount of fullerenes within the isomerspace. The second matrix as seen in \autoref{fig:isomerspace_atom_neighbors}, is the exact same, but instead of coordinates it holds the indices for the three neighboring carbon atoms.
+For each isomerspace we essentially have two matrices, one for the coordinates of each carbon atom, and one containing the three neighbors for each of the atoms. The first matrix as seen in \autoref{fig:isomerspace_atom_coords}, is of size $N \times 3 \times M$ where $N$ is the amount of atoms for each of the fullerenes within the same isomerspace, $3$ is the three coordinates for each atom, and $M$ is the amount of fullerenes within the isomerspace. The second matrix as seen in \autoref{fig:isomerspace_atom_neighbors}, is the exact same, but instead of coordinates it holds the indices for the three neighboring carbon atoms. The xTB method only needs the positions for each atom, so we are not concerned with the second matrix.
+
+% TODO: Is it true that we do not need the second matrix?
 
 \begin{figure}[H]
 \centering
@@ -140,9 +142,12 @@ For each isomerspace we essentially have two matrices, one for the coordinates o
 \end{figure}
 
 
-The xTB program takes a single molecule as input, but the fact that fullerenes in the same isomerspace executes the same series of instructions, makes a great case for lockstep parallelism. Running computations in lockstep means doing the exact same instructions in parallel. The threads in a warp share the same clock cycle, meaning that they are synchronized at a hardware level and are therefore executed in lockstep. This is perfect as it means that we can use warps to execute instructions for multiple fullerenes in lockstep. With this in mind, instead of feeding the program a single fullerene at a time, we want to give it a complete isomerspace so that we can utilize the thousands of threads on a GPU. The largest isomerspace we consider is $C_{200}$, which is $214127742$ fullerenes, or in other words in the order of $10^8$.
+The xTB program takes a single molecule as input, but the fact that fullerenes in the same isomerspace executes the same series of instructions, makes a great case for lockstep parallelism. Running computations in lockstep means doing the exact same instructions in parallel, and if we can do this, then we can efficiently utilize the single instruction, multiple threads (SIMT) execution model. The SIMT model is used when a warp scheduler dispatches a single instruction to all threads within a warp. All of the threads in the warp will then execute the instruction simultaniously, which means that they are synchronized at a hardware level. This perfect as it means that we can use warps to execute instructions for multiple fullerenes in lockstep. With this in mind, instead of feeding the program a single fullerene at a time, we want to give it a complete isomerspace so that we can utilize all threads on one or even multiple GPUs. The largest isomerspace we consider is $C_{200}$, which is $214127742$ fullerenes, or in other words in the order of $10^8$.
 
-It takes around $30$ seconds for a 12th generation Intel mobile processor to run xTB-GFN2 on a single $C_{200}$ fullerene. Going through the whole isomerspace on this CPU would take about $204$ years to complete. This is a bit long to wait for a failed run, and by that time we will probably have achieved more efficient ways of computation, or the world might simply have more pressing matters than keeping this computer alive. Distributing the isomerspace over $1000$ threads would cut this down to a measly $2.5$ months. This is still a lot and it also assumes that the clock cycles on a GPU is just as fast as on the Intel CPU, which they are not, but this is fine, because we have a lot more than $1000$ threads to work with. Furthermore, the degree of lockstep parallelism scales with the isomerspace, and since there are no interdependencies between the molecules, this makes it a perfect case for horizontal scaling by using hundreds or even thousands or GPUs.
+It takes around $30$ seconds for a 12th generation Intel mobile processor to run xTB-GFN2 on a single $C_{200}$ fullerene. Going through the whole isomerspace on this CPU would take about $204$ years to complete. This is a bit long to wait for a failed run, and by that time we will probably have achieved more efficient ways of computation, or the world might simply have more pressing matters than keeping this computer alive. The degree of lockstep parallelism scales with the isomerspace, and since there are no interdependencies between the molecules, this makes it a perfect case for horizontal scaling by using hundreds or even thousands or GPUs. The CPU used has $12$ cores and $24$ threads, $12$ of which can run in parallel. An NVIDIA GPU has hundredthousands of threads and tenthousands of CUDA cores, though these cores are not equivalent to a CPU cores, and we can in general not compare thea relative performance between the two by looking at their specifications. We can say however, that a GPU is much more capable of massive parallelism, which is what we seek for these massive isomerspaces.
+%as they refer to the amount of arithmetic logic units (ALUs), while a modern CPU core has multiple ALUs.
+
+%Distributing the isomerspace over $1000$ threads would cut this down to a measly $2.5$ months. This is still a lot and it also assumes that the clock cycles on a GPU is just as fast as on the Intel CPU, which they are not, but this is fine, because we have a lot more than $1000$ threads to work with.
 
 %A single C200 molecule takes ... so this many would take... distributing it over 1000 would take this much wall time..
 %By using multiple GPUs we can distribute these huge isomerspaces 
@@ -151,7 +156,7 @@ It takes around $30$ seconds for a 12th generation Intel mobile processor to run
 
 \section{Case Study}
 
-To get an idea of the achievable speedup on a single GPU, we will take a look at the NVIDIA Ada Lovelace architecture.
+To get an idea of the scale of parallelism we can achieve on a single GPU, we will take a look at the memory specifications of the NVIDIA Ada Lovelace architecture. We hope to use this to get an idea of how many fullerenes can fit into memory.
 
 Using all the levels of memory on a GPU efficiently is crucial to achieve high performance in parallel computing tasks. Let us therefore take a moment to familiarize ourselves with the different types typically found in the memory hiearchy on a GPU. Below you will find an overview of the various memory levels with short explanations for each of them:
 
@@ -178,186 +183,218 @@ Using all the levels of memory on a GPU efficiently is crucial to achieve high p
 
 % Smid regnestykker ind i en klar "example" for Ada, og skriv hvad de skal bruges til!
 
-The NVIDIA Ada Lovelace GPU architecture\cite{nvidia-ada-tuning-guide} has $80$ GB of global memory.
-$18432$ CUDA cores, each SM has 128 CUDA cores and there is a total of $144$ SMs.
+The NVIDIA Ada Lovelace GPU architecture\cite{nvidia-ada-architecture} has $80$ GB of global memory, and $18432$ CUDA cores spread across $144$ SMs, resulting in $128$ CUDA cores per SM.
 
-Each SM has $65536$ $32$-bit registers, which gives us $256$ KB of register memory per SM.
-Each SM has a $256$ KB Register File and $128$ KB L1/Shared Memory.
-The SM is divided into four processing blocks (or partitions), with each partition containing a $64$ KB register file, an L0 instruction cache, one warp scheduler, one dispatch unit, 16 CUDA Cores dedicated for processing FP32 operations (up to 16 FP32 operations per clock), 16 CUDA Cores that can process FP32 or INT32 operations (16 FP32 operations per clock OR 16 INT32 operations per clock).
+To find out how many fullerenes worth of coordinate data can fit into global memory, we can use the following equation:
+
+\begin{figure}[H]
+\begin{equation}
+\begin{split}
+        GlobalMemFullereneCapacity &= \floor*{\frac{GlobalMemInBits}{FullereneAtomCount \times 3 \times 64}}
+\end{split}
+\end{equation}
+\caption{The amount of 3-dimensional fullerene coordinate data that fits in global memory. The $3 \times 64$ comes from the three $64$-bit floating point numbers that represents the 3-dimensional coordinates. This equation does not consider other data such as results or intermediate values.}
+\end{figure}
+
+\begin{figure}[H]
+\begin{equation}
+\begin{split}
+        MinimumGPUsToFitIsomerspace &= \ceil*{\frac{GlobalMemFullereneCapacity}{IsomerspaceSize}}
+\end{split}
+\end{equation}
+\caption{The minimum number of GPUs required to fit a complete isomerspace in global memory at once.}
+\end{figure}
+
+Be aware that this equation does not consider any space needed for the results or any intermediate values, but we can use this equation to calculate the minimum amount of GPUs required to fit the whole isomerspace. If we do want to fit the whole isomerspace at once, then we might need to add additional GPUs to account for the intermediate values and results. Using the equations for the $C_{200}$ isomerspace tells us that we need a minimum of $13$ GPUs with $80$ GB of global memory each.
+
+We are also interested in knowing how much non-global memory is available to each xTB computation. Knowing this will tell us how many of the threads, warps, and blocks we can utilize on the GPU. To figure this out, we first need to know how much of the various memory levels are available to a single thread if distributed over all threads.
+
+Each SM has $128$ KB L1/Shared Memory and is divided into four partitions, each containing a $64$ KB register file, an L0 instruction cache, one warp scheduler, one dispatch unit, 16 CUDA Cores dedicated for processing FP32 operations (up to 16 FP32 operations per clock), 16 CUDA Cores that can process FP32 or INT32 operations (16 FP32 operations per clock OR 16 INT32 operations per clock), and a tensor core. See \autoref{fig:ada-SM-architecture} for a figure of the SM architecture.
 
 \begin{figure}[H]
 \centering
 \includegraphics[scale=0.3]{images/nvidia-ada-gpu-architecture}
 \caption{The NVIDIA Ada Lovelace Architecture for a streaming-multiprocessor. \cite[Figure 5]{nvidia-ada-architecture}}
-\label{fig:ada-architecture}
+\label{fig:ada-SM-architecture}
 \end{figure}
 
-\begin{equation}
-\begin{split}
-  64000 \cdot 32 &= 2048000 \text{ bits}\\
-  &= 256000 \text{ bytes}\\
-  &= 256 \text{ KB}
-\end{split}
-\end{equation}
+There are $48$ warps per SM, so each warp scheduler has $12$ warps allocated to them. Each warp has $32$ threads, so if we distribute the register file over the $384$ threads, then each of them have $166$ bytes (see \autoref{eq:reg_per_thread}). This is only $41.5$ of the maximum of $255$ $32$-bit registers that a single thread can have, so if needed then we can allocate more memory to each thread by utilizing fewer of them.
 
-Each thread has a maximum of $255$ registers, and each SM has a maximum of $24$ blocks and a maximum of $48$ warps. This adds up such that full utilization can be achieved when each block has $2$ warps allocated. A warp has $32$ threads, so an SM has a total of $1536$ threads when each of its $24$ blocks has two warps.
-Distributing the $64,000$ registers evenly over these threads gives each of them $41$ registers, which is considerably lower than the maximum of $255$, but allows all of the threads to be used evenly. By using \autoref{eq:reg_mem_utilized_per_sm} we can see that this configuration utilizes $251.9$ KB of the register memory available to each of the SMs.
+To get the amount of shared memory available to each thread when distributed evenly, we can use \autoref{eq:shared_per_thread}. There is $128$ KB of shared memory per SM, so each thread has $83$ bytes to work with.
 
 \begin{equation}
 \begin{split}
-  WarpsPerBlock &= \floor*{\frac{WarpsPerSM}{BlocksPerSM}}
+        RegisterMemoryPerThread &= \frac{RegisterFile}{WarpsPerPartition \times ThreadsPerWarp} \label{eq:reg_per_thread}
 \end{split}
 \end{equation}
 
 \begin{equation}
 \begin{split}
-  ThreadsPerBlock &= WarpsPerBlock \times ThreadsPerWarp
+        SharedMemoryPerThread &= \frac{SharedMemoryPerSM}{WarpsPerSM \times ThreadsPerWarp} \label{eq:shared_per_thread}
 \end{split}
 \end{equation}
 
-\begin{equation}
-\begin{split}
-  RegistersPerThread &= \floor*{\frac{RegistersPerSM}{BlocksPerSM \times ThreadsPerBlock}}
-\end{split}
-\end{equation}
 
-\begin{equation} \label{eq:reg_mem_utilized_per_sm}
-\begin{split}
-  RegisterMemoryUtilizedPerSM =\\
-  &BlocksPerSM\\
-  &\times ThreadsPerBlock\\
-  &\times RegistersPerThread\\
-  &\times BitsPerRegister
-\end{split}
-\end{equation}
+Depending on the upperbound on intermediate data required by the xTB algorithm, we can tweak the amount of non-global memory available to each fullerene by using fewer threads, warp, and blocks. For example, using only $16$ of the $32$ threads in each warp will double the available register and shared memory for each thread. There is a point of diminishing returns as a single thread is limited to a maximum of $255$ $32$-bit registers. In the case that the non-global memory alone is not enough to hold the intermediate data of a molecule, then we will need to also utilize global memory. Shared memory has a latency of $20$ to $30$ cycles while global memory has a latency of $200$ to $1000$ cycles\cite{nasa-nvidia-basics}. Global memory is slow to access, so when used it becomes especially important to place data strategically to allow for coalesced access.
 
-BlocksPerSM and BitsPerRegister are constants found in the specification for the GPU architecture.
-
-With this, each block in an SM has $10.496$ KB of register memory to work with, and thus each thread has $164$ bytes.
-
-\begin{equation}
-\begin{split}
-  \frac{251.904}{24} &= 10.496 \text{ KB}
-\end{split}
-\end{equation}
-
-\begin{equation}
-\begin{split}
-  \frac{251904}{1536} &= 164 \text{ bytes}
-\end{split}
-\end{equation}
-
-The shared memory capacity per SM is $100$ KB and a single block can have a maximum of $99$ KB. This gives each block about $4.16$ KB of shared memory, meaning that the $64$ threads in a block will have $65$ bytes each.
-
-\begin{equation}
-\begin{split}
-  \frac{100}{24} &= 4.166 \text{ KB}
-\end{split}
-\end{equation}
-
-\begin{equation}
-\begin{split}
-  \frac{4166}{64} &= 65.09 \text{ bytes}
-\end{split}
-\end{equation}
-
-The Ada Lovelace architecture has a total of $128$ SMs and it also has a $98304$ KB L2 cache. This results in a total of $3072$ blocks that each has $32$ KB of the L2 Cache. All of this combined gives each block a total of $46.656$ KB of non-global memory.
-
-\begin{equation}
-\begin{split}
-  10.496 \text{ KB} + 4.166 \text{ KB} + 32 \text{ KB} &= 46.662 \text{ KB}
-\end{split}
-\end{equation}
-
-Distributing the global memory across the blocks gives each of them $26.042$ MB. Combined with the non-global memory, this results in each block having a total of $26.088$ MB of memory.
-
-\subsection{Optimizing GPU Configuration for Isolated Molecules}
-
-Computing xTB-GFN2 for a molecule is completely isolated, so if we do the whole xTB computation in lockstep, then we only have to concern ourselves with how many warps and blocks a single molecule needs in order to keep all its data in device memory. When we know these details, then we can simply scale up the number of molecules to be computed in lockstep until all the resources on the GPU are saturated. With this approach, expanding to multiple GPUs should be rather trivial as there are no interdependencies.
-
-The exact space needed to compute the GFN2 method of xTB for a single fullerene is not yet clear to us, and it will also vary based on the size of the fullerene. To make finding the most optimal GPU configuration easier when optimizing for most possible parallel xTB computations, we have developed a script that computes such a configuration based on the space requirement of a single molecule.
-
-\begin{figure}[h!]
-\begin{minted}{python}
-  def compute(bytes_per_molecule):
-    mb_per_molecule = bytes_per_molecule / 1_000_000
-
-    threads_per_molecule = compute_threads_per_molecule(mb_per_molecule)
-    warps_per_molecule = compute_warps_per_molecule(threads_per_molecule)
-    molecules_per_block = compute_molecules_per_block(warps_per_molecule)
-
-    print_utilization(warps_per_molecule, molecules_per_block)
-
-    print(f"MB per molecule: {mb_per_molecule} MB")
-    print(f"Threads per molecule: {threads_per_molecule}")
-    print(f"Warps per molecule: {warps_per_molecule}")
-    print(f"Molecules per block: {molecules_per_block}")
-\end{minted}
-  \caption{This is the top-level function for computing the optimal number of warps needed per molecule when optimizing for most possible parallel xTB computations on a single GPU specifically for the Ada Lovelace architecture.}
-\end{figure}
-
-The output of the script has information on how many threads are required for a single molecule, how many warps this fits within. It also includes general information about the utilization of the GPUs resources with the configuration presented. An example of the full output can be seen in \autoref{fig:gpu-mem-output}.
-
-
-\begin{figure}[h!]
-\begin{minted}[linenos=false]{text}
-| Global memory | L2 cache | Total SMs | Threads per warp |
-|    80.0 GB    | 98304 KB |    128    |        32        |
-| Threads Available | Threads Used | Blocks Available | Blocks Used |
-|      196608       |    196608    |       3072       |    3072.0   |
-
-#################################### Per SM ####################################
-| Warps | Blocks | Registers | Shared Memory | Threads Available | Threads Used |
-|  48   |   24   |   64000   |    100 KB     |       1536        |     1536     |
-| Blocks Available | Blocks Used |
-|        24        |     24.0    |
-
-########################### Per Block ###########################
-| L2 Cache | Register Mem | Shared Mem | Global Mem | Total mem |
-| 32.0 KB  |  10.496 KB   |  4.167 KB  |  26.042 MB | 26.088 MB |
-
-MB per molecule: 8.3 MB
-Threads per molecule: 18
-Warps per molecule: 1
-Molecules per block: 2
-\end{minted}
-\caption{This is the output of our script for computing an optimal GPU configuration when a single molecule needs $8.3$ MB of memory.}
-\label{fig:gpu-mem-output}
-\end{figure}
-
-In \autoref{fig:gpu-mem-output} each molecule is $8.3$ MB and thus requires the memory of $18$ threads. Each warp has $32$ threads, so in this case a single molecule fits within a single warp. With $24$ blocks and $48$ warps per SM, all blocks can have $2$ warps each, which in this scenario means that $2$ molecules can be computed in parallel within a single block. This space requirement for a molecule is just an example and in no way guaranteed to be representative of the actual requirements of fullerenes of any size.
-
-
-%The electrostatic energy term depends on the initial Huckel energy term H0, P, dq, dqsh, atomicGam, shellGam, jmat\_flat, shift...
+%Each SM has a maximum of $24$ blocks and a maximum of $48$ warps. This adds up such that full utilization can be achieved when each block has $2$ warps allocated. A warp has $32$ threads, so an SM has a total of $1536$ threads when each of its $24$ blocks has two warps.
+%%By using \autoref{eq:reg_mem_utilized_per_sm} we can see that this configuration utilizes $251.9$ KB of the register memory available to each of the SMs.
 %
-%Instead of giving a bad approximation then just explain the equations and how to use the script.
+%\begin{equation}
+%\begin{split}
+%  WarpsPerBlock &= \floor*{\frac{WarpsPerSM}{BlocksPerSM}}
+%\end{split}
+%\end{equation}
 %
-%83GB for 10000 C200
-%8.3 MB for each molecule
-%SMs has max 48 warps
-%each warp has 32 threads
-%64000 32bit registers per SM
-%each thread can max use 255 registers
-%max thread blocks per SM is 24
-%two thread blocks to make use of all 48 warps
-%shared memory capacity per SM 100KB
-%maximum shared memory per thread block is 99KB
-%SMs schedule warps/workgroups/thread blocks
-%we can do ~1536 molecules per SM with this amount of data
+%\begin{equation}
+%\begin{split}
+%  ThreadsPerBlock &= WarpsPerBlock \times ThreadsPerWarp
+%\end{split}
+%\end{equation}
+%
+%\begin{equation}
+%\begin{split}
+%  RegistersPerThread &= \floor*{\frac{RegistersPerSM}{BlocksPerSM \times ThreadsPerBlock}}
+%\end{split}
+%\end{equation}
+%
+%\begin{equation} \label{eq:reg_mem_utilized_per_sm}
+%\begin{split}
+%  RegisterMemoryUtilizedPerSM =\\
+%  &BlocksPerSM\\
+%  &\times ThreadsPerBlock\\
+%  &\times RegistersPerThread\\
+%  &\times BitsPerRegister
+%\end{split}
+%\end{equation}
+%
+%BlocksPerSM and BitsPerRegister are constants found in the specification for the GPU architecture.
+%
+%With this, each block in an SM has $10.496$ KB of register memory to work with, and thus each thread has $164$ bytes.
+%
+%\begin{equation}
+%\begin{split}
+%  \frac{251.904}{24} &= 10.496 \text{ KB}
+%\end{split}
+%\end{equation}
+%
+%\begin{equation}
+%\begin{split}
+%  \frac{251904}{1536} &= 164 \text{ bytes}
+%\end{split}
+%\end{equation}
+%
+%The shared memory capacity per SM is $100$ KB and a single block can have a maximum of $99$ KB. This gives each block about $4.16$ KB of shared memory, meaning that the $64$ threads in a block will have $65$ bytes each.
+%
+%\begin{equation}
+%\begin{split}
+%  \frac{100}{24} &= 4.166 \text{ KB}
+%\end{split}
+%\end{equation}
+%
+%\begin{equation}
+%\begin{split}
+%  \frac{4166}{64} &= 65.09 \text{ bytes}
+%\end{split}
+%\end{equation}
+%
+%The Ada Lovelace architecture has a total of $128$ SMs and it also has a $98304$ KB L2 cache. This results in a total of $3072$ blocks that each has $32$ KB of the L2 Cache. All of this combined gives each block a total of $46.656$ KB of non-global memory.
+%
+%\begin{equation}
+%\begin{split}
+%  10.496 \text{ KB} + 4.166 \text{ KB} + 32 \text{ KB} &= 46.662 \text{ KB}
+%\end{split}
+%\end{equation}
+%
+%Distributing the global memory across the blocks gives each of them $26.042$ MB. Combined with the non-global memory, this results in each block having a total of $26.088$ MB of memory.
 
-
-
-
-%Doing more fine grained parallelization can make use of SIMT(Single instruction multiple threads) like reduction.
-
-
-We cannot do all fullerenes at once for the largest isomerspaces, so they have to be computed in batches. To achieve good speedups we also have to utilize the GPU efficiently.
+%\subsection{Optimizing GPU Configuration for Isolated Molecules}
+%
+%Computing xTB-GFN2 for a molecule is completely isolated, so if we do the whole xTB computation in lockstep, then we only have to concern ourselves with how many warps and blocks a single molecule needs in order to keep all its data in device memory. When we know these details, then we can simply scale up the number of molecules to be computed in lockstep until all the resources on the GPU are saturated. With this approach, expanding to multiple GPUs should be rather trivial as there are no interdependencies.
+%
+%The exact space needed to compute the GFN2 method of xTB for a single fullerene is not yet clear to us, and it will also vary based on the size of the fullerene. To make finding the most optimal GPU configuration easier when optimizing for most possible parallel xTB computations, we have developed a script that computes such a configuration based on the space requirement of a single molecule.
+%
+%\begin{figure}[h!]
+%\begin{minted}{python}
+%  def compute(bytes_per_molecule):
+%    mb_per_molecule = bytes_per_molecule / 1_000_000
+%
+%    threads_per_molecule = compute_threads_per_molecule(mb_per_molecule)
+%    warps_per_molecule = compute_warps_per_molecule(threads_per_molecule)
+%    molecules_per_block = compute_molecules_per_block(warps_per_molecule)
+%
+%    print_utilization(warps_per_molecule, molecules_per_block)
+%
+%    print(f"MB per molecule: {mb_per_molecule} MB")
+%    print(f"Threads per molecule: {threads_per_molecule}")
+%    print(f"Warps per molecule: {warps_per_molecule}")
+%    print(f"Molecules per block: {molecules_per_block}")
+%\end{minted}
+%  \caption{This is the top-level function for computing the optimal number of warps needed per molecule when optimizing for most possible parallel xTB computations on a single GPU specifically for the Ada Lovelace architecture.}
+%\end{figure}
+%
+%The output of the script has information on how many threads are required for a single molecule, how many warps this fits within. It also includes general information about the utilization of the GPUs resources with the configuration presented. An example of the full output can be seen in \autoref{fig:gpu-mem-output}.
+%
+%
+%\begin{figure}[h!]
+%\begin{minted}[linenos=false]{text}
+%| Global memory | L2 cache | Total SMs | Threads per warp |
+%|    80.0 GB    | 98304 KB |    128    |        32        |
+%| Threads Available | Threads Used | Blocks Available | Blocks Used |
+%|      196608       |    196608    |       3072       |    3072.0   |
+%
+%#################################### Per SM ####################################
+%| Warps | Blocks | Registers | Shared Memory | Threads Available | Threads Used |
+%|  48   |   24   |   64000   |    100 KB     |       1536        |     1536     |
+%| Blocks Available | Blocks Used |
+%|        24        |     24.0    |
+%
+%########################### Per Block ###########################
+%| L2 Cache | Register Mem | Shared Mem | Global Mem | Total mem |
+%| 32.0 KB  |  10.496 KB   |  4.167 KB  |  26.042 MB | 26.088 MB |
+%
+%MB per molecule: 8.3 MB
+%Threads per molecule: 18
+%Warps per molecule: 1
+%Molecules per block: 2
+%\end{minted}
+%\caption{This is the output of our script for computing an optimal GPU configuration when a single molecule needs $8.3$ MB of memory.}
+%\label{fig:gpu-mem-output}
+%\end{figure}
+%
+%In \autoref{fig:gpu-mem-output} each molecule is $8.3$ MB and thus requires the memory of $18$ threads. Each warp has $32$ threads, so in this case a single molecule fits within a single warp. With $24$ blocks and $48$ warps per SM, all blocks can have $2$ warps each, which in this scenario means that $2$ molecules can be computed in parallel within a single block. This space requirement for a molecule is just an example and in no way guaranteed to be representative of the actual requirements of fullerenes of any size.
+%
+%
+%%The electrostatic energy term depends on the initial Huckel energy term H0, P, dq, dqsh, atomicGam, shellGam, jmat\_flat, shift...
+%%
+%%Instead of giving a bad approximation then just explain the equations and how to use the script.
+%%
+%%83GB for 10000 C200
+%%8.3 MB for each molecule
+%%SMs has max 48 warps
+%%each warp has 32 threads
+%%64000 32bit registers per SM
+%%each thread can max use 255 registers
+%%max thread blocks per SM is 24
+%%two thread blocks to make use of all 48 warps
+%%shared memory capacity per SM 100KB
+%%maximum shared memory per thread block is 99KB
+%%SMs schedule warps/workgroups/thread blocks
+%%we can do ~1536 molecules per SM with this amount of data
+%
+%
+%
+%
+%%Doing more fine grained parallelization can make use of SIMT(Single instruction multiple threads) like reduction.
+%
+%
+%We cannot do all fullerenes at once for the largest isomerspaces, so they have to be computed in batches. To achieve good speedups we also have to utilize the GPU efficiently.
 
 \section{Data Coalescing}
 
 % TODO: Udvid og strukturer klart. Forklar at det eksisterende xTB program tager et molekyle ad gangen, og hvad vi får ud af at arbejde på flere samtidigt, that is, at vi nu har muligheden for lockstep parallelisering og at flytte flere molekyler i memory samtidigt.
 
-The program will have the data for all molecules, which gives opportunity for data coalescing by aligning the data as a structure of arrays (SOA) instead of an array of structures (AOS). It can also make copying data from the host to device more efficient since the data for multiple molecules can be moved together by the same instruction. To allow for coalesced access to the data on the device, we can essentially realign the data so that parts of the molecules that are accessed together, are also close together in memory.%Doing this should also decrease the amount of copies needed between host and device memory, resulting in overall faster execution.
+The program will have data for multiple molecules at once, and this gives opportunity for data coalescing by ensuring spacial locality. Spacial locality refers to having data that is accessed together be close together in memory. We often do not need all the data in a structure at once to perform our computation, so one way to achieve spacial locality is to rewrite our data as structures of arrays (SOA) instead of arrays of structures (AOS) (see \autoref{fig:coalescing}). To allow for coalesced access to the data in device memory, we can essentially realign the data so that parts of the molecules that are accessed together, are also close together in memory.%Doing this should also decrease the amount of copies needed between host and device memory, resulting in overall faster execution.
 
 \begin{figure}[h]
 \centering
@@ -419,9 +456,9 @@ squarednode/.style={
 
 % TODO: POINTE! Alle threads i en warp skal lave det samme!
 
-An example of turning an AOS into an SOA can be seen in \autoref{fig:coalescing} where the data is realigned to allow for coalesced data access. If the code accesses only a few atoms of a molecule at a time, then it is a waste if the memory page contains the rest of a molecule as well. Instead of copying whole molecules at a time, the data should be structured such that only the required data of a molecule is copied as it allows the kernel to get that data for more molecules at a time, thus reducing unnecessary copies and speeding up the computation.
+If our kernel only accesses a few atoms of a molecule at a time, then it will take more data fetches from global memory if the memory page that we fetch also contains the rest of the molecules, which are unnecessary for the computation. Instead of copying whole molecules at a time, the data should be structured such that only the required data of a molecule is fetched, as that allows the kernel to get that data for more molecules at a time, thus reducing unnecessary fetches and speeding up the computation. The point here is that all the threads in a warp are doing the exact same computation, so we need to efficiently feed them the required data from each of the respective molecules they are working on.
 
-The geometric data for the fullerenes that are fed into the xTB implementation that our project focuses on, is already on the device and is never meant to leave the device before the final result is reached. The xTB implementation should therefore never move any data between the host and device. As such, memory coalescing is something to consider mainly when talking about the data transfer between the global and shared memory on a device. When we compute the energies for multiple molecules in the same SM, then we would like to move the necessary data for the current operation for all of the molecules in the SM together. The whole molecule will not fit in the lower memory levels, so we need to interweave the data of the molecules such that the necessary parts of the molecules can be moved together in as few operations as possible.
+This project is part of a larger pipeline, so the geometric fullerene data that are to be fed into the xTB algorithm is already in device memory when we get it, and it is never meant to leave the device. The xTB implementation should therefore never move any data between the host and device. As such, memory coalescing is something to consider mainly when talking about data accesses from global and shared memory on a device. A whole molecule will most likely not fit in the lower memory levels, so we need to interweave the data in higher levels such that the necessary parts can be accessed as fast as possible. The bottom line is, that when we compute the energies for multiple molecules in the same warp, then we would like to move the necessary data for the molecules at the same time to minimize data accesses to higher levels of memory.
 
 
 \section{Implementing the Lockstep Algorithm}
