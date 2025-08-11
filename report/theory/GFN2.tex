@@ -73,7 +73,7 @@ The initial density matrix guess is formulated as a superposition of neutral ato
 def density_initial_guess(atoms: list[int]) -> list[list[float]]:
     orbitals = get_orbitals(atoms)
     occs = get_square_matrix(len(orbitals))
-    for idx,(_,atom,subshell,orbital) in enumerate(orbitals):
+    for idx,(_,atom,subshell,_) in enumerate(orbitals):
         l = angular_momentum_of_subshell[atom][subshell] 
         orbitals_in_subshell = l*2+1 
         electrons_in_subshell = reference_occupations[atom][subshell]
@@ -86,24 +86,132 @@ def density_initial_guess(atoms: list[int]) -> list[list[float]]:
 For fullerenes the guess is simply all ones on the diagonal as number\_of\_subshells[C] = 2, angular\_momentum\_of\_subshell[C] = [0,1,0] and reference\_occupations[C] = [1.0,3.0,0.0]. Thus occ will be a repeating series of [$\frac{1.0}{1},\frac{3.0}{3},\frac{3.0}{3},\frac{3.0}{3}$].
 We also need the overlap matrix, $S$, which is computed in the following way.
 \begin{equation}
-S_{\nu\mu} = \braket{\nu|\mu}\quad\quad\quad\quad\forall \nu \in l \in A,\mu \in l' \in B
+S_{\nu\mu} = \braket{\psi_\nu|\psi_\mu}\quad\quad\quad\quad\forall \nu \in l \in A,\mu \in l' \in B
 \end{equation}
+This is an integral between two Slater type orbitals (STOs). To compute this we need to remember that in GFN2-xTB a STO is approximated as a linear combination of gaussian type orbitals:
+\begin{equation}
+    \begin{split}
+        \ket{\psi_\nu} =&\psi(\zeta_{A,l},r-R_A) = \sqrt{\frac{\zeta_{A,l}^3}{\pi}}e^{-\zeta_{A,l}|r-R_A|}\\
+        \approx &\sum_i^{N_{A,l}}c_{i,\nu}\left(\frac{2\alpha_{i,\nu}}{\pi}\right)^{3/4}e^{\alpha_{i,\nu}|r-R_A|}=\sum_i^{N_{A,l}}c_{i,\nu}\phi(\alpha_{i,\nu},r-R_A) = \sum_i^{N_{A,l}}c_{i,\nu}\ket{\phi_i}
+    \end{split}
+\end{equation}
+Where $N_{A,l}$ is a element and shell dependant constant, it is the number of GTOs used to approximate the STO. The contraction coefficient $c$ is a fitted value. 
+
+\begin{equation}
+    S_{\nu\mu} =\sum_i^{N_{A,l}}\sum_j^{N_{B,l'}}c_{i,\nu}c_{j,\mu} \braket{\phi_i|\phi_j}
+\end{equation}
+As these are real valued functions we can drop the conjugation too.
+\begin{equation}
+    \begin{split}
+        \braket{\phi_i|\phi_j} = &\int \phi^*(\alpha_{i,\nu},r-R_A)\phi(\alpha_{j,\mu},r-R_B)\,dx\,dy\,dz\\
+        =&\int \phi(\alpha_{i,\nu},r-R_A)\phi(\alpha_{j,\mu},r-R_B)\,dx\,dy\,dz\\
+    \end{split}
+\end{equation}
+Now we see that we have to compute the products of GTOs. The product of two Gaussians is a new Gaussian centred at a point between the two.
+\begin{gather}
+    \phi(\alpha_{i,\mu},r-R_A)\phi(\alpha_{j,\nu},r-R_B) = K_{AB}\phi(\alpha,r-R_P)\\
+    \alpha = \alpha_{i,\nu}+\alpha_{j,\mu}\\
+    K_{AB} = \left(\frac{2\alpha_{i,\nu}\alpha_{j,\mu}}{\alpha\pi}\right)^\frac{3}{4}e^{-\frac{\alpha_{i,\nu}\alpha_{j,\mu}}{\alpha}|R_A-R_B|^2}\\
+    R_P = \frac{\alpha_{i,\nu}R_A+\alpha_{j,\mu}R_B}{\alpha}
+\end{gather}
+To compute the integral over the GTOs we can split it in terms of the 3 dimensions we are integrating over, x,y and z.
+\begin{equation}
+    \begin{split}
+        \int \phi(\alpha_{i,\nu},r-R_A)\phi(\alpha_{j,\mu},r-R_B)\,dx\,dy\,dz=K_{AB}&\int \phi(\alpha,r-R_P)\,dx\,dy\,dz\\
+        =K_{AB}&\int \phi(\alpha,r_z-{R_P}_z)\,dx\\
+            \times&\int \phi(\alpha,r_y-{R_P}_y)\,dy\\
+            \times&\int \phi(\alpha,r_z-{R_P}_z)\,dz\\
+    \end{split}
+\end{equation}
+For clarity let us in the following code snippets have the following constants:
 \begin{figure}[H]
 \begin{minted}{python}
-def overlap(atoms: list[int]) -> list[list[float]]:
+    x = 0
+    y = 1
+    z = 2
+    xx = 0
+    yy = 1
+    zz = 2
+    xy = 3
+    xz = 4
+    yz = 5
+    directions = 6
+\end{minted}
+\caption{Constants for the order of directions.}
+\end{figure}
+
+\begin{figure}[H]
+\begin{minted}{python}
+def overlap(atoms: list[int], positions:list[list[float]]) -> list[list[float]]:
     orbitals = get_orbitals(atoms)
     S = get_square_matrix(len(orbitals))
-    for idx_A, (_,atom_A,subshell_A,orbital_A) in enumerate(orbitals):
-        for idx_B, (_,atom_B,subshell_B,orbital_B) in enumerate(orbitals):
-            if idx_A == idx_B:
-                S[idx_A][idx_B] = 1
-            else:
-                S[idx_A][idx_B] = compute_integral(...)
+    for idx_A, (atom_idx_A,atom_A,subshell_A,orbital_A) in enumerate(orbitals):
+        for idx_B, (atom_idx_B,atom_B,subshell_B,orbital_B) in enumerate(orbitals):
+            R_A = positions[atom_idx_A]
+            R_B = positions[atom_idx_B]
+            l_A = angular_momentum_of_subshell[atom_A][subshell_A]
+            l_B = angular_momentum_of_subshell[atom_B][subshell_B]
+            distance = euclidean_distance_squared(R_A,R_B)
+            S[idx_A][idx_B] = compute_STO_integral(...)
     return S
-def compute_integral(atom_A:int, atom_B:int, shell_A:int, shell_B:int, orbital_A:int, orbital_B:int)-> float:
-    #...
 \end{minted}
-\caption{Python like code illustrating construction of $S$}
+\caption{Python snippet illustrating construction of $S$.}
+\end{figure}
+\begin{figure}[H]
+\begin{minted}{python}
+def compute_STO_integral(...)-> float:
+    number_of_gaussians_A = number_of_gaussians[atom_A][subshell_A]
+    number_of_gaussians_B = number_of_gaussians[atom_B][subshell_B]
+    slater_exponent_A = slater_exponents[atom_A][subshell_A]
+    slater_exponent_B = slater_exponents[atom_B][subshell_B]
+    overlap = 0
+    for gaussian_i in range(number_of_gaussians_A):
+        for gaussian_j in range(number_of_gaussians_B):
+            exponent_i = normalised_gaussian_exponent(...)
+            exponent_j = normalised_gaussian_exponent(...)
+            contraction_i = normalised_contraction_coeficient(...)
+            contraction_j = normalised_contraction_coeficient(...)
+            overlap += contraction_i*contraction_j*compute_GTO_integral(...)
+    return overlap
+\end{minted}
+    \caption{Python snippet illustrating construction of the integral $\braket{\psi_\nu|\psi_\mu}$.}
+\end{figure}
+\begin{figure}[H]
+\begin{minted}{python}
+def normalised_gaussian_exponent(atom:int, subshell:int, gaussian:int, slater_exponent:float) -> float:
+    normalisation_factor = slater_exponent**2
+    return gaussian_exponents[atom][subshell][gaussian]*normalisation_factor
+
+def normalised_contraction_coefficient(atom:int, subshell:int, gaussian:int, gaussian_exponent:float) -> float:
+    l = angular_momentum_of_subshell[atom][subshell]
+    normalization_factor = (((2.0*gaussian_exponent)/pi)**(3/4)) * (sqrt(4*gaussian_exponent)**l) / sqrt(double_factorial(l))
+    return contraction_coeficients[atom][shell][gaussian]*normalisation_factor
+
+def double_factorial(n:int) -> int:
+    if n <= 1:
+        return 1
+    return n*double_factorial(n-2)
+\end{minted}
+    \caption{Python snippet illustrating normalisation of the gaussian exponents and contraction coefficients.}
+\end{figure}
+\begin{figure}[H]
+\begin{minted}{python}
+def compute_GTO_integral(...)-> float:
+    overlap = 0
+    alpha = exponent_i + exponent_j
+    exponents = exponent_i * exponent_j
+    K_AB = ((2*exponents)/(alpha*pi))**(3/4) * e**(-(exponents/alpha)*distance)
+    for dim in [x,y,z]:
+        gaussian_product_center = (exponent_i*R_A[dim]+exponent_j*R_B[dim])/alpha
+        center_relative_to_A = gaussian_product_center-R_A[dim]
+        center_relative_to_B = gaussian_product_center-R_B[dim]
+        l_A_dim = angular_momentum_in_dimension[l_A][orbital_A][dim]
+        l_B_dim = angular_momentum_in_dimension[l_B][orbital_B][dim]
+        l_max_dim = max(l_A_dim, l_B_dim)
+        exponents = [] 
+    return overlap
+\end{minted}
+    \caption{Python like code illustrating computation of the integral $\braket{\phi_i|\phi_j}$}
 \end{figure}
 NOTE(Asmus) Explain D and Q as well
 
