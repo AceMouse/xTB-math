@@ -394,7 +394,7 @@ Depending on the upperbound on intermediate data required by the xTB algorithm, 
 
 % TODO: Udvid og strukturer klart. Forklar at det eksisterende xTB program tager et molekyle ad gangen, og hvad vi får ud af at arbejde på flere samtidigt, that is, at vi nu har muligheden for lockstep parallelisering og at flytte flere molekyler i memory samtidigt.
 
-The program will have data for multiple molecules at once, and this gives opportunity for data coalescing by ensuring spacial locality. Spacial locality refers to having data that is accessed together be close together in memory. We often do not need all the data in a structure at once to perform our computation, so one way to achieve spacial locality is to rewrite our data as structures of arrays (SOA) instead of arrays of structures (AOS) (see \autoref{fig:coalescing}). To allow for coalesced access to the data in device memory, we can essentially realign the data so that parts of the molecules that are accessed together, are also close together in memory.%Doing this should also decrease the amount of copies needed between host and device memory, resulting in overall faster execution.
+Our goal is an xTB implementation capable of working with data for several molecules in parallel. This opens the opportunity for coalesced data access if we can structure the data in a way that achieves spacial locality. Spacial locality is achieved when related data is close together in memory such that it can be accessed as a contiguous block. This minimizes cache misses by eliminating random access across cache lines. One way to achieve spacial locality is to store data as structures of arrays (SOA) instead of arrays of structures (AOS) (see \autoref{fig:coalescing}). In order to allow coalesced access to data in device memory, we can essentially realign the data to match the access patterns of our kernels.%Doing this should also decrease the amount of copies needed between host and device memory, resulting in overall faster execution.
 
 \begin{figure}[h]
 \centering
@@ -456,18 +456,20 @@ squarednode/.style={
 
 % TODO: POINTE! Alle threads i en warp skal lave det samme!
 
-If our kernel only accesses a few atoms of a molecule at a time, then it will take more data fetches from global memory if the memory page that we fetch also contains the rest of the molecules, which are unnecessary for the computation. Instead of copying whole molecules at a time, the data should be structured such that only the required data of a molecule is fetched, as that allows the kernel to get that data for more molecules at a time, thus reducing unnecessary fetches and speeding up the computation. The point here is that all the threads in a warp are doing the exact same computation, so we need to efficiently feed them the required data from each of the respective molecules they are working on.
+In contrast to a task-parallel model where different instructions are executed in parallel, the threads in a warp is optimized around the single instruction multiple threads model (SIMT). This means that all $32$ threads in a warp can execute the exact same instructions in lockstep, thus being synchronized on a hardware level. To run in lockstep, data access has to complete for all the threads before the warp can advance, so to best utilize the SIMT model we need to fetch the data efficiently in a coalesced manner to minimize latency and maximize throughput.
+%To give an example, if a kernel only needs a subset of the fullerene for the current computation, then we should take the same subset for all fullerenes in the isomerspace and place them close together in memory.%Doing this allow us  from a single fetch, than if we also had to fetch the rest of the molecule data between these subsets.
 
-This project is part of a larger pipeline, so the geometric fullerene data that are to be fed into the xTB algorithm is already in device memory when we get it, and it is never meant to leave the device. The xTB implementation should therefore never move any data between the host and device. As such, memory coalescing is something to consider mainly when talking about data accesses from global and shared memory on a device. A whole molecule will most likely not fit in the lower memory levels, so we need to interweave the data in higher levels such that the necessary parts can be accessed as fast as possible. The bottom line is, that when we compute the energies for multiple molecules in the same warp, then we would like to move the necessary data for the molecules at the same time to minimize data accesses to higher levels of memory.
+This project is part of a larger pipeline, so the fullerene data that is fed to the xTB algorithm is already in device memory when we get it. The xTB implementation therefore never moves any data between the host and device. As such, data coalescing is something we consider when data is moved from higher to lower levels of memory on a device.
+%A complete molecule will most likely not fit in the lower memory levels, so we need to interweave the data in higher levels such that the necessary parts can be accessed as fast as possible. The bottom line is, that when we compute the energies for multiple molecules in the same warp, then we would like to move the necessary data for the molecules at the same time to minimize data accesses to higher levels of memory.
 
 
 \subsection{Introduction to a Parallel Lockstep Algorithm}
 
-To ensure that all threads within a warp can work all work on different fullerenes, we need to remove code branching and place an upper bound on all loops to make sure we are doing the same work for all atoms. Luckily we are only working with one type of atom, so we can simply replace branching and loops with the case that applies for carbon.
+We want to ensure that all threads within a warp can work on different fullerenes in parallel. To achieve this we need to remove branching in the code and place upper bounds on all loops to make sure the exact same work is performed by the threads. Luckily, since we are only working with one type of atom, we can simply replace branches with the case that applies for carbon.
 
-Normally we would have to set upper bounds on the amount of shells, orbitals, ranges using angular momentum and such, to ensure that the same instructions and same amount of instructions are run for all atoms. This is not necessary in our case since we only have carbon atoms, so all of them have the same amount of shells, orbitals and so on. We would also have to treat conditionals, but when working on only one type of atoms, we can eliminate conditionals by replacing it with the only valid branch for carbon atoms.
+Normally we would have to set upper bounds on all loops to ensure instructions are executed the same amount of times for all atoms. This is not necessary in our case since we only have carbon atoms, because all of them have the same amount of shells, orbitals, electrons and so on.
 
-\subsubsection{Orbitals as a Constant}
+\subsection{Orbitals as a constant}
 
 This following helper function would never be called in the actual implementation, but instead be computed on the fly. This section will show however, that we never need to compute this at all with fullerenes and can instead store it as a compact constant array. 
 
@@ -540,9 +542,9 @@ def get_orbitals() -> list[int]:
 
 As noted in the code, this always results in the array \verb|[0,0,1,0,1,2]|, so we can just store this as a constant instead of doing the computation. This array is only for a single carbon atom, but instead of replicating this by the amount of atoms, we can save the space by indexing into this array for all atoms and bound the amount of reads to the count of atoms in the fullerene.
 
-\subsubsection{Simplifying Initial Density Guess}
+\subsection{Simplifying the initial density guess}
 
-The computation for the initial density matrix guess can be simplified as well when we only consider carbon.
+The initial density matrix guess can also be simplified when we only consider carbon atoms.
 
 \begin{figure}[H]
 \begin{minted}{python}
@@ -606,7 +608,7 @@ def density_initial_guess(atom_count: int) -> list[list[float]]:
 \end{figure}
 
 
-\subsubsection{Computing Overlap in Lockstep}
+\subsection{Computing overlap in lockstep}
 
 \begin{figure}[H]
 \begin{minted}{python}
@@ -648,52 +650,52 @@ def overlap(atom_count: int) -> list[list[float]]:
 
 
 
-\subsubsection{Huckel Matrix}
-
-\begin{figure}[H]
-\begin{minted}{python}
-def huckel_matrix(atoms: list[int], positions: list[list[float]], overlap: list[list[float]]) -> list[list[float]]:
-    orbitals = get_orbitals(atoms)
-    H_EHT = get_square_matrix(len(orbitals))
-    CN = get_coordination_numbers(atoms,positions)
-    for orbital_idx, (atom_idx,atom,subshell,orbital) in enumerate(orbitals):
-        CN_A = CN[atom_idx]
-        H_A = self_energy[atom][subshell] # constant
-        H_CN_A = GFN2_H_CN_A[atom][subshell] # constant
-        H_EHT[orbital_idx][orbital_idx] = H_A - H_CN_A*CN_A
-
-    for idx_A,(atom_A_idx,atom_A,subshell_A,_) in enumerate(orbitals):
-        l_A = angular_momentum_of_subshell[atom_A][subshell_A]
-        EN_A = electro_negativity[atom_A]
-        R_A = positions[atom_A_idx]
-        Rcov_A = covalent_radii[atom_A]
-        k_poly_A = k_poly[atom_A][l_A]
-        for idx_B,(atom_B_idx,atom_B,subshell_B,_) in enumerate(orbitals):
-            if idx_A == idx_B:
-                continue
-            l_B = angular_momentum_of_subshell[atom_B][subshell_B]
-            EN_B = electro_negativity[atom_B]
-            R_B = positions[atom_B_idx]
-            Rcov_B = covalent_radii[atom_B]
-            k_poly_B = k_poly[atom_B][l_B]
-            K_ll = GFN2_K_AB[l_A][l_B]
-            delta_EN_squared = (EN_A-EN_B)**2
-            k_EN = 0.02
-            X = 1+k_EN*delta_EN_squared
-            R_AB = euclidean_distance(R_A,R_B) 
-            Rcov_AB = Rcov_A + Rcov_B 
-            PI = (1+k_poly_A*sqrt(R_AB/Rcov_AB)) * (1+k_poly_B*sqrt(R_AB/Rcov_AB))
-            slater_exp_A = slater_exponent[atom_A][l_A]
-            slater_exp_B = slater_exponent[atom_B][l_B]
-            Y = sqrt((2*sqrt(slater_exp_A*slater_exp_B)) / (slater_exp_A+slater_exp_B))
-            H_nn = H_EHT[idx_A][idx_A]
-            H_mm = H_EHT[idx_B][idx_B]
-            S_nm = overlap[idx_B][idx_B]
-            H_EHT[idx_A][idx_B] = k_ll*(1/2)*(H_nn+H_mm)*S_nm*Y*X*PI
-    return H_EHT
-\end{minted}
-\caption{The original simplified function for computing the Hückel matrix.}
-\end{figure}
+%\subsection{Huckel Matrix}
+%
+%\begin{figure}[H]
+%\begin{minted}{python}
+%def huckel_matrix(atoms: list[int], positions: list[list[float]], overlap: list[list[float]]) -> list[list[float]]:
+%    orbitals = get_orbitals(atoms)
+%    H_EHT = get_square_matrix(len(orbitals))
+%    CN = get_coordination_numbers(atoms,positions)
+%    for orbital_idx, (atom_idx,atom,subshell,orbital) in enumerate(orbitals):
+%        CN_A = CN[atom_idx]
+%        H_A = self_energy[atom][subshell] # constant
+%        H_CN_A = GFN2_H_CN_A[atom][subshell] # constant
+%        H_EHT[orbital_idx][orbital_idx] = H_A - H_CN_A*CN_A
+%
+%    for idx_A,(atom_A_idx,atom_A,subshell_A,_) in enumerate(orbitals):
+%        l_A = angular_momentum_of_subshell[atom_A][subshell_A]
+%        EN_A = electro_negativity[atom_A]
+%        R_A = positions[atom_A_idx]
+%        Rcov_A = covalent_radii[atom_A]
+%        k_poly_A = k_poly[atom_A][l_A]
+%        for idx_B,(atom_B_idx,atom_B,subshell_B,_) in enumerate(orbitals):
+%            if idx_A == idx_B:
+%                continue
+%            l_B = angular_momentum_of_subshell[atom_B][subshell_B]
+%            EN_B = electro_negativity[atom_B]
+%            R_B = positions[atom_B_idx]
+%            Rcov_B = covalent_radii[atom_B]
+%            k_poly_B = k_poly[atom_B][l_B]
+%            K_ll = GFN2_K_AB[l_A][l_B]
+%            delta_EN_squared = (EN_A-EN_B)**2
+%            k_EN = 0.02
+%            X = 1+k_EN*delta_EN_squared
+%            R_AB = euclidean_distance(R_A,R_B) 
+%            Rcov_AB = Rcov_A + Rcov_B 
+%            PI = (1+k_poly_A*sqrt(R_AB/Rcov_AB)) * (1+k_poly_B*sqrt(R_AB/Rcov_AB))
+%            slater_exp_A = slater_exponent[atom_A][l_A]
+%            slater_exp_B = slater_exponent[atom_B][l_B]
+%            Y = sqrt((2*sqrt(slater_exp_A*slater_exp_B)) / (slater_exp_A+slater_exp_B))
+%            H_nn = H_EHT[idx_A][idx_A]
+%            H_mm = H_EHT[idx_B][idx_B]
+%            S_nm = overlap[idx_B][idx_B]
+%            H_EHT[idx_A][idx_B] = k_ll*(1/2)*(H_nn+H_mm)*S_nm*Y*X*PI
+%    return H_EHT
+%\end{minted}
+%\caption{The original simplified function for computing the Hückel matrix.}
+%\end{figure}
 
 
 % TODO: Add figure of the Ada architecture
