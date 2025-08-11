@@ -84,6 +84,8 @@ def density_initial_guess(atoms: list[int]) -> list[list[float]]:
 \caption{Python like code illustrating computation of $P_0$}
 \end{figure}
 For fullerenes the guess is simply all ones on the diagonal as number\_of\_subshells[C] = 2, angular\_momentum\_of\_subshell[C] = [0,1,0] and reference\_occupations[C] = [1.0,3.0,0.0]. Thus occ will be a repeating series of [$\frac{1.0}{1},\frac{3.0}{3},\frac{3.0}{3},\frac{3.0}{3}$].
+
+
 We also need the overlap matrix, $S$, which is computed in the following way.
 \begin{equation}
 S_{\nu\mu} = \braket{\psi_\nu|\psi_\mu}\quad\quad\quad\quad\forall \nu \in l \in A,\mu \in l' \in B
@@ -91,38 +93,73 @@ S_{\nu\mu} = \braket{\psi_\nu|\psi_\mu}\quad\quad\quad\quad\forall \nu \in l \in
 This is an integral between two Slater type orbitals (STOs). To compute this we need to remember that in GFN2-xTB a STO is approximated as a linear combination of gaussian type orbitals:
 \begin{equation}
     \begin{split}
-        \ket{\psi_\nu} =&\psi(\zeta_{A,l},r-R_A) = \sqrt{\frac{\zeta_{A,l}^3}{\pi}}e^{-\zeta_{A,l}|r-R_A|}\\
-        \approx &\sum_i^{N_{A,l}}c_{i,\nu}\left(\frac{2\alpha_{i,\nu}}{\pi}\right)^{3/4}e^{\alpha_{i,\nu}|r-R_A|}=\sum_i^{N_{A,l}}c_{i,\nu}\phi(\alpha_{i,\nu},r-R_A) = \sum_i^{N_{A,l}}c_{i,\nu}\ket{\phi_i}
+        \ket{\psi_\nu} =&\psi(\zeta_{A,l},r-R_A) \\
+        = &N_{STO,l}|r-R_A|^{n-1}e^{-\zeta_{A,l}|r-R_A|}Y_l^m(r-R_A)\\
+        \approx &\sum_i^{N_{A,l}}c_{i,\nu}N_{GTO,l}(r_x-{R_A}_x)^{l_x}(r_y-{R_A}_y)^{l_y}(r_z-{R_A}_z)^{l_z}e^{-\alpha_{i,\nu}|r-R_A|^2}\\
+        =& \sum_i^{N_{A,l}}c_{i,\nu}\phi(\alpha_{i,\nu},r-R_A)\\
+        =& \sum_i^{N_{A,l}}c_{i,\nu}\ket{\phi_i}
     \end{split}
 \end{equation}
-Where $N_{A,l}$ is a element and shell dependant constant, it is the number of GTOs used to approximate the STO. The contraction coefficient $c$ is a fitted value. 
-
+Where $N_{A,l}$ is an element and shell dependant constant, it is the number of GTOs used to approximate the STO. The contraction coefficient $c$ is a fitted value. $\zeta$ and $\alpha$ are the slater and gaussian exponents. $R_A$ is the position of atom $A$. $N_{STO,l}$ and $N_{GTO,l}$ are normalisation terms, which for an s-orbital would be:
+\begin{align}
+    N_{STO,0}&=\sqrt{\frac{\zeta_{A,l}^3}{\pi}}\\
+    N_{GTO,0}&=\left(\frac{2\alpha_{i,\nu}}{\pi}\right)^{3/4}
+\end{align}
+We will refer to the terms $(r_u-{R_A}_u)^{l_u}\quad\forall{u\in x,y,z}$ as polynomial prefactors. 
+The approximation in terms of GTOs means we can express our overlap in terms of GTOs as follows:
 \begin{equation}
     S_{\nu\mu} =\sum_i^{N_{A,l}}\sum_j^{N_{B,l'}}c_{i,\nu}c_{j,\mu} \braket{\phi_i|\phi_j}
 \end{equation}
 As these are real valued functions we can drop the conjugation too.
 \begin{equation}
     \begin{split}
-        \braket{\phi_i|\phi_j} = &\int \phi^*(\alpha_{i,\nu},r-R_A)\phi(\alpha_{j,\mu},r-R_B)\,dx\,dy\,dz\\
-        =&\int \phi(\alpha_{i,\nu},r-R_A)\phi(\alpha_{j,\mu},r-R_B)\,dx\,dy\,dz\\
+        \braket{\phi_i|\phi_j} = &\int \phi^*(\alpha_{i,\nu},r-R_A)\phi(\alpha_{j,\mu},r-R_B)\,dr\\
+        =&\int \phi(\alpha_{i,\nu},r-R_A)\phi(\alpha_{j,\mu},r-R_B)\,dr\\
     \end{split}
 \end{equation}
-Now we see that we have to compute the products of GTOs. The product of two Gaussians is a new Gaussian centred at a point between the two.
+Now we see that we have to compute the products of GTOs. The product of two Gaussians is a new Gaussian centred at a point between the two $R_P$.
 \begin{gather}
-    \phi(\alpha_{i,\mu},r-R_A)\phi(\alpha_{j,\nu},r-R_B) = K_{AB}\phi(\alpha,r-R_P)\\
     \alpha = \alpha_{i,\nu}+\alpha_{j,\mu}\\
     K_{AB} = \left(\frac{2\alpha_{i,\nu}\alpha_{j,\mu}}{\alpha\pi}\right)^\frac{3}{4}e^{-\frac{\alpha_{i,\nu}\alpha_{j,\mu}}{\alpha}|R_A-R_B|^2}\\
-    R_P = \frac{\alpha_{i,\nu}R_A+\alpha_{j,\mu}R_B}{\alpha}
+    R_P = \frac{\alpha_{i,\nu}R_A+\alpha_{j,\mu}R_B}{\alpha}\\
+    \phi(\alpha_{i,\mu},r-R_A)\phi(\alpha_{j,\nu},r-R_B) = K_{AB}\phi(\alpha,r-R_P)
 \end{gather}
+This rewrite only works if we also shift the polynomial prefactors to be relative to the product centre $R_P$, for all $u\in x,y,z$:
+\begin{equation}
+\begin{split}
+    (r_u-{R_A}_u)^{{l_A}_u} = &\sum_{m_i=0}^{{l_A}_u}\binom{{l_A}_u}{m_i}({R_P}_u-{R_A}_u)^{({l_A}_u-m_i)}(r_u-{R_P}_u)^{{l_A}_u}\\
+    =&\sum_{m_i=0}^{{l_A}_u}v_{m_i}(r_u-{R_P}_u)^{{l_A}_u}
+\end{split}
+\end{equation}
+If we multiply these shifted prefactors we get the prefactors for the product. 
+\begin{equation}
+\begin{split}
+    (r_u-{R_A}_u)^{{l_A}_u}(r_u-{R_B}_u)^{{l_B}_u} = &\sum_{m_i=0}^{{l_A}_u}\sum_{m_j=0}^{{l_B}_u}v_{m_i}v_{m_j}(r_u-{R_P}_u)^{{l_A}_u+{l_B}_u}\\
+    =&\sum_t^{{l_A}_u+{l_B}_u}v_t(r_u-{R_P}_u)^t
+\end{split}
+\end{equation}
+
+In the code we compute the values of $v_t$ as a convolution. 
 To compute the integral over the GTOs we can split it in terms of the 3 dimensions we are integrating over, x,y and z.
 \begin{equation}
     \begin{split}
         \int \phi(\alpha_{i,\nu},r-R_A)\phi(\alpha_{j,\mu},r-R_B)\,dx\,dy\,dz=K_{AB}&\int \phi(\alpha,r-R_P)\,dx\,dy\,dz\\
-        =K_{AB}&\int \phi(\alpha,r_z-{R_P}_z)\,dx\\
+        =N_{GTO,l_A}N_{GTO,l_B}K_{AB}&\int \phi(\alpha,r_x-{R_P}_x)\,dx\\
             \times&\int \phi(\alpha,r_y-{R_P}_y)\,dy\\
             \times&\int \phi(\alpha,r_z-{R_P}_z)\,dz\\
     \end{split}
 \end{equation}
+One of these integrals can now be expanded as:
+\begin{equation}
+    \begin{split}
+        \int \phi(\alpha,r_u-{R_P}_u)\,du = &\int \sum_t^{{l_A}_u+l_j}v_t(r_u-{R_P}_u)^te^{-\alpha|r_u-{R_P}_u|^2}\,du
+    \end{split}
+\end{equation}
+%\begin{equation}
+%N^{G}_{i}(\alpha_i,\ell_x,\ell_y,\ell_z)
+%= \sqrt{\left(\frac{2\alpha_i}{\pi}\right)^{3/2}
+%\frac{(4\alpha_i)^{\ell}}{(2\ell_x-1)!!\,(2\ell_y-1)!!\,(2\ell_z-1)!!}},
+%\end{equation}
 For clarity let us in the following code snippets have the following constants:
 \begin{figure}[H]
 \begin{minted}{python}
