@@ -1,41 +1,45 @@
 \section{Introduction to quantum algorithmic approaches}
-In this section we will attempt to construct quantum algorithms for calculating three of the GFN2-xTB\cite{bannwarth2019} energy terms: $E^\Gamma, E^\gamma$ and $E^{EHT}$.
-We will showcase three different approaches to doing a calculation as a building block of a larger circuit.
+In this section we will construct quantum algorithms for calculating two of the GFN2-xTB\cite{bannwarth2019} energy terms: $E^\Gamma$ and $E^\gamma$.
+We will showcase two very different approaches to doing a calculation as a building block of a larger circuit.
 
 
 The conceptually simplest approach is to directly translate classical mathematical circuits to the quantum world using ancillary qubits to ensure reversibility.
 Here most of the computation happens in the state, and the result is readable in the bits of the measurement output.
 This approach has seen some development beyond this simple translation resulting in some very qubit efficient primitives for multiplication and addition in particular\cite{draper2000,perez2017}.
-This approach will be applied to the $E^\Gamma$ and $E^\gamma$ terms, and be referred to as Quantum Digital Arithmetic in this report. 
+This approach will be applied to both the $E^\Gamma$ and $E^\gamma$ terms, and be referred to as Quantum Digital Arithmetic in this report. 
 
 
 Our second approach is Quantum Amplitude Arithmetic\cite{wang2020}. 
 In this approach we try to prepare the desired result not as a easily read measurement result, but as part of the amplitude of a state.
 We will use this approach for the $E^\Gamma$ term to prepare a qubit in the state $w\ket{0}+\alpha\ket{0}$ where we can choose $\alpha$ to be proportional to the $E^\Gamma$ of the molecule.
 Alternatively we can choose $\alpha$ to be proportional to $E^\Gamma-E^\Gamma_H$ where $E^\Gamma_H$ is the $E^\Gamma$ energy for some known high energy isomer.
-This is not something we imagine being a common thing to want, however it is something which we want for the total energy! The issue that is solved by subtracting a known high energy is the following.
-Say we know all the energies, and we want to do something with those states that have a low energy.
-If all the energies lie between 100 and 101 (units not important), which may make a large difference, the relative difference is not large.
-If we subtract a known high energy of say 100.9 we get much larger relative differences where the low energy isomers will have a much larger $\alpha$ than the high energy isomers. 
+This is not something we imagine being a common thing to want, however it is something which we want for the total energy. 
+The issue that is solved by subtracting a known high energy is the following:
+We want large relative differences between stable isomers and unstable ones. 
+This is to ensure that if we run a superposition of isomers though the circuits required for the complete GFN2-xTB method we are able to efficiently sample the low energy isomers in the isomer space.
+Say we know all the energies; if all the energies lie between -100 and -101 (units not important), which may make a large difference, the relative difference is not large.
+If we subtract the energy of a known high energy isomer of say -100.1 we get much larger relative differences where the low energy isomers will have a much larger amplitude on 1, $\alpha$, than the high energy isomers. 
 
 
-The final algorithmic approach we will explore uses quantum singular value transformations\cite{gilyen2019}.
-In this approach the calculations are being carried out in the singular values of block encoded matrices. 
-We will use this approach to calculate the $E^{ETH}$ term, as it involves a lot of elementwise matrix multiplications. 
-This is well suited for this approach.
+%The final algorithmic approach we will explore uses quantum singular value transformations\cite{gilyen2019}.
+%In this approach the calculations are being carried out in the singular values of block encoded matrices. 
+%We will use this approach to calculate the $E^{ETH}$ term, as it involves a lot of elementwise matrix multiplications. 
+%This is well suited for this approach.
 
 
-For all of these approaches we will assume that we have access to some pretty intricately prepared states. 
-We will not go into how the are prepared other than the fact that classically we can generate the geometries and so for entire isomer spaces without any other information. 
-As any classical computation in theory also can be applied to a quantum computer after modifications it is a possibility to prepare these states. 
+For both of these approaches we will assume that we have access to some intricately prepared states. 
+We will not go into how the are prepared other than the fact that classically we can generate the approximate geometries for entire isomer spaces without any other information. 
+As any classical computation in theory also can be applied to a quantum computer after modifications to make it reversible it is a possibility to prepare these states. 
+A sketch of the preparation could be to generate all the IDs of the isomers, create a superposition and then run the algorithms for determining the geometry on this superposition of IDs. 
 
-
+As a final note leading in to the implementations Quantum Amplitude Amplification is not to be confused with Quantum Amplitude Amplification, both shortened to QAA some times. 
+We will be very explicit in which we are discussing in this thesis.
 \subsection{Calculating $E^\Gamma$ using Quantum Digital Arithmetic}
 The GFN2-xTB $E^\Gamma$ term has the following form\cite{bannwarth2021}
 \begin{equation}
     E^\Gamma = \frac{1}{3}\sum_A\sum_{\mu\in A} (q_{A,\mu})^3\Gamma_{A,\mu},
 \end{equation}
-where $q_{A,\nu}=\sum_B\sum_{\nu\in B}P_{\mu\nu}S_{\mu\nu}$ is the partial charge of shell $\mu$ associated with atom $A$. $P, S$ are the density and overlap matrices. $\Gamma_{A,\mu} = \Gamma_A K_\mu$ is just the product of an element specific constant and a shell specific constant, for our purposes the element is always carbon and the shell is either the first or second in GFN2 thus we have 2 numbers $\Gamma_{\text{Carbon},0(1)}$ henceforth referred to as $\varGamma_{0(1)}$. 
+where $q_{A,\nu}=\sum_B\sum_{\nu\in B}P_{\mu\nu}S_{\mu\nu}$ is the Mulliken partial charge of shell $\mu$ associated with atom $A$. $P, S$ are the density and overlap matrices. $\Gamma_{A,\mu} = \Gamma_A K_\mu$ is just the product of an element specific constant and a shell specific constant, for our purposes the element is always carbon and the shell is either the first or second in GFN2 thus we have 2 numbers $\Gamma_{\text{Carbon},0(1)}$ henceforth referred to as $\varGamma_{0(1)}$. 
 
 \vspace{\baselineskip}
 \noindent
@@ -44,8 +48,9 @@ Let us first rewrite the inner expression a bit given our new definition and kno
     \sum_{\mu\in A} (q_{A,\mu})^3\Gamma_{A,\mu} = \sum_{\mu \in \{0,1\}} (q_{A,\mu})^3\varGamma_{\mu}
 \end{equation}
 
-We now need a unitary which computes this function on a given state $\ket{\varGamma_\mu}_\Gamma\ket{q_{A,\mu}}_Q\ket{acc}_E \to \ket{\varGamma_\mu}_\Gamma\ket{q_{A,\mu}}_Q\ket{acc+(q_{A,\mu})^3\varGamma_{\mu}}_E$. The subscripts on the kets refer to the quantum register they represent. 
-Consider having access to the following fused multiply add unitary $\ket{A}\ket{B}\ket{acc} \to \ket{A}\ket{B}\ket{acc+A*B}$. 
+To implement this equation as a circuit we want to be able to add the terms in the inner expression to an accumulator. 
+Thus we need a unitary which computes this function on a given state $\ket{\varGamma_\mu}_\Gamma\ket{q_{A,\mu}}_Q\ket{acc}_E \to \ket{\varGamma_\mu}_\Gamma\ket{q_{A,\mu}}_Q\ket{acc+(q_{A,\mu})^3\varGamma_{\mu}}_E$. The subscripts on the kets refer to the quantum register they represent. 
+Consider having access to the following fused multiply add unitary $\ket{A}\ket{B}\ket{acc} \to \ket{A}\ket{B}\ket{acc+A*B}$, call it $\text{MADD}_{A,B,C}$. 
 Let us to our initial $\Gamma, Q, E$ registers add two ancillary registers, $W_1,W_2$. 
 We can now apply the following unitary 
 \begin{equation}
@@ -83,7 +88,7 @@ We can now apply the following unitary
     }
     \filldraw[gray] (-0.8+2*1.3+0,2-1+2.5) rectangle (0+2*1.3,1-2+.5);
     \filldraw[black] (0+2*1.3,1-2+.9) -- (0+2*1.3+0.1,1-2+1) -- (0+2*1.3,1-2+1.1);
-
+MADD
     \filldraw[black] (2*1.3-.9,.9) -- (2*1.3-.8,1) -- (0+2*1.3-.9,1.1);
     \filldraw[black] (2*1.3-.9,2.9) -- (2*1.3-.8,3) -- (0+2*1.3-.9,3.1);
     \node[] at (-0.4+2*1.3+0,1+2.0) {M}; 
@@ -107,7 +112,7 @@ We can now apply the following unitary
         \node[] at (-0.4+\x*1.3+4,1+\x-.1) {D}; 
     }
 \end{tikzpicture}
-    \caption{Circuit implementing equation \ref{EiG}}
+    \caption{Visualization of the circuit presented in equation \ref{EiG}. The arrows going into a block symbolise that qubit being used for the calculation happening in a given block. The arrows leaving a block symbolise the block changing something about that qubit. $\dagger$ is the complex conjugate used for doing an operation in reverse.}
 \end{figure}
 Let us follow the process:
 
@@ -119,7 +124,7 @@ Let us follow the process:
     =&\text{MADD}^\dagger_{\Gamma,Q,W_1}\ket{\varGamma_\mu}_\Gamma\ket{q_{A,\mu}}_Q\ket{\varGamma_\mu q_{A,\mu}}_{W_1}\ket{0}_{W_2}\ket{acc+\varGamma_\mu (q_{A,\mu})^3}_E\\
     =&\ket{\varGamma_\mu}_\Gamma\ket{q_{A,\mu}}_Q\ket{0}_{W_1}\ket{0}_{W_2}\ket{acc+\varGamma_\mu (q_{A,\mu})^3}_E\\
 \end{align}
-We see that already in eq. \ref{comp} we have the result we want in the accumulation register. We continue with the uncomputation of the $W_1,W_2$ registers purely to be able to reuse them in the remaining calculations. This saves the qubits required for having a 2 ancillary registers for every calculation. The MADD gates here could be implementing using QFT multipliers\cite{perez2017} in which case we wouldn't need any additional ancillaries. If we decompose our QFT multiplier into its components it is essentially a chain of QFT additions\cite{draper2000,perez2017} and multiplications by a constant power of two. These additions are built up of two components: (inverse) Fourier transforms and conditional rotations. When we chain them together like this however many of the transforms can be taken out as they are always followed or preceded by their inverse except for in the beginning and end. 
+We see that already in eq. \ref{comp} we have the result we want in the accumulation register. We continue with the uncomputation of the $W_1,W_2$ registers purely to be able to reuse them in the remaining calculations. This saves the qubits required for having 2 ancillary registers for every calculation. The 'fused multiply add' gates here could be implementing using QFT multipliers\cite{perez2017} in which case we wouldn't need any ancillaries beyond the two mentioned. If we decompose our QFT multiplier into its components it is essentially a chain of QFT additions\cite{draper2000,perez2017} and multiplications by a constant power of two. These additions are built up of two components: (inverse) Fourier transforms and conditional rotations. When we chain them together like this however many of the transforms can be taken out as they are always followed or preceded by their inverse except for in the beginning and end. 
 
 
 
@@ -133,13 +138,16 @@ Let us say we are given a circuit, SDA, for encoding a molecule from its ID in t
 \end{equation}
 \noindent
 will give us the $E^\Gamma$ energy term in the E register corresponding to the ID in the ID register.
+Let us look at what happens as we are given a superposition of molecules as input instead. We will use a method introduced in the same paper\cite{wang2020} as Quantum Amplitude Arithmetic for sampling the low energy candidates. This will lead us gently into the later section where we use Quantum Amplitude Arithmetic to construct a circuit for calculating $E^\Gamma$.
 
 \subsection{Sampling using Quantum Amplitude Arithmetic}
-Assume that we are given an equal superposition of all the canonical IDs of the fullerenes in an isomer-space. We can apply SDA to set up the encoding and then apply $DA$. We now have computed the $E^\Gamma$ energies for every isomer. However we can only sample once! Let us say that we are interested in the isomers with the lowest energies. We then would like the probability of sampling an isomer to be proportional to $E^\Gamma$. We can achieve this using Quantum Amplitude Arithmetic\cite{wang2020}, not to be confused with Quantum Amplitude Amplification, both shortened as QAA but in this writing as QA-Arithmetic and QA-Amplification. 
+Assume that we are given an equal superposition of all the canonical IDs of the fullerenes in an isomer-space. We can apply SDA to set up the encoding and then apply $DA$. We now have computed the $E^\Gamma$ energies for every isomer. However we can only sample once.
+Let us say that we are interested in the isomers with the lowest energies. We then would like the probability of sampling an isomer to be proportional to $|E^\Gamma|$. 
 
 
 \vspace{\baselineskip}
-Wang et al. use their introduced addition and multiplication primitives to construct a circuit which transforms the state $\ket{x}_D\ket{0}_C\ket{0}_W \to \frac{1}{2}\frac{x}{2^n}\ket{x}_D\ket{0}_C\ket{1}_W+\alpha\ket{\omega}_{D \otimes C\otimes W}$ where $\alpha$ is some normalization factor, and $\ket{\omega}$ is some state with no overlap with the state containing all 0's in the control register, $C$, and 1 in the work register, $W$.
+Wang et al. use their introduced addition and multiplication primitives to construct a probabilistic circuit which transforms the state $\ket{x}_D\ket{0}_C\ket{0}_W \to \big[\frac{1}{2}\frac{1}{2^n}\big]x\ket{x}_D\ket{0}_C\ket{1}_W+\alpha\ket{\omega}_{D \otimes C\otimes W}$ where $\alpha$ is some normalization factor, and $\ket{\omega}$ is some state with no overlap with the state containing all 0's in the control register, $C$, and 1 in the work register, $W$.
+This property makes it very easy to check if the circuit succeeded, we can just use the measurement output that collapses the state to see if we measured the correct pattern of all zeroes and a one. The term in the brackets is the probability of success, $\alpha$ is then related to the probability of failure as the result should be normalised. 
 
 
 \vspace{\baselineskip}
@@ -151,20 +159,20 @@ When using this circuit we can treat the $E$ register containing our resulting $
    \end{split}$}
 \end{equation}
 If we now sample from this superposition and postselect for $W_1 = 0$ and $W_2 = 1$ we are more likely to sample a low energy fullerene. The likelihood of sampling a given canonical fullerene ID is proportional with $E^\Gamma$ for that fullerene.
-
+Let us now look at what it would take to prepare the $E^\Gamma$ energy directly in the amplitude using Quantum Amplitude Arithmetic. 
 
 
 \subsection{Calculating $E^\Gamma$ with Quantum Amplitude Arithmetic.}
-An alternative strategy would be to go all in on QA-Arithmetic and do all the arithmetic in the amplitudes. 
-Here we would encode a molecule as follows
+In this section we will encode a molecule as follows
 \begin{equation}
    \resizebox{.9\hsize}{!}{$\begin{split}
        \text{SAA}&\ket{ID}_{ID}\ket{0}_{E,E_w,C_E,q_{o(1,2,3)},\Gamma_w,\Gamma_{1,\dots,n},q_{1,\dots,n},C_{1,\dots,\lceil log(n+1) \rceil}}\\
        =&\ket{ID}_{ID}\ket{0}_{E,E_w,C_E,q_{o(1,2,3)},\Gamma_w}\bigotimes_{\mu\in\{0,1\}}\ket{\varGamma_\mu}_{\Gamma_{1,\dots,n}}\bigotimes_{A}\ket{q_{A,\mu}}_{q_{1,\dots,n}}\ket{0}_{C_{1,\dots,\lceil log(n+1) \rceil}}
    \end{split}$}
 \end{equation}
+Again we will not go into detail with the SAA circuit.
 
-Let us apply the following example circuit to our encoding. Here we focus on one pair of $q$ and $\Gamma$. 
+We now present a circuit for computing $E^\Gamma-E^\Gamma_H$ on a one atom molecule, with 4 bits of precision, with a single shell and therefore $\Gamma$ value. It is trivial to increase precision as it only involves straight forwards extension of the crimson region to use more qubits for $q,\ \Gamma$ and $C$.
 \begin{figure}[H]
     \centering
 \begin{tikzpicture}[scale=0.9, transform shape]
@@ -260,13 +268,13 @@ Let us apply the following example circuit to our encoding. Here we focus on one
         \filldraw[white,draw=black] (\x+1,1) circle (2pt);
     }
 \end{tikzpicture}
-\caption{Circuit for computing $E^\Gamma-E^\Gamma_H$ on a one atom molecule where the charge $q$ and $\Gamma$ are described using 4 bytes. The crimson shaded area scales with the number of bits. The blue shaded area is for subtracting $E^\Gamma_H$ and is completely optional. }
+\caption{Circuit for computing $E^\Gamma-E^\Gamma_H$ on a one atom molecule where the charge $q$ and $\Gamma$ are described using 4 bites. The crimson shaded area scales with the number of bits. The blue shaded area is for subtracting $E^\Gamma_H$ and is completely optional.}
 \end{figure}
-This circuit is built from the addition and multiplication primitives introduced in the QA-Arithmetic paper\cite{wang2020}. We also do a trivial modification to get subtraction. The diagram is for a n=4 bit example i.e. $q$ and $\Gamma$ are encoded as 4 bit numbers. The crimson region in the diagram is the only part which needs to be scaled up if using larger n. 
+This circuit is built from the addition and multiplication primitives introduced in the QA-Arithmetic paper\cite{wang2020}. We also do a slight modification to get subtraction. 
 
-If using more than one $q$ and $\Gamma$ the contribution to the final $E_w$ register should include those as well which would just need an extra addition. $C_E$ should be scaled appropriately as the base 2 logarithm of the number of $q,\Gamma$ pairs plus 1.   
+If using more than one atom and shells the additional $q$'s and $\Gamma$'s can be added below and the result added to the final $E_w$ register using an extra addition. $C_E$ should be scaled appropriately as the base 2 logarithm of the number of $q,\Gamma$ pairs plus 1.   
 
-Let us go though the mathematics of our 4 bit example. 
+Let us go though the mathematics of our 4 bit example to show that A.) it is sound and B.) make the areas that will be extended more obvious. 
 
 The controlled gate notation here is the following, $t$ is the target register and $c1,c2,c3,\dots$ are the control registers. $a,b,c,\dots$ are all $1$ except if there is a bar over the corresponding $c1,c2,c3,\dots$ in which case it is $0$. 
 \begin{equation}
@@ -275,7 +283,7 @@ The controlled gate notation here is the following, $t$ is the target register a
         \sum_{\alpha,\beta,\zeta,\dots\in\{0,1\}}I_t\otimes &\ket{\alpha}\bra{\alpha}_{c1} \otimes \ket{\beta}\bra{\beta}_{c2} \otimes \ket{\zeta}\bra{\zeta}_{c3}\otimes\dots. 
     \end{split}
 \end{equation}
-We neglect writing out the $q_{1,2,3,4},\Gamma_{1,2,3,4}$ as they never change throughout the calculation, we also neglect the registers outside of the crimson region for now. 
+As we do the calculation we neglect writing out the $q_{1,2,3,4},\Gamma_{1,2,3,4}$ as they never change throughout, we also neglect the registers outside of the crimson region for now. 
 We begin by applying the Hadamard gates.
 \begin{equation}
     \begin{split}
@@ -288,7 +296,7 @@ We begin by applying the Hadamard gates.
         )
     \end{split}
 \end{equation}
-when we apply the conditional rotation gates to a register such as $\Gamma_w$ we do the following
+When we apply the conditional rotation gates to a register such as $\Gamma_w$ we do the following
 \begin{equation}
    \resizebox{.9\hsize}{!}{$\begin{split}
         CRy_{\Gamma_w}^{\Gamma_4,C_1,C_2}(2\theta_4)CRy_{\Gamma_w}^{\Gamma_3,\bar{C_1},C_2}(2\theta_3)CRy_{\Gamma_w}^{\Gamma_2,C_1,\bar{C_2}}(2\theta_2)&CRy_{\Gamma_w}^{\Gamma_1,\bar{C_1},\bar{C_2}}(2\theta_1)\\
@@ -306,7 +314,7 @@ when we apply the conditional rotation gates to a register such as $\Gamma_w$ we
         )
    \end{split}$}
 \end{equation}
-Let us adopt the notation $\ket{\Psi^t_i}=t(cos\theta_i\ket{0}+sin\theta_i\ket{1})+(1-t)\ket{0}$ before redoing the application using our new notation. We also apply the rotation gates for the $q_w$ registers:
+To make our computations fit more easily on the page let us adopt the notation $\ket{\Psi^t_i}=t(cos\theta_i\ket{0}+sin\theta_i\ket{1})+(1-t)\ket{0}$ before redoing the application using our new notation. We also apply the rotation gates for the $q_w$ registers:
 \begin{equation}
    \resizebox{.9\hsize}{!}{$\begin{split}
         CRy_{\Gamma_w}^{\Gamma_4,C_1,C_2}(2\theta_4)CRy_{\Gamma_w}^{\Gamma_3,\bar{C_1},C_2}(2\theta_3)CRy_{\Gamma_w}^{\Gamma_2,C_1,\bar{C_2}}(2\theta_2)&CRy_{\Gamma_w}^{\Gamma_1,\bar{C_1},\bar{C_2}}(2\theta_1)\\
@@ -435,6 +443,7 @@ Now we can neglect the $q_{o(1,2,3),\Gamma_o,C_1,C_2}$ registers too and do some
 \end{equation}
 
 \noindent
+In the last step we just did, see that we can 'select' either addition or subtraction of $sin\theta_E$ just by controlling our next gate on 010 or 011. 
 We now apply the final conditional not gate:
 \begin{equation}
    \resizebox{.9\hsize}{!}{$\begin{split}
@@ -456,7 +465,9 @@ After applying those gates we see that the amplitude on $\ket{1}_{E}$ across the
 Let us say we know the $E^\Gamma$ energy of some high energy molecule in the isomer space $$E^\Gamma_H = (0b0.\Gamma_H)(0b0.q_H)^3$$
 If we specify 
 $$\theta_i=arcsin\frac{1}{2^i},\quad\theta_E=arcsin[(0b0.\Gamma_H)(0b0.q_H)^3]$$ 
-we get that $$E_{sin}=(\frac{\Gamma_1}{2}+\frac{\Gamma_2}{2^2}+\frac{\Gamma_3}{2^3}+\frac{\Gamma_4}{2^8})(\frac{q_1}{2}+\frac{q_2}{2^2}+\frac{q_3}{2^3}+\frac{q_4}{2^8})^3=(0b0.\Gamma_1\Gamma_2\Gamma_3\Gamma_4)(0b0.q_1q_2q_3q_4)^3$$ and that $$\frac{1}{8}(E_{sin}-sin\theta_E)=\frac{1}{8}[(0b0.\Gamma_1\Gamma_2\Gamma_3\Gamma_4)(0b0.q_1q_2q_3q_4)^3-(0b0.\Gamma_H)(0b0.q_H)^3]$$. This is proportional to $E^\Gamma-E^\Gamma_H$! 
+we get that $$E_{sin}=(\frac{\Gamma_1}{2}+\frac{\Gamma_2}{2^2}+\frac{\Gamma_3}{2^3}+\frac{\Gamma_4}{2^8})(\frac{q_1}{2}+\frac{q_2}{2^2}+\frac{q_3}{2^3}+\frac{q_4}{2^8})^3=(0b0.\Gamma_1\Gamma_2\Gamma_3\Gamma_4)(0b0.q_1q_2q_3q_4)^3$$ and that $$\frac{1}{8}(E_{sin}-sin\theta_E)=\frac{1}{8}[(0b0.\Gamma_1\Gamma_2\Gamma_3\Gamma_4)(0b0.q_1q_2q_3q_4)^3-(0b0.\Gamma_H)(0b0.q_H)^3]$$. This is proportional to $E^\Gamma-E^\Gamma_H$ and thus the circuit is sound. 
+
+We will now take a look at the $E^\gamma$ term.
 
 \subsection{Calculating $E^\gamma$ using Quantum Digital Arithmetic}
 The $E_\gamma$ term is formulated as follows:
@@ -466,7 +477,7 @@ The $E_\gamma$ term is formulated as follows:
     \gamma_{AB,ll'}=\frac{1}{\sqrt{R_{AB}^2+\eta_{AB,ll'}^{-2}}}\\
     E_\gamma=\frac{1}{2}\sum_{A,B}\sum_{l\in A}\sum_{l'\in B} q_lq_{l'}\gamma_{AB,ll'}\\
 \end{gather}
-For fullerenes we can view $\eta_{AB,ll'}$ as only dependant on the angular momenta $l$ and $l'$, so there are 4 configurations as there are only 2 shells for carbon in GFN2-xTB. Additionally $l=0,l'=1$ and $l=1,l'=0$ are equivalent. Thus we don't actually have to compute it and can just bake in those 3 configurations as constants.  
+For fullerenes we can view $\eta_{AB,ll'}$ as only dependant on the angular momenta $l$ and $l'$, so there are 4 configurations as there are only 2 shells for carbon in GFN2-xTB and the rest of the terms are constants. Additionally $l=0,l'=1$ and $l=1,l'=0$ are equivalent. Thus we don't actually have to compute $\eta$ during the quantum circuit and can just bake in those 3 configurations as constants.  
 A small circuit for calculating $R_{AB}^2$ could be made up of 3 repetitions of the $\text{DIFF}^2$ circuit described bellow which for 2 numbers $a,b$ and an accumulator $acc$ computes $acc + (a-b)^2$ :
 \begin{figure}[H]
 \begin{tikzpicture}[scale=.9, transform shape]
@@ -568,39 +579,47 @@ A small circuit for calculating $R_{AB}^2$ could be made up of 3 repetitions of 
         \node[] at (\x*1.3-0.4,.5+2) {F}; 
     }
 \end{tikzpicture}
-\caption{Circuits for calculating $a,b,acc\to a,b,acc+(a-b)^2$ and $A,B,0\to A,B, R_{AB}^2$}
+\caption{Circuits for calculating $\ket{a}\ket{b}\ket{acc}\to \ket{a}\ket{b}\ket{acc+(a-b)^2}$ and $\ket{A}\ket{B}\ket{0}\to \ket{A}\ket{B}\ket{R_{AB}^2}$}
 \end{figure}
-So using this circuit along with a constant addition of $\eta_{AB,ll'}$ and the use of an inverse square root circuit\cite{häner2018} we get a fixed point approximation of $\gamma_{AB,ll'}$. We can use this with our QFT fused multiply add operation to get the inner sum of the $E^\gamma$ term. There could potentially be a lot of pairs, however we can skip almost half with the following rewrite:
+Using this circuit along with a constant addition of $\eta_{AB,ll'}$ and the use of an inverse square root circuit\cite{häner2018} we get a fixed point approximation of $\gamma_{AB,ll'}$. We can use this with a QFT fused multiply add operation to get the inner sum of the $E^\gamma$ term. There could potentially be a lot of pairs, however we can skip almost half with the following rewrite:
 \begin{gather}
     \begin{split}
     E^\gamma&=\frac{1}{2}\sum_{A,B}\sum_{l\in A}\sum_{l'\in B} q_lq_{l'}\gamma_{AB,ll'}\\
         &=\sum_{A}\sum_{l\in A}\left[\sum_{l'\in A} q_lq_{l'}\gamma_{AA,ll'}+\sum_{B>A}\sum_{l'\in B} q_lq_{l'}\gamma_{AB,ll'}\right]
     \end{split}
 \end{gather}
-
+This rearrangement is also something they do in the xtb software.
+Let us take take a brief look at the complexity of these quantum algorithms. 
 
 \subsection{Complexity}
-The second algorithm has, in terms of big O notation, the same complexity as the state preparation introduced in the QA-Arithmetic paper, as it is simply 4 applications of this circuit. The state preparation can be achieved using $O(\log n)$ extra qubits and $O(n\log n)$ Toffoli gates where $n$ is the number of bits used to represent $\varGamma_\mu, q_{A_n,\mu}$. Thus if we have a $m$ bit canonical fullerene ID we end up using on the order of $m+2n+4O(\log n)=O(n+m)$ qubits and $4O(n \log n)=O(n \log n)$ Toffoli gates. 
+The first circuit uses 5 QFT fused multiplication addition circuits. Each with $O(b^{3})$\cite{perez2017} gates and no additional qubits, where $b$ is the number of bits used to encode the numbers. Thus if we have encoded $\varGamma_{\mu},q_{A_n,\mu}, \mu \in \{0,..,l\}, A_n \in \{0,..,o\}$ each using $b$ bits we will need to perform $5lo$ multiplications, resulting in $5lo\cdot O(b^3)=O(lob^3)$ gates, on $m+b+bl+lob = O(m+lob)$ qubits. We can do trade-offs in circuit depth and amount of ancillary qubits by having multiple running sums e.g. in a binary tree pattern instead of immediately summing them all in the same register, resulting in a depth of $O(log_2(lo)b^3)$. 
 
-The first circuit on the other hand uses 4 mulitplication circuits, 2 squaring circuits which could just as well be multiplication circuits and an addition circuit. A QFT addition (multiplication) circuit uses $O(n^{2(3)})$ gates and no additional qubits. Thus if we have encoded $\varGamma_{\mu},q_{A_n,\mu}, \mu \in \{0,..,l\}, A_n \in \{0,..,o\}$ each using $n$ bits we will need to perform $6lo$ multiplications and $lo$ additions, resulting in $6lo\cdot O(n^3)+lo\cdot O(n^2)=O(lon^3)$ gates, on $m+n+nl+lon = O(m+lon)$ qubits.
-Additionally we then have to run the state preparation circuit which adds $O(\log n)$ qubits and $O(n\log n)$ gates, however that is not enough to change the asymptotic runtime further. 
+If we add in the sampling step we then have to run the state preparation circuit which adds $O(\log b)$ qubits and $O(b\log b)$ gates\cite{wang2020}, however that is not enough to change the asymptotic runtime further. 
 
-\subsection{Cleaning up $\omega$}
-We would like to get rid of the $\ket{\omega}$ term in both algorithms to avoid having to post select.
-We can achieve this with amplitude amplification. 
-To do amplitude amplification we first need to define what a 'good' state is, in our case we know all good states have $\ket{0}_C\ket{1}_W$. 
-Second we need an oracle in terms of a unitary which flips the sign of the good state, i.e. reflecting the state around the bad state, this would be $I-2\ket{0}_C\bra{0}_C\ket{1}_W\bra{1}_W$, which can be easily implemented with controlled rotations. 
-We also need a circuit which would reflect around the initial state by flipping the sign of it, given that we have a circuit $U$ for preparing the initial state that would be $I-2U\ket{0}\bra{0}U^\dagger$.
-In our case the angle between the bad and initial states are $\theta_{DA} = arcsin(\frac{1}{2}\frac{E^\Gamma}{2^n}),\theta_{AA} = arcsin(\frac{1}{2^4}\frac{E^\Gamma}{2^{n4}})$ for the two algorithms. We have to do $\lfloor\frac{\pi}{4\theta}\rfloor$ repetitions to maximize the probability of measuring a good state.%Todo: fix every calculation and number in this. the propably all wrong 
-\subsection{Concentrating the probabilities on the best candidates}
-We now have a superposition where the probability of sampling a fullerene is proportional to the energy of that fullerene.
-But is that ideal? The energies might be quite close to each other in absolute terms.
-Therefore we would like to exaggerate the difference between them and then sample according to that difference.
-If we knew what the highest energy was we could just subtract that from every energy calculation thus getting probabilities proportional to how much lower an energy we are working with.
-Another option is if we expect the energies to be within $100(1-x)\%$ we could subtract $ex$ from every energy calculation where $e$ is the energy from a random fullerene in the isomer-space.
-This is of cause not as good but quite achievable. In both algorithms we can encode $ex$ in a register and then use a digital subtraction or do a QAA state preparation addition but with all the $R_y$ gates inverted, resulting in a counter-clockwise rotation, in effect subtracting $ex$.
-%Note: the following is dumb, we don't want to invert the probabilities! 
+For the second circuit we use $o(2b+1)$ multiple controlled rotation gates, at most $o\cdot log_2(b)+log_2(o)+1$ Hadamard gates, and $5o+1$ multiple controlled not gates. This gives a circuit depth on the order of $O(ob)$. 
+
+TODO: $E^\gamma$
+
+These complexities are not very impressive for a single computation, in which case we would get better results just running it classically. However if we have an isomer space with $x$ isomers we would have to run it on $n$ of them to have a probability of $\frac{n}{x}$ of having found the lowest energy isomer. For the quantum circuits this dependence on $x$ is less extreme, and considering that $x$ is on the order of $O(c^9)$ for the $C_c$ space, that enables us to potentially run this on much larger isomer spaces and still have a high probability of getting some of the lowest energy candidates. This works only because we took care to sample in such a way that the probability of getting a specific candidate is proportional to how different it is energetically to a known high energy isomer.   
+
+TODO: see if we can say how much better. 
+
+%\subsection{Cleaning up $\omega$}
+%We would like to get rid of the $\ket{\omega}$ term in both algorithms to avoid having to post select.
+%We can achieve this with amplitude amplification. 
+%To do amplitude amplification we first need to define what a 'good' state is, in our case we know all good states have $\ket{0}_C\ket{1}_W$. 
+%Second we need an oracle in terms of a unitary which flips the sign of the good state, i.e. reflecting the state around the bad state, this would be $I-2\ket{0}_C\bra{0}_C\ket{1}_W\bra{1}_W$, which can be easily implemented with controlled rotations. 
+%We also need a circuit which would reflect around the initial state by flipping the sign of it, given that we have a circuit $U$ for preparing the initial state that would be $I-2U\ket{0}\bra{0}U^\dagger$.
+%In our case the angle between the bad and initial states are $\theta_{DA} = arcsin(\frac{1}{2}\frac{E^\Gamma}{2^n}),\theta_{AA} = arcsin(\frac{1}{2^4}\frac{E^\Gamma}{2^{n4}})$ for the two algorithms. We have to do $\lfloor\frac{\pi}{4\theta}\rfloor$ repetitions to maximize the probability of measuring a good state.%Todo: fix every calculation and number in this. the propably all wrong 
+%\subsection{Concentrating the probabilities on the best candidates}
+%We now have a superposition where the probability of sampling a fullerene is proportional to the energy of that fullerene.
+%But is that ideal? The energies might be quite close to each other in absolute terms.
+%Therefore we would like to exaggerate the difference between them and then sample according to that difference.
+%If we knew what the highest energy was we could just subtract that from every energy calculation thus getting probabilities proportional to how much lower an energy we are working with.
+%Another option is if we expect the energies to be within $100(1-x)\%$ we could subtract $ex$ from every energy calculation where $e$ is the energy from a random fullerene in the isomer-space.
+%This is of cause not as good but quite achievable. In both algorithms we can encode $ex$ in a register and then use a digital subtraction or do a QAA state preparation addition but with all the $R_y$ gates inverted, resulting in a counter-clockwise rotation, in effect subtracting $ex$.
+%%Note: the following is dumb, we don't want to invert the probabilities! 
 %If we expect the results from these shifted energy calculations to be in the interval $]0,1[$ we can exaggerate them further by taking the reciprocal. 
-\subsection{Discussion}
-From the asymptotic resource use the second algorithm is clearly superior, even if some of the multiplications and additions can be run in parallel in the first one. We do have a factor 8 lower chance of getting a useful state out, but this again does not change the asymptotics, as we can just repeat it. 
-QA-Amplification might be possible since we have a very clear "good" state in both algorithms. This would reduce the need for postselection and repetitions. Preparing the initial encoding of the isomer space seems less straight forwards in the second approach than in the first unfortunately. 
+%\subsection{Discussion}
+%From the asymptotic resource use the second algorithm is clearly superior, even if some of the multiplications and additions can be run in parallel in the first one. We do have a factor 8 lower chance of getting a useful state out, but this again does not change the asymptotics, as we can just repeat it. 
+%QA-Amplification might be possible since we have a very clear "good" state in both algorithms. This would reduce the need for postselection and repetitions. Preparing the initial encoding of the isomer space seems less straight forwards in the second approach than in the first unfortunately. 
