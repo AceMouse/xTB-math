@@ -1,9 +1,9 @@
 \chapter{Related Work}
 
-\section{xTB version 6.4.0}
-The xTB project has basic GPU support through the Nvidia Fortran compiler 'nvfortran', but this compiler fails on newer versions of the project. To get a version that has been officially tested with nvfortran, we have to go all the way back to version 6.4.0 from Feburary 2021.
+\section{xtb version 6.4.0}
+The xtb project has basic GPU support through the Nvidia Fortran compiler 'nvfortran', but this compiler fails on newer versions of the project. To get a version that has been officially tested with nvfortran, we have to go all the way back to version 6.4.0 from Feburary 2021.
 We have successfully made a reproducable build for this version and managed to run it, but the output seems much different from newer versions. There has been released 7 versions since, so doing any benchmarking comparisons with this older version likely would not be fair or representative.
 
-\section{dxTB}
-The dxTB project is a re-implementation of the xTB methods written in Python. This implementation has much better comments that actually explain the functions, but we discovered the project late into the process, and as such it has not been hugely beneficial for us.
+\section{dxtb}
+The dxtb project is a re-implementation of the xTB methods written in Python. This implementation has much better comments that actually explain the functions, but we discovered the project late into the process, and as such it has not been hugely beneficial for us.
 The project is no substitute for a GPU implementation, but it could have helped us with our own Python re-implementation.

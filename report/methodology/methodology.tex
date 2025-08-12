@@ -4,7 +4,7 @@
 
 With all the equations from the xTB paper now in place, the next step is to implement them in code. Writing another Python re-implementation might seem rendundant, but the purpose of doing so is to start with a sequential version that is hopefully easier to reason about, and which is structured in a way that can more easily be translated to parallel GPU code.
 
-We started implementing the equations from the paper directly, but found that it gave results different from the Fortran implementation. It is not that the Fortran code does it differently from what is described in the paper, but rather that there are details that might appear obvious to a chemist, which is not explicitly described in the paper. In \cite{bannwarth2019} it is not specified in equation $9$ for repulsion energy \eqref{eq:repulsion1}, that A and B cannot be the same atom index. They cannot be the same because $R_{AB}$ is the distance between the two atoms, so if A and B is the same, then the distance is $0$, which will result in division by zero. This makes sense intuitively because an atom does not repulse itself, but this is not always immediatly apparent to someone outside the field.
+We started implementing the equations from the paper directly, but found that it gave results different from the Fortran implementation. It is not that the Fortran code does it differently from what is described in the paper, but rather that there are details that might appear obvious to a chemist, which is not explicitly described in the paper. In \cite{bannwarth2019} it is not specified in equation $9$ for repulsion energy \eqref{eq:repulsion1}, that A and B cannot be the same atom index. They cannot be the same because $R_{AB}$ is the distance between the two atoms, so if A and B is the same, then the distance is $0$, which will result in division by zero. This makes sense intuitively because an atom does not repulse itself, but this is not always immediately apparent to someone outside the field.
 
 \begin{align}
   \E{rep} &= \frac{1}{2}\sum_{A,B}\frac{Z^{eff}_A Z^{eff}_B}{R_{AB}}e^{-\sqrt{a_Aa_B}(R_{AB})^{(k_f)}} \label{eq:repulsion1}
@@ -15,8 +15,8 @@ We started implementing the equations from the paper directly, but found that it
 
 In \cite{grimme2017} they write that they use SCC, but they do not mention which method they use. It turns out that they use Broyden's method. The unit convertions between angström and bohr that are applied to the input geometry data, does also not seem to be mentioned anywhere.
 
-Suffice to say, at the time we were not aware of all these details, so for the sake of correctness it was safer to follow the code rather than the papers. This approach came with its own challenges as we had to become acquainted with Fortran as a programming language while deciphering the hopefully unconventional shenanigans that comes with all the quirks Fortran has.
-Here is an overview of challenges, inconsistencies, and confusing language quirks we have encountered while working with the xTB project.
+Suffice to say, at the time we were not aware of all these details, so for the sake of correctness it was safer to follow the code rather than the papers. This approach came with its own challenges as we had to become acquainted with Fortran as a programming language while deciphering all its unintuitive quirks.
+Here is an overview of different challenges, inconsistencies, and confusing language quirks we have encountered while working with the xtb project.
 
 \begin{itemize}
         \item The project is written in object-oriented Fortran, which makes the execution flow difficult to follow.
@@ -29,28 +29,31 @@ Here is an overview of challenges, inconsistencies, and confusing language quirk
         \item Fortran uses parenthesis to index into an array. A subroutine is called by using the 'call' keyword, but pure functions does not. This makes it unclear whether we are calling a pure function or indexing into an array.
 \end{itemize}
 
-In addition to these confusing language specifics, there are also numerous structural oddities within the code. They often use symmetric pairing functions which are functions that map some multi-dimensional index into a flat 1-dimensional index. They use them to save memory on symmetric matrices where they only need one of the triangles. A symmetric pairing function maps pairs of indices $(x,y)$ and $(y,x)$ to the same index. They use the name '\verb|lin|' for the pairing function, which says little about its effect. It would be much simpler to understand if they used a 2-dimensional array or explained the function.
-The non-descriptive variable name leads us to the next point, being that they are allergic to long variable names and therefore desperately tries to keep all names within three letters. This makes it impossible to know what the values actually are and makes the codebase almost unapproachable for new contributors.
- use of flag.
+In addition to these confusing language specifics, there are also numerous structural oddities within the code, some of which we present below.
 
-Among all of this, even some of the command-line arguments for the program are poorly described. We noticed that it caches previous computations for a molecule, so running it twice on say a C200 molecule, will make the second run much faster. This is undesirable when we need to know what the total computational time is, and so to disable this behavior, the program has the flag seen in \autoref{fig:norestart}.
+\begin{itemize}
+        \item The code authors often use symmetric pairing functions which are functions that map some multi-dimensional index into a flat 1-dimensional index. Specifically, in this code it maps pairs of indices $(x,y)$ and $(y,x)$ to the same index. This would be easier to understand with a 2-dimensional matrix, but the reason they do this is to save memory on symmetric matrices where only one of the triangular halves are needed. This understanding is difficult to come up with from the code, because the pairing function is named '\verb|lin|', which says little about its effect, and there are no comments explaining what it is.
+        \item The non-descriptive variable name leads us to the next point, being that this is a reoccuring problem caused by the fact that most of the names are abbreviated with three letters. This makes it impossible to know what the values actually are and makes the codebase unapproachable for new contributors.
+\end{itemize}
+
+Some of the command-line arguments have also caused some confusion. We noticed that the program caches previous computations for a molecule, so running it twice on say a C200 molecule, will make the second run much faster. This is undesirable when we need to know what the total computational time is, and so to disable this behavior, the program has the flag seen in \autoref{fig:norestart}.
 \begin{figure}[H]
 \begin{minted}{text}
     --[no]restart
         restarts calculation from xtbrestart (default = true)
 \end{minted}
-\caption{The xTB command-line flag that controls whether to continue the computation from the last run.}
+\caption{The xtb command-line flag that controls whether to continue the computation from the last run.}
 \label{fig:norestart}
 \end{figure}
 
-The description is ambiguous as it can both mean that we recompute the data stored in \verb|xtbrestart|, or that we reuse the value and continue the computation from there. At first we thought that we would specify \verb|--restart| because we want to restart the whole computation without any caching. In reality what we need is \verb|--norestart| because it should not use \verb|xtbrestart| which is the cache from the previous run.
+The description is ambiguous as it can both mean that we recompute the data stored in \verb|xtbrestart|, or that we reuse the value and continue the computation from there. At first we thought that we would specify \verb|--restart| because we want to restart the whole computation without any caching. In reality what we need is \verb|--norestart| because it should not use \verb|xtbrestart| which is the cache from the previous run. We believe that all of these points are worth taking note of for anyone new to the codebase.
 
 When porting code from an implementation and a language with so many quirks and pitfalls, it becomes exceedingly important to have tests in place to catch these errors. Having a test suite that enables us to compare our implementation to the original has been indispensible to us for a fast iteration loop that gives insight into the mismatches and any potential patterns in the discrepancies.
 
 
 \section{Testing}
 
-The xTB Fortran codebase has a large footprint, and there is a lot of overlap between the xTB methods, so even focusing on just one of them still requires a great amount of code.
+The xtb codebase has a large footprint, and there is a lot of overlap between the xTB methods, so even focusing on just one of them still requires a great amount of code.
 The large amount of computations we have to deal with when porting the code makes proper validation especially important, as it becomes increasingly easy to make mistakes.With the discrepancies between the paper and the code, in addition to details that seem to go unexplained, we realized that the obvious approach forward was to lean towards the existing implementation rather than the paper.
 
 One of the hurdles from testing against an existing program becomes the lack of transparency regarding the logic that takes place between the initial input and the final output presented to the user. Thankfully, the source code is publicly available, which allows for easy manipulation of the original flow of execution, thus avoiding the hassle of testing against a black box or the need to resort to methods of reverse engineering.
@@ -59,7 +62,7 @@ On behalf of these considerations we decided to write patches that allow to inte
 
 \subsection{Towards Reproducability with Nix}
 
-An important part of any software is reproducability, and applying certain patches in certain scenarios is something that should preferably be automated, reproducable, and optimally also portable. This is especially important for this approach to validation as it requires a way to reproduce a specific version of xTB linked to the same versions of dependencies. Essentially an exact copy of the original shell environment to ensure that patches work, results are the same, and no new bugs appear in the program itself or its dependencies. All of this should be achievable without having to add, remove, downgrade or upgrade system packages on your system.
+An important part of any software is reproducability, and applying certain patches in certain scenarios is something that should preferably be automated, reproducable, and optimally also portable. This is especially important for this approach to validation as it requires a way to reproduce a specific version of xtb linked to the same versions of dependencies. Essentially an exact copy of the original shell environment to ensure that patches work, results are the same, and no new bugs appear in the program itself or its dependencies. All of this should be achievable without having to add, remove, downgrade or upgrade system packages on your system.
 
 The well-known contenders for this is any of the numerous containerization solutions on Linux, such as Docker, Podman, LXC etc. There are some problems with these options though, one being that it can be difficult to truly reproduce package versions without saving the resulting container image, another being that it does not solve the problem of having multiple versions of the same package installed. Some other notable limitations are that it limits the process to run within the container and passing in a GPU or other hardware can be nefariously difficult. A container also does not have access to the X or Wayland session needed to run GUI applications, though that is not currently relevant in this case.
 
@@ -75,7 +78,7 @@ All outputs into the store is marked with a custom hash in the filename called a
 The typical binary on Linux is dynamically linked against the FHS compliant paths and it is not uncommon to have them hardcoded either. To make use of the packages in the Nix store, it is required to either recompile the program against the store paths, or in the case of proprietary software, patching the ELF header is needed to change the path to the interpreter and to dynamically linked libraries. Thankfully the Nix package repository 'NixPkgs' is the largest and freshest out there\footnote{\url{https://repology.org/repositories/graphs}}, so as a typical user doing this is rarely needed.
 Nixpkgs is a version-controlled repository on GitHub, so using older versions of packages even alongside newer ones, is fairly trivial as it simply requires fetching multiple revision of the repository.
 
-This along with the previously mentioned features have allowed a greatly simplified process of not only running the newest version 6.7.1 of the xTB program, but also running the much older nvfortran compatible version 6.4.0 alongside it.
+This along with the previously mentioned features have allowed a greatly simplified process of not only running the newest version 6.7.1 of the xtb program, but also running the much older nvfortran compatible version 6.4.0 alongside it.
 NixPkgs is also a collection of library functions, and the helper functions for making derivations called `mkDerivation` make it easy to define all the stages of packaging a program including unpacking, patching, building, checking, and installing the files.
 With this, the whole pipeline of patching, compiling, running, and passing the data over to the Python validation tests can be achieved with a single shell command.
 
@@ -84,7 +87,7 @@ With this, the whole pipeline of patching, compiling, running, and passing the d
 \end{minted}
 
 
-This command takes the form '\verb|nix run <path to flake>#<output>|'. Path to flake refers to a file-tree whose root directory contains a file called 'flake.nix'. Nix flakes is an experimental but widely adopted feature, which provides a standard way to write Nix expressions and a way to manager their dependencies through a version-pinned lock file. The 'flake.nix' file follows a uniform naming schema for declaring inputs and outputs, where inputs are the dependencies, and outputs are Nix expressions to be exposed.
+This command takes the form '\verb|nix run <path to flake>#<output>|'. Path to flake refers to a file-tree whose root directory contains a file called 'flake.nix'. Nix flakes is an experimental but widely adopted feature, which provides a standard way to write Nix expressions and a way to manage their dependencies through a version-pinned lock file. The 'flake.nix' file follows a uniform naming schema for declaring inputs and outputs, where inputs are the dependencies, and outputs are Nix expressions to be exposed.
 The new Nix command-line interface needed to interact with flakes is naturally also an experimental feature that has to be enabled explicitly. The run command instructs Nix to build and run the derivation 'cmp-impls', which is defined as an app in the flake outputs.
 
 \begin{figure}[H]
@@ -119,7 +122,7 @@ The new Nix command-line interface needed to interact with flakes is naturally a
 \label{fig:nix-flake}
 \end{figure}
 
-Python is declared with the required packages and is then used in the app to call the \verb|cmp_impls.py| script. The script is called with the test data acquired from running the Fortran xTB program. This data comes from another derivation which executes patched versions of xTB and DFT-D4 on a C200 fullerene to get the relevant function arguments and results as binary files.
+Python is declared with the required packages and is then used in the app to call the \verb|cmp_impls.py| script. The script is called with the test data acquired from running the xtb program. This data comes from another derivation which executes patched versions of xtb and dftd4 on a $C_{200}$ fullerene to get the relevant function arguments and results as binary files.
 
 \begin{figure}[H]
 \begin{minted}{nix}
@@ -139,12 +142,12 @@ Python is declared with the required packages and is then used in the app to cal
     ''];
   };
 \end{minted}
-\caption{This is the Nix derivation for generating the test data from our patched versions of xTB and dftd4.}
+\caption{This is the Nix derivation for generating the test data from our patched versions of xtb and dftd4.}
 \label{fig:xtb-test-data}
 \end{figure}
 
 The directories for the binary files are created in advance as checking whether they exist when writing the binary files has a large overhead.
-This derivation in turn uses derivations for xTB and DFT-D4. Luckily DFT-D4 is already in NixPkgs, but it still needs to be patched in order to extract the required data for validation. Thankfully the \verb|mkDerivation| function used in NixPkgs makes overriding and patching a package very straightforward. 
+This derivation in turn uses derivations for xtb and dftd4. Luckily dftd4 is already in NixPkgs, but it still needs to be patched in order to extract the required data for validation. Thankfully the \verb|mkDerivation| function used in NixPkgs makes overriding and patching a package very straightforward. 
 
 \begin{figure}[H]
 \begin{minted}{nix}
@@ -163,15 +166,15 @@ This derivation in turn uses derivations for xTB and DFT-D4. Luckily DFT-D4 is a
     ];
   }));
 \end{minted}
-\caption{This is the Nix expression for overriding the dftd4 package derivation. We essentially update dftd4 to a newer revision and add patches to logs arguments and results to a binary file, and another patch to use GFN2.}
+\caption{This is the Nix expression for overriding the dftd4 package derivation. We essentially update dftd4 to a newer revision and add patches to log arguments and results to a binary file, and another patch to use GFN2.}
 \label{fig:dftf4-drv}
 \end{figure}
 
 The version is bumped by overriding the source, and the multicharge project is added from NixPkgs and also bumped as a requirement of this newer version. Some of the tests were timing out, so they have been disabled by setting \verb|doCheck| to false. Lastly the patches are applied by providing the relevant patch files.
 
-xTB and two of its dependencies, namely CPCM-X and numsa are not in NixPkgs and had to be packaged from scratch.
+The xtb project and two of its dependencies, namely CPCM-X and numsa are not in NixPkgs, so we had to package them ourselves. This is one of our contributions, which makes xtb easily available to all Linux distributions. It is a reproducable package that works the same on different machines regardless of their respective system packages. We have also packaged the old version 6.4.0 of xtb, which requires various old dependencies and is the only way currently to run xtb on a GPU through nvfortran. We have shared this achievement on the xtb GitHub repository, and others have since mentioned our GitHub issue to highlight the challenges of getting the GPU version to run.
 
-\subsection{Patching xTB}
+\subsection{Patching xtb}
 
 Now we have a way to apply patches and repoduce our tests. Next we will dive into what the patches do and how they are used.
 All the patches follow the structure seen in \autoref{fig:patchfile} where the original function is prefixed with a 'g', such that the new wrapper function will be called instead. The wrapper function writes the function arguments to a binary file before calling the actual function before finally writing the result of the function to the same binary file.
