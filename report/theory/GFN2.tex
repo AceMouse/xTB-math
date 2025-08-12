@@ -1,43 +1,54 @@
 \chapter{Theory}
 \section{GFN2-xTB}
 GFN2-xTB is a part of the GFNn-xTB (Geometry, Frequency, Non covalent, eXtended Tight Binding) family of semi-empirical methods for computational chemistry. 
-The method gives good approximations for molecular geometries, vibrational frequencies, and non-covalent interaction energies but also does well on a variety other properties. 
-Over all it strives to hit a balance between being accurate, close to the physics, general over a wide range of elements and not too computationally expensive.
-This is achieved by approximating a true quantum mechanical simulation, using carefully chosen approximations and parameters. 
-In contrast to forcefield methods that often operate on the level of atoms or even functional groups interacting the method is still treating the calculations at the level of individual shells in many places. 
-GFN2-xTB uses A Self-Consistent Charges approach i.e. it makes an initial guess at a density matrix and an energy which it then iteratively refines until both have converged. 
 
+The method gives good approximations for molecular geometries, vibrational frequencies, and non-covalent interaction energies and also does well on a variety other properties. 
+Overall it strives to hit a balance between being accurate, close to the physics, general over a wide range of elements and not too computationally expensive.
+
+This is achieved by approximating a true quantum mechanical simulation, using carefully chosen approximations and parameters. 
+In contrast to forcefield methods that often operate on the level of atoms or even functional groups interacting, GFN2-xTB still treats the calculations at the level of individual orbitals in many places. 
+
+GFN2-xTB uses a Self-Consistent Charges (SCC) approach i.e. it makes an initial guess at a density matrix and an energy which it then iteratively refines until both have converged. We are mostly interested in the final energy. 
+
+\subsection{Energy terms}
+The terms in GFN2-xTB that determine the energy are as follows
+\begin{equation}
+E =\E{rep}+\E{disp}^{D4'}+\E{EHT}+\E{\gamma}+\E{AES}+\E{AXC}+\E{\Gamma} + \E{Fermi}
+\end{equation}
+We then have to also factor in the SCC. 
+Let us consider the following code sketch in figure \ref{lst:total_energy} which we will fill out in this chapter. The chapter will go over each term and add code snippets illustrating the mathematics in a more concrete way. 
 \begin{figure}[H]
 \begin{minted}{python}
 def get_GFN2_energy(atoms: list[int], positions : list[list[float]]) -> float:
-    density = P(atoms)
-    overlap = S(atoms, positions)
-    dipol_dipol = D(atoms, positions, overlap)
-    charge_quadrupol = Q(atoms, positions, overlap, dipol_dipol)
+    density = density_initial_guess(atoms)
+    overlap, dipol_dipol, charge_quadrupol = overlap(atoms, positions)
     initial_hamiltonian = H0(atoms, positions)
     huckel_theory_matrix = H_EHT(atoms, positions, overlap, initial_hamiltonian)
     charges = mulliken_population_analysis(density,atoms)
+    eigen_values = diagonalize(initial_hamiltonian, overlap) # HC=SCe 
     E_repulsion = repulsion(atoms, positions)
     E_dispersion = D4Prime(charges, atoms, positions)
     E_huckel = Huckel(density, extended_huckel_theory_matrix)
     E_anisotropic = AES(charges, overlap, dipol_dipol, charge_quadrupol, positions)
     E_isotropic = IES(charges, positions)
-    E = E_repulsion + E_dispersion + E_huckel + E_anisotropic + E_isotropic
-    # ...
+    E_fermi = Fermi(...)
+    E = E_repulsion + E_dispersion + E_huckel + E_anisotropic + E_isotropic + E_Fermi
     while not (energy_converged and densities_converged):
-        eigen_values = diagonalize(hamiltonian, overlap) # HC=SCe 
-        new_density = compute_density_matrix_from_fermi(eigen_values,...)
-        # ... update everything with new density
+        # change densities along the gradients and 
+        # update everything using the new density
+        # ...
         energy_converged = (E-E_new)**2 < tolerance
-        densities_converged = error_squared(density,new_density) < tolerance
+        densities_converged = error_squared(density, new_density) < tolerance
         E = E_new
         density = new_density
 \end{minted}
-\caption{Python like code illustrating the main loop of a GFN2-xTB implementation.
-Line 2-14 computes the energy in a non SCC manner, line 15-23 iteratively improves the energy using SCC.
+\caption{Python code illustrating the main loop of a GFN2-xTB implementation.
+Line 2-16 computes the energy in a non SCC manner, line 15-23 iteratively improves the energy using SCC.
+Another way to describe this is that the zeroth iteration of SCC happens outside the loop as there is some setup required. 
 }
+    \label{lst:total_energy}
 \end{figure}
-Let us define a small helper function to decrease the amount of indentation in the later code examples. 
+Let us define a small helper function to decrease the amount of indentation in the later code examples. This will allow us to easily loop over the orbitals and know which atom and shell each belongs to. 
 \begin{figure}[H]
 \begin{minted}{python}
 def get_orbitals(atoms: list[int]) -> list[tuple[int]]:
@@ -49,48 +60,95 @@ def get_orbitals(atoms: list[int]) -> list[tuple[int]]:
                 orbitals.append((atom_idx,atom,subshell,orbital))
     return orbitals
 \end{minted}
-\caption{Python like code for generating a convenient list of orbitals to iterate though. }
+\caption{Python code for generating a convenient list of orbitals to iterate though. }
 \end{figure}
-And a helper function to create a square matrix.
+
+And some functions used when we want to signal to the reader that the python list we just created will stay a fixed size. Additionally we get to contain the python list comprehension syntax here. 
+
 \begin{figure}[H]
 \begin{minted}{python}
-def get_square_matrix(n: int) -> list[list[float]]:
-    matrix = []
-    for _ in range(n):
-        row = []
-        for _ in range(n):
-            row.append(0.0)
-        matrix.append(row)
-    return matrix
+def vector(n: int) -> list[float]:
+    return [0.0 for _ in range(n)]
+
+def square_matrix(n: int) -> list[list[float]]:
+    return [[0.0 for _ in range(n)] for _ in range(n)]
+
+def square_matrix_of_vectors(n: int, v:int) -> list[list[list[float]]]:
+    return [[[0.0 for _ in range(v)] for _ in range(n)] for _ in range(n)]
 \end{minted}
-\caption{Python like code for generating a square matrix.}
+    \caption{Python code for creating a $n$ long vector, $n\times n$ matrix and $n\times n \times v$ tensor.}
 \end{figure}
+For the sake of clarity we will define the order of direction as follows:
 
-
-The initial density matrix guess is formulated as a superposition of neutral atomic reference densities $P_0 = \sum_{A}P_{A_0}$. This means that we let $P_0$ be a diagonal matrix that is $n$ by $n$ where $n$ is the total number of orbitals across the whole molecule. The values on the diagonal are the fractional number of electrons in the orbitals, the fractional occupations. The shells are filled from the nucleus and outwards. 
+\begin{figure}[H]
+\begin{minted}{python}
+    x = 0
+    y = 1
+    z = 2
+    xx = 0
+    yy = 1
+    zz = 2
+    xy = 3
+    xz = 4
+    yz = 5
+\end{minted}
+\caption{Constants for the order of directions.}
+\end{figure}
+\subsection{Constructing the initial density matrix}
+Many of the terms use the density matrix as part of their calculation and it is central to the SCC method. In the GFN2 paper the initial density matrix guess is formulated as a superposition of neutral atomic reference densities $P_0 = \sum_{A}P_{A_0}$. In simpler terms this means that we let $P_0$ be a diagonal matrix that is $n$ by $n$ where $n$ is the total number of orbitals across the whole molecule. The values on the diagonal are the fractional number of electrons in the orbitals, the fractional occupations. They are reference densities so we get them in a table we can index into per subshell, thus we just have to divide the electrons evenly between the orbitals in the subshell. The number of orbitals in a subshell is $2l+1$ where l is the quantum number corresponding to the angular momentum of the subshell.
 \begin{figure}[H]
 \begin{minted}{python}
 def density_initial_guess(atoms: list[int]) -> list[list[float]]:
     orbitals = get_orbitals(atoms)
-    occs = get_square_matrix(len(orbitals))
-    for idx,(_,atom,subshell,_) in enumerate(orbitals):
+    fractional_occupations = square_matrix(len(orbitals))
+    for orbital_idx,(_,atom,subshell,_) in enumerate(orbitals):
         l = angular_momentum_of_subshell[atom][subshell] 
         orbitals_in_subshell = l*2+1 
         electrons_in_subshell = reference_occupations[atom][subshell]
         electrons_per_orbital = electrons_in_subshell/orbitals_in_subshell
-        occs[idx][idx] = electrons_per_orbital
-    return occs
+        fractional_occupations[orbital_idx][orbital_idx] = electrons_per_orbital
+    return fractional_occupations
 \end{minted}
-\caption{Python like code illustrating computation of $P_0$}
+\caption{Python code for computation of the initial density matrix $P_0$}
+    \label{lst:orbitals}
 \end{figure}
-For fullerenes the guess is simply all ones on the diagonal as number\_of\_subshells[C] = 2, angular\_momentum\_of\_subshell[C] = [0,1,0] and reference\_occupations[C] = [1.0,3.0,0.0]. Thus occ will be a repeating series of [$\frac{1.0}{1},\frac{3.0}{3},\frac{3.0}{3},\frac{3.0}{3}$].
+For fullerenes the guess is simply all ones on the diagonal as \verb|number_of_subshells[C] = 2|, \verb|angular_momentum_of_subshell[C] = [0,1,0]| and \verb|reference_occupations[C] = [1.0,3.0,0.0]|.
+Here \verb|C=5| is the index for carbon. 
+Thus \verb|fractional_occupations| will contain a repeating series of $\frac{1}{0\cdot2+1},\frac{3}{1\cdot2+1},\frac{3}{1\cdot2+1},\frac{3}{1\cdot2+1}$ on the diagonal.
 
-
-We also need the overlap matrix, $S$, which is computed in the following way.
+\subsection{Constructing the overlap matrix}
+We also need the overlap matrix, $S$, for several of the terms.
+An element in the matrix is computed in the following way.
 \begin{equation}
 S_{\nu\mu} = \braket{\psi_\nu|\psi_\mu}\quad\quad\quad\quad\forall \nu \in l \in A,\mu \in l' \in B
 \end{equation}
-This is an integral between two Slater type orbitals (STOs). To compute this we need to remember that in GFN2-xTB a STO is approximated as a linear combination of gaussian type orbitals:
+This is an integral between two Slater type orbitals (STOs). When we write $l \in A$ we mean to iterate though the subshells in A and take their angular momentum. $\nu\in l$ means that we iterate though the $2l+1$ orbitals in the subshell with quantum number $m\in\{-l,..,0,..,l\}$. See figure \ref{lst:orbitals} for a code example. 
+
+\begin{figure}[H]
+\begin{minted}{python}
+    def overlap(atoms: list[int], positions: list[list[float]]) -> tuple[list[list[float]],list[list[list[float]]],list[list[list[float]]]]:
+    orbitals = get_orbitals(atoms)
+    S = square_matrix(len(orbitals))
+    D = square_matrix_of_vectors(len(orbitals),3)
+    Q = square_matrix_of_vectors(len(orbitals),6)
+    for idx_A, (atom_idx_A,atom_A,subshell_A,orbital_A) in enumerate(orbitals):
+        for idx_B, (atom_idx_B,atom_B,subshell_B,orbital_B) in enumerate(orbitals):
+            R_A = positions[atom_idx_A]
+            R_B = positions[atom_idx_B]
+            l_A = angular_momentum_of_subshell[atom_A][subshell_A]
+            l_B = angular_momentum_of_subshell[atom_B][subshell_B]
+            s,d,q = compute_STO_integral(...)
+            S[idx_A][idx_B] = s
+            for dir in [x,y,z]:
+                D[idx_A][idx_B][dir] = d[dir]
+            for dir in [xx,yy,zz,xy,xz,yz]:
+                Q[idx_A][idx_B][dir] = q[dir]
+    return S,D,Q
+\end{minted}
+\caption{Python snippet illustrating construction of the overlap, dipol-dipol and charge-quadrupol matricies $S,D$ and $Q$.}
+\end{figure}
+
+To compute the integral we need to remember that in GFN2-xTB an STO is approximated as a linear combination of gaussian type orbitals:
 \begin{equation}
     \begin{split}
         \ket{\psi_\nu} =&\psi(\zeta_{A,l},r-R_A) \\
@@ -100,17 +158,65 @@ This is an integral between two Slater type orbitals (STOs). To compute this we 
         =& \sum_i^{N_{A,l}}c_{i,\nu}\ket{\phi_i}
     \end{split}
 \end{equation}
-Where $N_{A,l}$ is an element and shell dependant constant, it is the number of GTOs used to approximate the STO. The contraction coefficient $c$ is a fitted value. $\zeta$ and $\alpha$ are the slater and gaussian exponents. $R_A$ is the position of atom $A$. $N_{STO,l}$ and $N_{GTO,l}$ are normalisation terms, which for an s-orbital would be:
+Where $N_{A,l}$ is an element and shell dependant constant, it is the number of GTOs used to approximate the STO. $\zeta$ and $\alpha$ are the slater and gaussian exponents. The contraction coefficient $c$ is a fitted value, it is fitted with the assumption that $\zeta=1$ and to get the value we will actually be using, we need to scale the fitted value by $\zeta^2$. $R_A$ is the position of atom $A$. $N_{STO,l}$ and $N_{GTO,l}$ are normalisation terms. 
+We will refer to the terms $(r_u-{R_A}_u)^{l_u}\quad\forall{u\in x,y,z}$ as polynomial prefactors. 
+The approximation in terms of GTOs means we can express our overlap in terms of GTOs integrals instead:
+\begin{equation}
+    S_{\nu\mu} =\sum_i^{N_{A,l}}\sum_j^{N_{B,l'}}c_{i,\nu}c_{j,\mu} \braket{\phi_i|\phi_j}
+\end{equation}
+\begin{figure}[H]
+\begin{minted}{python}
+def compute_STO_integral(...) -> tuple[float,list[float],list[float]]:
+    number_of_gaussians_A = number_of_gaussians[atom_A][subshell_A]
+    number_of_gaussians_B = number_of_gaussians[atom_B][subshell_B]
+    slater_exponent_A = slater_exponents[atom_A][subshell_A]
+    slater_exponent_B = slater_exponents[atom_B][subshell_B]
+    overlap = 0
+    dipol = vector(3)
+    quadrupol = vector(6)
+    for gaussian_i in range(number_of_gaussians_A):
+        for gaussian_j in range(number_of_gaussians_B):
+            exponent_i = normalised_gaussian_exponent(...)
+            exponent_j = normalised_gaussian_exponent(...)
+            contraction_i = normalised_contraction_coeficient(...)
+            contraction_j = normalised_contraction_coeficient(...)
+            s,d,q = compute_GTO_integral(...)
+            overlap += contraction_i*contraction_j*s
+            for dir in [x,y,z]:
+                dipol[dir] += contraction_i*contraction_j*d[dir]
+            for dir in [xx,yy,zz,xy,xz,yz]:
+                quadrupol[dir] += contraction_i*contraction_j*q[dir]
+    return overlap,dipol,quadrupol
+\end{minted}
+    \caption{Python snippet illustrating construction of the STO integral $\braket{\psi_\nu|\psi_\mu}$.}
+\end{figure}
+
+For an s-orbital the normalisation terms would be:
 \begin{align}
     N_{STO,0}&=\sqrt{\frac{\zeta_{A,l}^3}{\pi}}\\
     N_{GTO,0}&=\left(\frac{2\alpha_{i,\nu}}{\pi}\right)^{3/4}
 \end{align}
-We will refer to the terms $(r_u-{R_A}_u)^{l_u}\quad\forall{u\in x,y,z}$ as polynomial prefactors. 
-The approximation in terms of GTOs means we can express our overlap in terms of GTOs as follows:
-\begin{equation}
-    S_{\nu\mu} =\sum_i^{N_{A,l}}\sum_j^{N_{B,l'}}c_{i,\nu}c_{j,\mu} \braket{\phi_i|\phi_j}
-\end{equation}
-As these are real valued functions we can drop the conjugation too.
+We only need the GTO ones and can compute them in the following way:
+\begin{figure}[H]
+\begin{minted}{python}
+def normalised_gaussian_exponent(atom:int, subshell:int, gaussian:int, slater_exponent:float) -> float:
+    normalisation_factor = slater_exponent**2
+    return gaussian_exponents[atom][subshell][gaussian]*normalisation_factor
+
+def normalised_contraction_coefficient(atom:int, subshell:int, gaussian:int, gaussian_exponent:float) -> float:
+    l = angular_momentum_of_subshell[atom][subshell]
+    normalization_factor = (((2.0*gaussian_exponent)/pi)**(3/4)) * (sqrt(4*gaussian_exponent)**l) / sqrt(double_factorial(l))
+    return contraction_coeficients[atom][shell][gaussian]*normalisation_factor
+
+def double_factorial(n:int) -> int:
+    if n <= 1:
+        return 1
+    return n*double_factorial(n-2)
+\end{minted}
+    \caption{Python snippet illustrating normalisation of the gaussian exponents and contraction coefficients.}
+\end{figure}
+
+As the GTOs in the integral are real valued functions we can drop the conjugation when we write them out.
 \begin{equation}
     \begin{split}
         \braket{\phi_i|\phi_j} = &\int \phi^*(\alpha_{i,\nu},r-R_A)\phi(\alpha_{j,\mu},r-R_B)\,dr\\
@@ -131,6 +237,16 @@ This rewrite only works if we also shift the polynomial prefactors to be relativ
     =&\sum_{m_i=0}^{{l_A}_u}v_{m_i}(r_u-{R_P}_u)^{{l_A}_u}
 \end{split}
 \end{equation}
+\begin{figure}[H]
+\begin{minted}{python}
+def shift_polynomial(l_dim, difference_to_P_dim) -> list[float]:
+    poly_coefficients = vector(l_dim+1)
+    for m in range(l_dim+1):
+        poly_coefficients[m] = comb(l_dim, m)*difference_to_P_dim**(l_dim-m)
+    return poly_coefficients
+\end{minted}
+    \caption{Python code illustrating computation of the shifted polynomial coefficients.}
+\end{figure}
 If we multiply these shifted prefactors we get the prefactors for the product. 
 \begin{equation}
 \begin{split}
@@ -139,7 +255,21 @@ If we multiply these shifted prefactors we get the prefactors for the product.
 \end{split}
 \end{equation}
 
-In the code we compute the values of $v_t$ as a convolution. 
+In the code we compute the values of $v_t$ as a convolution:
+\begin{figure}[H]
+\begin{minted}{python}
+def convolute(coef_A, coef_B) -> float:
+    max_t = len(coef_A)+len(coef_B)
+    poly_coefficients = vector(max_t+1)
+    for i,ci in enumerate(coef_A):
+        for j,cj in enumerate(coef_B):
+            poly_coefficients[i+j] += ci*cj
+    return poly_coefficients
+\end{minted}
+    \caption{Python code illustrating computation of the $R_P$ polynomial coefficients via a convolution.}
+\end{figure}
+
+
 To compute the integral over the GTOs we can split it in terms of the 3 dimensions we are integrating over, x,y and z.
 \begin{equation}
     \begin{split}
@@ -149,95 +279,40 @@ To compute the integral over the GTOs we can split it in terms of the 3 dimensio
             \times&\int \phi(\alpha,r_z-{R_P}_z)\,dz\\
     \end{split}
 \end{equation}
-One of these integrals can now be expanded as:
+Each of these integrals can now be expanded using the analytical solution to gaussian integrals of the form $\int x^t e^{-ax^2}\,dx$\cite{}:
 \begin{equation}
     \begin{split}
-        \int \phi(\alpha,r_u-{R_P}_u)\,du = &\int \sum_t^{{l_A}_u+l_j}v_t(r_u-{R_P}_u)^te^{-\alpha|r_u-{R_P}_u|^2}\,du
+        \int \phi(\alpha,r_u-{R_P}_u)\,du = \int \sum_{t=0}^{{l_A}_u+{l_B}_u}&v_t(r_u-{R_P}_u)^te^{-\alpha|r_u-{R_P}_u|^2}\,du\\
+        =  \sum_{t=0}^{{l_A}_u+{l_B}_u}&v_t\int(r_u-{R_P}_u)^te^{-\alpha|r_u-{R_P}_u|^2}\,du\\
+        =  \sum_{\{t\in1,..,{l_A}_u+{l_B}_u | odd(t)\}}v_t&\frac{\left(\frac{t-1}{2}\right)!}{2a^{\frac{t+1}{2}}}+
+        \sum_{\{t\in0,..,{l_A}_u+{l_B}_u | even(t)\}}v_t\frac{\left(t-1\right)!!}{2^{\frac{t}{2}+1}a^{\frac{t+1}{2}}}\sqrt{\frac{\pi}{\alpha}}
     \end{split}
 \end{equation}
-%\begin{equation}
-%N^{G}_{i}(\alpha_i,\ell_x,\ell_y,\ell_z)
-%= \sqrt{\left(\frac{2\alpha_i}{\pi}\right)^{3/2}
-%\frac{(4\alpha_i)^{\ell}}{(2\ell_x-1)!!\,(2\ell_y-1)!!\,(2\ell_z-1)!!}},
-%\end{equation}
-For clarity let us in the following code snippets have the following constants:
+this is something we can compute. Only $v_t$ is dependant on the direction so we can precompute the other terms. 
 \begin{figure}[H]
 \begin{minted}{python}
-    x = 0
-    y = 1
-    z = 2
-    xx = 0
-    yy = 1
-    zz = 2
-    xy = 3
-    xz = 4
-    yz = 5
-    directions = 6
+def compute_gaussian_integral_factors(alpha:float, l_A_dim:int, l_B_dim:int)-> list[float]:
+    factors = vector(l_A_dim+l_B_dim+3)
+    for t in range(l_A_dim+l_B_dim+3):
+        if t % 2 == 0:
+            factors[t] = factorial((t-1)//2)/(2*alpha*((t+1)//2))
+        else:
+            factors[t] = (double_factorial(t-1)/(2**(t/2+1)*alpha**((t+1)//2))) * sqrt(pi/alpha)
+    return factors
 \end{minted}
-\caption{Constants for the order of directions.}
+    \caption{Python code illustrating computation of the integral factors for even and odd powers}
 \end{figure}
 
 \begin{figure}[H]
 \begin{minted}{python}
-def overlap(atoms: list[int], positions:list[list[float]]) -> list[list[float]]:
-    orbitals = get_orbitals(atoms)
-    S = get_square_matrix(len(orbitals))
-    for idx_A, (atom_idx_A,atom_A,subshell_A,orbital_A) in enumerate(orbitals):
-        for idx_B, (atom_idx_B,atom_B,subshell_B,orbital_B) in enumerate(orbitals):
-            R_A = positions[atom_idx_A]
-            R_B = positions[atom_idx_B]
-            l_A = angular_momentum_of_subshell[atom_A][subshell_A]
-            l_B = angular_momentum_of_subshell[atom_B][subshell_B]
-            distance = euclidean_distance_squared(R_A,R_B)
-            S[idx_A][idx_B] = compute_STO_integral(...)
-    return S
-\end{minted}
-\caption{Python snippet illustrating construction of $S$.}
-\end{figure}
-\begin{figure}[H]
-\begin{minted}{python}
-def compute_STO_integral(...)-> float:
-    number_of_gaussians_A = number_of_gaussians[atom_A][subshell_A]
-    number_of_gaussians_B = number_of_gaussians[atom_B][subshell_B]
-    slater_exponent_A = slater_exponents[atom_A][subshell_A]
-    slater_exponent_B = slater_exponents[atom_B][subshell_B]
-    overlap = 0
-    for gaussian_i in range(number_of_gaussians_A):
-        for gaussian_j in range(number_of_gaussians_B):
-            exponent_i = normalised_gaussian_exponent(...)
-            exponent_j = normalised_gaussian_exponent(...)
-            contraction_i = normalised_contraction_coeficient(...)
-            contraction_j = normalised_contraction_coeficient(...)
-            overlap += contraction_i*contraction_j*compute_GTO_integral(...)
-    return overlap
-\end{minted}
-    \caption{Python snippet illustrating construction of the integral $\braket{\psi_\nu|\psi_\mu}$.}
-\end{figure}
-\begin{figure}[H]
-\begin{minted}{python}
-def normalised_gaussian_exponent(atom:int, subshell:int, gaussian:int, slater_exponent:float) -> float:
-    normalisation_factor = slater_exponent**2
-    return gaussian_exponents[atom][subshell][gaussian]*normalisation_factor
-
-def normalised_contraction_coefficient(atom:int, subshell:int, gaussian:int, gaussian_exponent:float) -> float:
-    l = angular_momentum_of_subshell[atom][subshell]
-    normalization_factor = (((2.0*gaussian_exponent)/pi)**(3/4)) * (sqrt(4*gaussian_exponent)**l) / sqrt(double_factorial(l))
-    return contraction_coeficients[atom][shell][gaussian]*normalisation_factor
-
-def double_factorial(n:int) -> int:
-    if n <= 1:
-        return 1
-    return n*double_factorial(n-2)
-\end{minted}
-    \caption{Python snippet illustrating normalisation of the gaussian exponents and contraction coefficients.}
-\end{figure}
-\begin{figure}[H]
-\begin{minted}{python}
-def compute_GTO_integral(...)-> float:
-    overlap = 0
+def compute_GTO_integral(...)-> tuple[float,list[float],list[float]]:
     alpha = exponent_i + exponent_j
     exponents = exponent_i * exponent_j
     K_AB = ((2*exponents)/(alpha*pi))**(3/4) * e**(-(exponents/alpha)*distance)
+    integral_factors = compute_gaussian_integral_factors(alpha, l_A_dim, l_B_dim)
+    zeroth_moment = vector(3)
+    first_moment = vector(3)
+    second_moment = vector(3)
     for dim in [x,y,z]:
         gaussian_product_center = (exponent_i*R_A[dim]+exponent_j*R_B[dim])/alpha
         center_relative_to_A = gaussian_product_center-R_A[dim]
@@ -245,23 +320,102 @@ def compute_GTO_integral(...)-> float:
         l_A_dim = angular_momentum_in_dimension[l_A][orbital_A][dim]
         l_B_dim = angular_momentum_in_dimension[l_B][orbital_B][dim]
         l_max_dim = max(l_A_dim, l_B_dim)
-        exponents = [] 
-    return overlap
+        vmis = shift_polynomial(l_A_dim, center_relative_to_A)
+        vmjs = shift_polynomial(l_B_dim, center_relative_to_B)
+        vts = convolute(vmis, vmjs)
+        for t, vt in enumerate(vts):
+            for moment in [0,1,2]:
+                for m in range(moment+1):
+                    zeroth_moment[dim] += comb(moment,m) * gaussian_product_center**(moment-m) * vt * integral_factors[t+m]
+
+    overlap = zeroth_moment[x]*zeroth_moment[y]*zeroth_moment[z]
+
+    dipol = vector(3)
+    dipol[x] = first_moment[x]*zeroth_moment[y]*zeroth_moment[z]
+    dipol[y] = zeroth_moment[x]*first_moment[y]*zeroth_moment[z]
+    dipol[z] = zeroth_moment[x]*zeroth_moment[y]*first_moment[z]
+
+    quadrupol = vector(3)
+    quadrupol[xx] = second_moment[x]*zeroth_moment[y]*zeroth_moment[z]
+    quadrupol[yy] = zeroth_moment[x]*second_moment[y]*zeroth_moment[z]
+    quadrupol[zz] = zeroth_moment[x]*zeroth_moment[y]*second_moment[z]
+    quadrupol[xy] = first_moment[x]*first_moment[y]*zeroth_moment[z]
+    quadrupol[xz] = first_moment[x]*zeroth_moment[y]*first_moment[z]
+    quadrupol[yz] = zeroth_moment[x]*first_moment[y]*first_moment[z]
+    return overlap, dipol, quadrupol
 \end{minted}
-    \caption{Python like code illustrating computation of the integral $\braket{\phi_i|\phi_j}$}
+    \caption{Python code illustrating computation of the integral $\braket{\phi_i|\phi_j}$ using the dimension-wise decomposition.}
 \end{figure}
+%\begin{equation}
+%N^{G}_{i}(\alpha_i,\ell_x,\ell_y,\ell_z)
+%= \sqrt{\left(\frac{2\alpha_i}{\pi}\right)^{3/2}
+%\frac{(4\alpha_i)^{\ell}}{(2\ell_x-1)!!\,(2\ell_y-1)!!\,(2\ell_z-1)!!}},
+%\end{equation}
 NOTE(Asmus) Explain D and Q as well
 
-
-The huckel matrix is calculated using extended huckel theory. This is the calculation.
+\subsection{Building the Hückel matrix}
+As a part of computing the Hückel energy we need to construct the Hückel matrix.
+The Hückel matrix comes from extended Hückel theory and is calculated as follows.
+\begin{equation}
+\begin{split}
+    \mn{H^{EHT}} &= \frac{1}{2}K^{ll'}_{AB}\mn{S}(H_{\mu\mu}+H_{\nu\nu})\\&\cdot X(EN_A,EN_B)\\&\cdot \Pi(R_{AB},l,l')\\&\cdot Y(\zeta^A_l,\zeta^B_{l'}), \forall \mu \in l \in A, \nu \in l' \in B
+\end{split}
+\end{equation}
 \begin{gather}
     H_{\nu\nu} = H_A^l - H_{CN_A}CN_A' \quad\quad\quad\quad\forall \nu \in l \in A\\
     \begin{split}
         CN_A' = &\sum_{B\neq A}\left(1+e^{-10\left(\frac{4\left(R_{A,cov}+R_{B,cov}\right)}{3R_{AB}}-1\right)}\right)^{-1}\left(1+e^{-20\left(\frac{4\left(R_{A,cov}+R_{B,cov}+2\right)}{3R_{AB}}-1\right)}\right)^{-1}
     \end{split}
 \end{gather}
+
+where $\mu$ and $\nu$ are AO indecies, $l$ and $l'$ index shells. Both AO's are associated with an atom labled A and B. 
+$K^{ll'}_{AB}$ is a element and shell specific fitted constant however, in GFN2 it only depends on the shells. 
+$S_{\mu\nu}=\braket{\phi_\mu|\phi_\nu}$ is just the overlap of the orbitals. In GFN2 $H_{\kappa\kappa}=h^l_A-\delta h^l_{CN'_A}CN'_A$ where $CN'_A$ is the modified GFN2-type Coordinate Number for the element of atom A.
+
+\begin{align}
+\begin{split}
+  CN^{'}_A = &\sum^{N_\text{atoms}}_{B \neq A} (1 + e^{-10(4(R_{A,\text{cov}} + R_{B,\text{cov}})/3R_{AB}-1)})^{-1} \\
+             &\times (1 + e^{-20(4(R_{A,\text{cov}} + R_{B,\text{cov}} + 2)/3R_{AB}-1)})^{-1}
+\end{split}
+\end{align}
+
+$h^l_A$ and $\delta h^l_{CN'_A}$ are both fitted constants. $EN_A$ is the electronegativity of the element of atom A, given in the original \texttt{xtb} code. 
+
+\begin{align}
+    X(EN_A,EN_B) &= 1 + k_{EN}\Delta EN_{AB}^2\\
+    k_{EN} &= 0.02 \text{ in GFN2}\\
+    \Delta EN_{AB}^2 &= (EN_A-EN_B)^2  
+\end{align}
+%The electronegativity for C and H are 2.55 and 2.20 according to wikipedia.
+%Thus here is a table for the combinations we will be working with:\\ 
+%\begin{tabular}{c|c|l}
+%    A&B&$X(EN_A,EN_B)$\\
+%    \hline
+%    C&C&$1$\\
+%    C&H&$1+0.02\cdot (0.35^2)$\\
+%    H&C&$1+0.02\cdot (0.35^2)$\\
+%    H&H&$1$\\
+%\end{tabular}
+\begin{equation}
+\begin{split}
+    \Pi(R_{AB},l,l') &= \left(1 + k^{\text{poly}}_{A,l}\left(\frac{R_{AB}}{R_{\text{cov},AB}}\right)^\frac{1}{2}\right)\left(1 + k^{\text{poly}}_{B,l'}\left(\frac{R_{AB}}{R_{\text{cov},AB}}\right)^\frac{1}{2}\right)\\
+\end{split}
+\end{equation}
+$R_{\text{cov},AB}$ are the summed covalent radii (\(R_{\text{cov},A} + R_{\text{cov},B}\)), e.g. $R_{\text{cov},H}=0.32$, $R_{\text{cov},C}=0.75$ are given in the original \texttt{xtb} code. $k^{\text{poly}}_{A,l}$ and $k^{\text{poly}}_{B,l'}$ are element and shell specific constants. 
+\begin{equation}
+\begin{split}
+    Y(\zeta^A_l,\zeta^B_{l'}) &= \left(\frac{2\sqrt{\zeta^A_l\zeta^B_{l'}}}{\zeta^A_l+\zeta^B_{l'}}\right)^\frac{1}{2}\\
+\end{split}
+\end{equation}
+Here, $\zeta^A_l$ are the STO exponents of the GFN2-xTB AO basis.\\
+Slater Type Orbitals are defined as such: 
+\begin{equation}
+\chi_{\zeta,n,l,m}(r, \theta, \varphi) = NY_{l,m}(\theta, \varphi)r^{n-1}e^{-\zeta r}
+\end{equation}
+N is a normalisation constant, Y are spherical harmonic funtions, n, l, m are the quantum numbers for the AO. $r,\theta,\varphi$ are polar 3D coordinates. $\zeta$ determines the radial extent of the STO, a large value gives rise to a function that is "tight" around the nucleus and a small value gives a more "diffuse" function. This $\zeta$ is the one mentioned in the Y term of $\E{EHT}$ and is a value fitted when constructing the basis set, thus it is given to us.  
 \begin{figure}[H]
 \begin{minted}{python}
+
 def huckel_matrix(atoms: list[int], positions: list[list[float]], overlap: list[list[float]]) -> list[list[float]]:
     orbitals = get_orbitals(atoms)
     H_EHT = get_square_matrix(len(orbitals))
