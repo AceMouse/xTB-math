@@ -1,42 +1,39 @@
 \chapter{Results}
 
-In this section we will present and reitterate the constributions we have made as a result of this project.
+\section{Our Contributions}
 
-We have contributed with a simplified Python version of the original GFN2-xTB Fortrain implementation. The implementation and validation of the dispersion term is not complete, and we have not implemented the self-consistent charges that is used to iteratively rerun the computations to improve the accuracy of the result. Despite missing these, we are surprised to have all the other terms when looking at the size of the codebase. This Python implementation should hopefully be make the xTB algorithm more approachable in terms of understanding and when it is ported to SYCL as a lockstep GPU implementation.
+In this section we will present and reiterate the contributions we have made as a result of this project.
 
-We have contributed with a reproducable testing framework, which should provide value to our successors.
+We have contributed with a simplified Python version of the original GFN2-xTB Fortran implementation. The implementation and validation of the dispersion term is not complete, and we have not implemented the self-consistent charges that is used to iteratively rerun the computations to improve the accuracy of the result. Given the size of the reference implementation we are quite satisfied with this. The Python implementation should hopefully make the GFN2-xTB algorithm more approachable for our successors and give a good foundation for making the lockstep parallel GPU implementation.
 
-We have contributed with a reproducable and easy way to build, run, and patch xtb, its dependencies, and even the challenging to run older GPU compatible version 6.4.0.
+We have contributed a testing framework for comparing results against the original Fortran implementation. We utilize Nix to ensure tests that are reproducible, regardless of Linux distribution and system configuration. In connection to this, we have also contributed a reproducible and easy way to build, run, and patch xtb. This also includes its dependencies, and even the older GPU compatible version 6.4.0 of xtb known from GitHub issues to be difficult to run.
 
-We have contributed with all of our learnings and knowledge about the xTB algorithm and its codebase.
+This report contributes a walkthrough of the GFN2-xTB algorithm with code snippets that directly links to the equations in a way that should be more easily digestible for a computer scientist. As an extension of this, we have presented insights and ideas on how to approach a massively lockstep implementation by optimizing code snippets for our problem domain, and transforming them such that they adhere to the requirements of a lockstep kernel.
 
-We have contributed with ideas and insights that would make a massively lockstep implementation possible.
-We have gone into depth about hardware requirements, why this approach is a good fit, and why it is better than regular task parralization. We have explained necessary considerations to make this approach possible and effective.
-We have also transformed code snippets to give examples on how to make it adhere to requirements of a lockstep kernel, and how to optimize the code to our problem domain by only considering carbon atoms.
+We have also presented a case study with the NVIDIA A100 datacenter GPU to show how GPU architectures are structured and how to use the technical specifications to estimate hardware requirements.
+
 
 % TODO: ASMUS!!!! Skriv vores quantum contributions >w<
 %In continuation of this, we have designed our own quantum circuits and proposed how to use the arithmetic operations they implement to further optimize the xTB algorithm with computational quantum algorithmic approaches.
 
-
-
 \section{Validation}
 
-
+All of our tests pass indicating that our results match the reference implementation. We had to introduce a threshold for some of the comparisons as they came extremely close. \autoref{fig:validation_electro_precision} shows the maximum squared deviations of all tests for the electrostatic term. This term returns the isotropic electrostatic energy and the self-consistent charges, so there are two plots to show both.
 
 \begin{figure}[H]
 \centering
 \begin{subfigure}{.5\textwidth}
   \centering
-  \includegraphics[width=.8\linewidth]{images/results/es_check}
-  \caption{es check}
+  \includegraphics[width=.9\linewidth]{images/results/es_check}
   \label{fig:es_check}
 \end{subfigure}%
 \begin{subfigure}{.5\textwidth}
   \centering
-  \includegraphics[width=.8\linewidth]{images/results/scc_check}
-  \caption{scc check}
+  \includegraphics[width=.9\linewidth]{images/results/scc_check}
   \label{fig:scc_check}
 \end{subfigure}
+\caption{Linear regressions showing how much the Python implementation for the electrostatic term deviates from the Fortran results.}
+\label{fig:validation_electro_precision}
 \end{figure}
 
 \section{Benchmarks}
