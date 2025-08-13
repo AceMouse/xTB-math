@@ -45,7 +45,7 @@ The code repository can be found at: \url{https://github.com/AceMouse/xTB-math}.
 
 \newpage
 
-The code repository can be found at: \url{https://github.com/Maroka-chan/xtb-gpu}.
+A seperate code repository for the SYCL GPU implementation can be found at: \url{https://github.com/Maroka-chan/xtb-gpu}.
 \dirtree{%
 .1 xtb-gpu/.
 .2 flake.lock.
@@ -72,4 +72,19 @@ The code repository can be found at: \url{https://github.com/Maroka-chan/xtb-gpu
 }
 
 
+A staging repository for the code that ended up in this report can be found at \url{https://github.com/AceMouse/Simple-GFNn-xTB}
+\dirtree{%
+.1 Simple-GFNn-xTB/.
+.2 chemistry\_constants.py\DTcomment{well known constants, not specific to any method}.
+.2 cmp\_impls.py\DTcomment{validation tests against Fortran impl}.
+.2 D4\_constants.py\DTcomment{constants referenced in D4'}.
+.2 data/.
+.2 file\_formats.py\DTcomment{for reading xyz and coord files}.
+.2 flake.lock.
+.2 flake.nix.
+.2 GFN2\_constants.py\DTcomment{constants referenced in GFN2-xTB}.
+.2 GFN2\_xTB.py\DTcomment{Implementation of GFN2-xTB}.
+.2 README.md.
+.2 slater\_constants.py\DTcomment{constants related the approximation of STOs in GFN2-xTB}.
+}
 
