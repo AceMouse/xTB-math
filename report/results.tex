@@ -4,7 +4,7 @@
 
 In this section we will present and reiterate the contributions we have made as a result of this project.
 
-We have contributed with a simplified Python version of the original GFN2-xTB Fortran implementation. The implementation and validation of the dispersion, anisotropic and Fermi terms is not complete, and we have not implemented the self-consistent charges that is used to iteratively rerun the computations to improve the accuracy of the result. Given the size of the reference implementation we are quite satisfied with this progress. The Python implementation should hopefully make the GFN2-xTB algorithm more approachable for our successors and give a good foundation for making a lock-step parallel GPU implementation.
+We have contributed with a simplified Python version of the original GFN2-xTB Fortran implementation. The implementation and validation of the dispersion term is not complete, and we are missing the anisotropic electrostatic term (AES), the anisotropic exchange correlation term (AXC), the Fermi term, and the implementation for the self-consistent charges. The most difficult part of AES and AXC is getting the S, D, and Q matrices, which we already have. Given the size of the reference implementation we are quite satisfied with this. The Python implementation should hopefully make the GFN2-xTB algorithm more approachable for our successors and give a good foundation for making the lockstep parallel GPU implementation.
 
 We have contributed a testing framework for comparing results against the original Fortran implementation. We utilize Nix to ensure tests that are reproducible, regardless of Linux distribution and system configuration. In connection to this, we have also contributed a reproducible and easy way to build, run, and patch xtb. This also includes its dependencies, and even the older GPU compatible version 6.4.0 of xtb known from GitHub issues to be difficult to get up and running.
 
@@ -16,7 +16,7 @@ Additionally we have designed quantum circuits for computing the isotropic energ
 
 \section{Validation}
 
-All of our tests pass indicating that our results match the reference implementation. We had to introduce a threshold for some of the comparisons as they came extremely close. \autoref{fig:validation_electro_precision} shows the maximum squared deviations of all tests for the electrostatic term. This term returns the isotropic electrostatic energy and the self-consistent charges, so there are two plots to show both.
+All except one of our tests pass indicating that our results match the reference implementation. We had to introduce a tolerance for some of the comparisons as they came extremely close. \autoref{fig:validation_electro_precision} shows the maximum squared deviations of all tests for the electrostatic term. This term returns the isotropic electrostatic energy and the self-consistent charges, so there are two plots to show the deviation for both.
 
 \begin{figure}[H]
 \centering
@@ -32,6 +32,36 @@ All of our tests pass indicating that our results match the reference implementa
 \end{subfigure}
 \caption{Linear regressions showing how much the Python implementation for the electrostatic term deviates from the Fortran results.}
 \label{fig:validation_electro_precision}
+\end{figure}
+
+We can see that the results for the self-consistent charges match exactly, and that the maximum squared deviation for the electrostatic energies is miniscule. \autoref{fig:tests-output} shows the results from our comparison tests.
+
+\begin{figure}[H]
+\begin{minted}{bash}
+    matches! [olapp]
+    matches! [multipole_3d]
+    matches! [multipole_3d_simple]
+    matches! [horizontal_shift]
+    matches! [form_product]
+    matches! [horizontal_shift_simple]
+    matches! [form_product_simple]
+    matches! [dtrf2]
+    li and lj are 0 for all calls, so s is not actually modified ToT
+    AKA all dtrf2 calls are essentially skipped...
+    matches! [get_multiints]
+    [build_overlap_dipol_quadrupol] S: Is not close!
+    ...
+    matches! [build_overlap_dipol_quadrupol]
+    matches! [build_SDQH0]
+    matches! [dim_basis]
+    matches! [atovlp]
+    matches! [new_basis_set]
+    matches! [electro]
+    matches! [coordination_number]
+    matches! [h0scal]
+\end{minted}
+\caption{Truncated output of our comparison tests.}
+\label{fig:tests-output}
 \end{figure}
 
 \section{Benchmarks}
