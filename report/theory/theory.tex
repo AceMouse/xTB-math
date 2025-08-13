@@ -454,12 +454,46 @@ squarednode/.style={
 \label{fig:coalescing}
 \end{figure}
 
-% TODO: POINTE! Alle threads i en warp skal lave det samme!
+This project is part of a larger pipeline, so the fullerene data that is fed to the GFN2-xTB algorithm is already in device memory when we get it. The GFN2-xTB implementation therefore never moves any data between the host and device. As such, data coalescing is something we consider when data is moved from higher to lower levels of memory on a device.
 
 In contrast to a task-parallel model where different instructions are executed in parallel, the threads in a warp is optimized around the single instruction multiple threads model (SIMT). This means that all $32$ threads in a warp can execute the exact same instructions in lockstep, thus being synchronized on a hardware level. To run in lockstep, data access has to complete for all the threads before the warp can advance, so to best utilize the SIMT model we need to fetch the data efficiently in a coalesced manner to minimize latency and maximize throughput.
 %To give an example, if a kernel only needs a subset of the fullerene for the current computation, then we should take the same subset for all fullerenes in the isomerspace and place them close together in memory.%Doing this allow us  from a single fetch, than if we also had to fetch the rest of the molecule data between these subsets.
 
-This project is part of a larger pipeline, so the fullerene data that is fed to the GFN2-xTB algorithm is already in device memory when we get it. The xTB implementation therefore never moves any data between the host and device. As such, data coalescing is something we consider when data is moved from higher to lower levels of memory on a device.
+No matter how efficiently we store our data, the throughput will still be bottlenecked by the memory bandwidth if our cores are constantly waiting for new data. To maximize throughput each core has to execute multiple instructions per byte of data. This will ensure that new data can arrive in time for when the cores need it. We will now show how to calculate the required amount of instructions per byte with the A100 GPU as an example. To keep things simple, we will assume that each CUDA core can execute one instruction per clock cycle, and we will only consider the FP32 Cores.
+
+The A100 uses HBM2 DRAM memory, which is organized as five active HBM2 stacks with eight memory dies per stack. Each channel is $128$ bits wide, so a whole die is $1024$ bits wide, which makes a stack $5120$ bits wide. The memory has a double data rate (DDR) of $1215$ MHz. DDR gives us two transfers per clock cycle, so it is effectively $2430$ MHz, or $2.43$ GT/s.
+
+\begin{equation}
+\begin{split}
+        StackMemoryInBytes &= \frac{ChannelWidth \times ChannelsPerDie \times DiesPerStack}{8}\\
+\end{split}
+\end{equation}
+
+\begin{equation}
+\begin{split}
+        MemoryBandwidth &= StackMemoryInBytes \times DataRateInMHz \times GigaTransfersPerSecond\label{eq:memorybandwidth}\\
+\end{split}
+\end{equation}
+
+Using \autoref{eq:memorybandwidth} with the specifications of the A100 GPU, we get a total memory bandwidth of $1555$ GB/s, which matches the A100 whitepaper from NVIDIA\cite{nvidia-a100-architecture}.
+
+With this bandwidth we can fetch $1555$ bytes per 1GHz clock cycle, so if we use the $6912$ FP32 CUDA Cores on the A100, then each core should execute $5$ instructions per byte fetched.
+
+\begin{equation}
+\begin{split}
+        InstructionsPerByte &= \ceil*{\frac{CoreCount}{ByteTransfersPer1GHz}}\\
+\end{split}
+\end{equation}
+
+We did not consider that a single core can execute more than one instruction per cycle, but if we look at the peak FP32 rate of $19.5$ TFLOPS, then we can calculate that we actually need $13$ instructions per byte to reach maximum throughput (see \autoref{eq:instructions-per-byte-given-tflops}).
+
+\begin{equation}
+\begin{split}
+        InstructionsPerByteGivenTFLOPS &= \ceil*{\frac{TFLOPSInBytes}{ByteTransfersPer1GHz}}\label{eq:instructions-per-byte-given-tflops}\\
+\end{split}
+\end{equation}
+
+
 %A complete molecule will most likely not fit in the lower memory levels, so we need to interweave the data in higher levels such that the necessary parts can be accessed as fast as possible. The bottom line is, that when we compute the energies for multiple molecules in the same warp, then we would like to move the necessary data for the molecules at the same time to minimize data accesses to higher levels of memory.
 
 

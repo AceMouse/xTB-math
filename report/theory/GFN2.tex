@@ -104,6 +104,12 @@ Here \verb|C=5| is the index for carbon.
 Thus \verb|fractional_occupations| will contain a repeating series of $\frac{1}{0\cdot2+1},\frac{3}{1\cdot2+1},\frac{3}{1\cdot2+1},\frac{3}{1\cdot2+1}$ on the diagonal.
 
 \subsection{Constructing the overlap, dipol and quadrupol tensors}
+
+\begin{align}
+    \pmb{R}_{AB} &= \pmb{R}_A-\pmb{R}_B\\
+    R_{AB} &= \sqrt{(\pmb{R}^x_{AB})^2+(\pmb{R}^y_{AB})^2+(\pmb{R}^z_{AB})^2}
+\end{align}
+
 We need the overlap matrix, $S$, for several of the terms.
 The related dipol and quadrupol tensors denoted $D$ and $Q$ are also needed and due to their very similar construction we will go over the implementation and mathematics in one fell swoop. 
 An element in each tensor is computed in the following way.
@@ -571,3 +577,95 @@ With the element and shell specific GFN2 constant $\Gamma_{A,l}$ we also get the
     \E{\Gamma} = \frac{1}{3}\sum_A^{N_{atoms}}\sum_{l\in A}(q_{A,l})^3\Gamma_{A,l} \label{eq:Gamma}
 \end{equation}
 
+
+
+\subsection{Anisotropic Electrostatic Energy}
+
+This section goes over the anisotropic electrostatic term $E_{AES}$. We will start by introducing all the necessary definitions.
+
+We define $\pmb{\mu}_A$ as the cumulative atomic dipole moment of atom A, and $\pmb{\Theta}_A$ as the corresponding traceless quadrupole moment. The superscript $T$ is the vector transpose operation.
+
+\begin{equation}
+    \pmb{\mu}_A = 
+    \begin{pmatrix}
+        \mu_A^{x}&
+        \mu_A^{y}&
+        \mu_A^{z}\\
+    \end{pmatrix}^T
+\end{equation}
+
+\begin{equation}
+    \pmb{\Theta}_A = 
+    \begin{pmatrix}
+        \Theta_A^{xx} & \Theta_A^{xy} & \Theta_A^{xz}\\
+        \Theta_A^{yx} & \Theta_A^{yy} & \Theta_A^{yz}\\
+        \Theta_A^{zx} & \Theta_A^{zy} & \Theta_A^{zz}\\
+    \end{pmatrix}
+\end{equation}
+
+$\Theta_A^{uv}$ is a specific element in the quadrupole tensor.
+
+\begin{equation}
+\begin{split}
+        \Theta_A^{uv} &= \frac{3}{2} \theta_A^{uv} - \frac{\delta_{uv}}{2} (\theta_A^{xx} + \theta_A^{yy} + \theta_A^{zz})\\
+\end{split}
+\end{equation}
+
+
+Below we define the zeroth, first, and second order cumulative atomic multipole moments (CAMM) $q_A$, $\mu_A^u$, and $\theta_A^{uv}$.
+
+\begin{equation}
+\begin{split}
+        q_A &= Z_A - \sum_{l \in A} \sum_{\kappa \in l} \sum_{B} \sum_{l' \in B} \sum_{\lambda \in l'} P_{\kappa \lambda} S_{\lambda \kappa}\\
+\end{split}
+\end{equation}
+
+$q_A$ is the Mulliken charge for an atom A. $Z_A$ is the number of protons in the atom A. $\kappa$ and $\lambda$ are the orbitals for atom A and B respectively. $P_{\kappa \lambda}$ is an element in the density matrix, and $S_{\lambda \kappa}$ is a element in the overlap matrix.
+
+\begin{equation}
+\begin{split}
+        \mu_A^u &= \sum_{l \in A} \sum_{\kappa \in l} \sum_{B} \sum_{l' \in B} \sum_{\lambda \in l'} P_{\kappa \lambda} (R_{A_u} S_{\lambda \kappa} - D_{\lambda \kappa}^u)\\
+\end{split}
+\end{equation}
+
+$\mu_A^u$ is the cumulative atomic dipole moment for a specific dimension $u$ of atom A. $D_{\lambda \kappa}^u$ is the a value in the dipole tensor.
+
+\begin{equation}
+\begin{split}
+        \theta_A^{uv} &= \sum_{l \in A} \sum_{\kappa \in l} \sum_{B} \sum_{l' \in B} \sum_{\lambda \in l'} P_{\kappa \lambda} (R_{A_u} D_{\lambda v}^v + R_{A_v} D_{\lambda \kappa}^u - R_{A_u} R_{A_v} S_{\lambda \kappa} - Q_{\lambda \kappa}^{uv})\\
+\end{split}
+\end{equation}
+
+The Cartesian components $u$ and $v$ are the dimensions for which we compute the second order CAMM.
+%$D_{\lambda \kappa}^\alpha$ and $Q_{\lambda \kappa}^{\alpha \beta}$ are the electric dipole and quadrupole moment integrals between the AOs $\phi_\kappa$ and $\phi_\lambda$.
+
+
+We damp the terms at short distances to avoid divergence for the AES energy. The distance dependent damping function is given by:
+
+\begin{equation}
+\begin{split}
+        f_n(R_{AB}) &=  \frac{1}{R_{AB}^n} \times \frac{1}{1 + 6 \left(\frac{R_0^{AB}}{R_{AB}}\right)^{a_n}}\\
+\end{split}
+\end{equation}
+
+$a_n$ are adjusted global parameters and $R_{AB}^n$ is the distance to the power of $n$. 
+
+\[
+  a_3 = 3.0 \quad\quad a5 = 4.0
+\]
+
+Now we have all the definitions needed for the anisotropic electrostatic energy, which is given by:
+
+\begin{equation}
+\begin{split}
+    \E{AES} &= \E{q\mu}+\E{q\Theta} + \E{\mu\mu}\\
+    &= \frac{1}{2}\sum_{A,B}\{f_3(R_{AB})[q_A(\pmb{\mu}_B^T\pmb{R}_{BA})+q_B(\pmb{\mu}_A^T\pmb{R}_{AB})]\\
+    &\quad + f_5(R_{AB})[q_A\pmb{R}_{AB}^T\pmb{\Theta}_B\pmb{R}_{AB}+q_B\pmb{R}_{AB}^T\pmb{\Theta}_A\pmb{R}_{AB}\\
+    &\quad -3(\pmb{\mu}_A^T\pmb{R}_{AB})(\pmb{\mu}_B^T\pmb{R}_{AB}) + (\pmb{\mu}_A^T\pmb{\mu}_B)R_{AB}^2] \}\\
+\end{split}
+\end{equation}
+
+
+\subsection{Anisotropic Exchange Correlation}
+
+, and anisotropic exchange correlation terms $E_{AXC}$.
