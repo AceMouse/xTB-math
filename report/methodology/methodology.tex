@@ -51,7 +51,7 @@ The description is ambiguous as it can both mean that we recompute the data stor
 When porting code from an implementation and a language with so many quirks and pitfalls, it becomes exceedingly important to have tests in place to catch these errors. Having a test suite that enables us to compare our implementation to the original has been indispensible to us for a fast iteration loop that gives insight into the mismatches and any potential patterns in the discrepancies.
 
 
-\section{Testing}
+\section{Testing}\label{sec:testing}
 
 The xtb codebase has a large footprint, and there is a lot of overlap between the xTB methods, so even focusing on just one of them still requires a great amount of code.
 The large amount of computations we have to deal with when porting the code makes proper validation especially important, as it becomes increasingly easy to make mistakes.With the discrepancies between the paper and the code, in addition to details that seem to go unexplained, we realized that the obvious approach forward was to lean towards the existing implementation rather than the paper.
