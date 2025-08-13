@@ -594,21 +594,46 @@ Let us take take a brief look at the complexity of these quantum algorithms.
 \subsection{Complexity}
 All these algorithms use $i = \lceil log_2(f) \rceil$ qubits to keep the fullerene IDs, where $f$ is the number of fullerenes in the isomer space $C_c$ that we are considering, thus $O(f^9)$. 
 
-The first circuit uses 5 QFT fused multiplication addition circuits. Each with $O(b^{3})$\cite{perez2017} gates and no additional qubits, where $b$ is the number of bits used to encode the numbers. Thus if we have encoded $\varGamma_{\mu},q_{A_n,\mu}, \mu \in \{0,..,l\}, A_n \in \{0,..,o\}$ each using $b$ bits we will need to perform $5lo$ multiplications, resulting in $5lo\cdot O(b^3)=O(lob^3)$ gates, on $m+b+bl+lob = O(m+lob+i)$ qubits. We can do trade-offs in circuit depth and amount of ancillary qubits by having multiple running sums e.g. in a binary tree pattern instead of immediately summing them all in the same register, resulting in a depth of $O(log_2(lo)b^3)$. 
+The first circuit uses 5 QFT fused multiplication addition circuits. Each with $O(b^{3})$\cite{perez2017} gates and no additional qubits, where $b$ is the number of bits used to encode the numbers. Thus if we have encoded an isomer space we need the two $\varGamma_0,\varGamma_1$ as well as the partial Mulliken charges for each atom $q_{A,0},q_{A,1}$ each using $b$ bits we will need to perform $10c$ multiplications, resulting in $10c\cdot O(b^3)=O(cb^3)$ gates, on $i + 2cb + 2b + 3b = O(cb+i)$ qubits. We can do trade-offs in circuit depth and amount of ancillary qubits by having multiple running sums e.g. in a binary tree pattern instead of immediately summing them all in the same register, resulting in a depth of $O(log_2(c)b^3)$. 
 
-If we add in the sampling step we then have to run the state preparation circuit which adds $O(\log b)$ qubits and $O(b\log b)$ gates\cite{wang2020}, however that is not enough to change the asymptotic runtime further. 
+If we add in the sampling step we then have to run the state preparation circuit which adds $O(\log b)$ qubits and $O(b\log b)$ gates\cite{wang2020}, however that is not enough to change the asymptotic runtime further given $b<c$ in most cases we care about. 
 
-TODO: qubits for QAA circuit?
+If we want to say something about the number of samplings needed to have found a good candidate we have to assume a distribution for the energies in the isomer space. As a best guess we will assume they are evenly distributed between the highest and lowest energies $E^\Gamma_H$ and $E^\Gamma_L$. Then for a successful run of the algorithm the probability of sampling a given id is proportional to the energy $E_{id}^\Gamma$. Let us first find the exact proportionality.
+\begin{equation}
+    1=\int_{E^\Gamma_L}^{0}eC \,de=\int_{E^\Gamma_L}^{E^\Gamma_H}eC \,de
+\end{equation}
+If we solve for C
+\begin{equation}
+    C = -\frac{2}{{E^\Gamma_L}^2-{E^\Gamma_H}^2}
+\end{equation}
+Then the probability of sampling a fullerene with energy within $\delta$ of $E^\Gamma_L$ is 
+\begin{equation}
+    \begin{split}
+        \int_{E^\Gamma_L}^{E^\Gamma_L+\delta}-\frac{2e}{{E^\Gamma_L}^2-{E^\Gamma_H}^2} \,de&=-\frac{2}{{E^\Gamma_L}^2-{E^\Gamma_H}^2}\int_{E^\Gamma_L}^{E^\Gamma_L+\delta}e \,de\\
+        &=-\frac{2}{{E^\Gamma_L}^2-{E^\Gamma_H}^2}\left(\frac{(E^\Gamma_L+\delta)^2}{2}-\frac{(E^\Gamma_L)^2}{2}\right)\\
+        &=-\frac{2}{{E^\Gamma_L}^2-{E^\Gamma_H}^2}\frac{(E^\Gamma_L+\delta)^2-(E^\Gamma_L)^2}{2}\\
+        &=-\frac{2}{{E^\Gamma_L}^2-{E^\Gamma_H}^2}\frac{(E^\Gamma_L+\delta+E^\Gamma_L)(E^\Gamma_L+\delta-E^\Gamma_L)}{2}\\
+        &=-\frac{2}{{E^\Gamma_L}^2-{E^\Gamma_H}^2}\frac{(2E^\Gamma_L+\delta)\delta}{2}\\
+        &=-\frac{2E^\Gamma_L\delta+\delta^2}{{E^\Gamma_L}^2-{E^\Gamma_H}^2}
+    \end{split}
+    \label{eq:prob}
+\end{equation}
+This is only indirectly related to the size of the isomer space, as we might expect the gap between the highest and lowest energy in the isomer space scale with its size. 
 
-For the second circuit we use $o(2b+1)$ multiple controlled rotation gates, at most $log_2(b)o+log_2(o)+1$ Hadamard gates, and $5o+1$ multiple controlled not gates. This gives a circuit depth on the order of $O(ob)$. 
+For the second circuit we use $log_2(b)+log_2(c)+1$ control qubits and $2cb+2b+8cb+i$ for the rest giving a total on the order of $O(cb+i)$.
+In terms of gates we use $c(2b+1)$ multiple controlled rotation gates, at most $log_2(b)+log_2(c)+1$ Hadamard gates, and $5c+1$ multiple controlled not gates. This gives a circuit depth on the order of $O(cb)$. 
 
-The algorithm for calculating $E^\gamma$ uses $i+3cb+2cb+9b$ to hold the ids, positions, partial Mulliken charges and ancillaries. The 9 ancillaries are for the inverse square root approximation assuming 5 newton iterations. They are cleaned up afterwards, so the few we need for the rest of the algorithm can be taken from here. Thus we use $O(i+cb)$ qubits. 
+The algorithm for calculating $E^\gamma$ uses $i+3cb+2cb+9b$ to hold the ids, positions, partial Mulliken charges and ancillaries. The 9 ancillaries are for the inverse square root approximation assuming 5 newton iterations. They are cleaned up afterwards, so the few we need for the rest of the algorithm can be taken from here. Thus we use $O(cb+i)$ qubits. 
 
 In terms of gates we use 8 subtraction circuits and 3 multiplication circuits for each pair of atoms. For each pair of charges we do an addition by a constant the inverse square root and use 3 fused multiply add operations to add it to the running sum. For the inverse square root we will assume 5 iterations and the number of bits before the decimal point is equal to $b$. These assumptions make the complexity for the inverse square root $O(b^2)$ which is slightly worse than the actual complexity for a more reasonable number of bits before the decimal point, however it is still not the dominating factor. The subtraction circuits have similar complexity to the addition circuits already mentioned. This gives a total gate complexity of $c^2(8\cdot O(b^2)+3\cdot O(b^3)) + (2c)^2(O(b^2)+O(b^2)+3\cdot O(b^3))=O(c^2b^3)$
 
-These complexities are not very impressive for a single computation, in which case we would get better results just running it classically. However if we have an isomer space with $x$ isomers we would have to run it on $n$ of them to have a probability of $\frac{n}{x}$ of having found the lowest energy isomer. For the quantum circuits this dependence on $x$ is less extreme, and considering that $x$ is on the order of $O(c^9)$ for the $C_c$ space, that enables us to potentially run this on much larger isomer spaces and still have a high probability of getting some of the lowest energy candidates. This works only because we took care to sample in such a way that the probability of getting a specific candidate is proportional to how different it is energetically to a known high energy isomer.   
+These complexities are not very impressive for a single computation, in which case we would get better results just running it classically. However if we have an isomer space $C_c$ with $f$ isomers we would have to run it on $n$ of them to have a probability of $\frac{n}{f}$ of having found the lowest energy isomer. Using the algorithm analysed in equation \ref{eq:prob} probability of having found a good candidate after $n$ samplings is only loosely dependent on $f$:
+\begin{equation}
+1-\left(1+\frac{2E^\Gamma_L\delta+\delta^2}{{E^\Gamma_L}^2-{E^\Gamma_H}^2}\right)^n
+\end{equation}
+Considering that $f$ is on the order of $O(c^9)$ for the $C_c$ space, that enables us to potentially run this on much larger isomer spaces and still have a high probability of getting some of the lowest energy candidates. This works only because we took care to sample in such a way that the probability of getting a specific candidate is proportional to its energy or, if we want to improve this result, how different it is energetically to a known high energy isomer. 
 
-TODO: see if we can say how much better. 
+Aassuming a fixed $b$ the number of qubits used for each of these quantum algorithms scales with $O(c+i)$ and the circuit depth scales with $O(c)$ or $O(c^2)$. This is modest compared to the size of the isomer spaces we are feeding into them as a super position.
 
 %\subsection{Cleaning up $\omega$}
 %We would like to get rid of the $\ket{\omega}$ term in both algorithms to avoid having to post select.
