@@ -1,4 +1,5 @@
 \chapter{GFN2-xTB}\label{sec:gfn2}
+In this section we will go over the GFN2-xTB energy terms put forth in the related papers\cite{grimme2017,bannwarth2019,bannwarth2021}
 GFN2-xTB is a part of the GFNn-xTB (Geometry, Frequency, Non covalent, eXtended Tight Binding) family of semi-empirical methods for computational chemistry. 
 
 The method gives good approximations for molecular geometries, vibrational frequencies, and non-covalent interaction energies and also does well on a variety other properties. 
@@ -639,3 +640,18 @@ The anisotropic exchange correlation term $E_{AXC}$ is supposed to capture chang
 
 In the equation we have the constants $f_{XC}^{\mu_A}$ and $f_{XC}^{\Theta_A}$, which are fitted element-specific parameters. The values for each element can be found in the supporting information of the GFN2-xTB paper\cite{bannwarth2019}.
 We already defined both $\pmb{\mu}_A$ and $\pmb{\Theta}_A$ in \autoref{sec:AES}. 
+
+\section{Electronic entropy}
+In GFNn-xTB they use the following term to assign the (spin restricted) fractional orbital occupations. It is based on the eigenvalues from diagonalising $FC=SC\varepsilon$ where F is the GFN2-xTB equivalent of a Fock matrix, and C is the matrix of GTO contraction coefficients. S is the overlap matrix and $\varepsilon$ is the diagonal matrix of eigen values. The electronic temperature $T_{el}=300$ kelvin is non-zero and thus we have fractional occupations $n_{i\sigma}$ for the $i$'th molecular spin orbital with spin $\sigma$ chosen based on the Fermi-distribution:: 
+\begin{equation}
+    n_{i\sigma} = \frac{1}{e^{(\varepsilon_{ii}-\varepsilon^\sigma_F)/(K_BT_{el})}+1}
+\end{equation}
+with the Fermi level $\varepsilon_F^\sigma$ chosen such that the following equation holds $\sum_in_{i\sigma}=N_{\sigma}$. Here $K_B$ is the Boltzmann constant. $N_\alpha=\frac{N-N_f}{2}+N_f $ and $N_\beta=\frac{N-N_f}{2}$ is based on the total number of electrons $N$ and the requested number of free electrons $N_f$ with the restriction that $0\leq N-N_f$ is even. 
+The Fermi energy term is then:
+\begin{equation}
+    G_{Fermi} = K_BT_{el}\sum_{\sigma\in\alpha,\beta}\sum_in_{i\sigma}\ln(n_{i\sigma}) + (1-n_{i\sigma})\ln(1-n_{i\sigma})
+\end{equation}
+This repeated diagonalising is one of the more computationally demanding tasks for the GFNn-xTB methods. 
+
+
+
