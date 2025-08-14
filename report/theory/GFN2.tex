@@ -1,5 +1,5 @@
 \chapter{Theory}
-\section{GFN2-xTB}
+\section{GFN2-xTB} \label{ch:gfn2-xtb}
 GFN2-xTB is a part of the GFNn-xTB (Geometry, Frequency, Non covalent, eXtended Tight Binding) family of semi-empirical methods for computational chemistry. 
 
 The method gives good approximations for molecular geometries, vibrational frequencies, and non-covalent interaction energies and also does well on a variety other properties. 
@@ -139,7 +139,7 @@ For the sake of clarity we will define the indices corresponding to the combinat
 \end{figure}
 \begin{figure}[H]
 \begin{minted}{python}
-    def overlap_dipol_quadrupol(atoms: list[int], positions: list[list[float]])-> tuple[list[list[float]],list[list[list[float]]],list[list[list[float]]]]:
+def overlap_dipol_quadrupol(atoms: list[int], positions: list[list[float]])-> tuple[list[list[float]],list[list[list[float]]],list[list[list[float]]]]:
     orbitals = get_orbitals(atoms)
     S = square_matrix(len(orbitals))
     D = square_matrix_of_vectors(len(orbitals),3)
@@ -150,7 +150,7 @@ For the sake of clarity we will define the indices corresponding to the combinat
             R_B = positions[atom_idx_B]
             l_A = angular_momentum_of_subshell[atom_A][subshell_A]
             l_B = angular_momentum_of_subshell[atom_B][subshell_B]
-            s,d,q = compute_STO_integrals(...)
+            s,d,q = compute_STO_integrals(atom_A, subshell_A, orbital_A, R_A, l_A, atom_B, subshell_B, orbital_B, R_B, l_B)
             S[idx_A][idx_B] = s
             for dir in [x,y,z]:
                 D[idx_A][idx_B][dir] = d[dir]
@@ -181,7 +181,7 @@ The approximation in terms of GTOs means we can express our overlap in terms of 
 \end{align}
 \begin{figure}[H]
 \begin{minted}{python}
-def compute_STO_integrals(...) -> tuple[float,list[float],list[float]]:
+def compute_STO_integrals(atom_A: int, subshell_A: int, orbital_A: int, R_A: float, l_A: int, atom_B: int, subshell_B: int, orbital_B: int, R_B: float, l_B: int) -> tuple[float,list[float],list[float]]:
     number_of_gaussians_A = number_of_gaussians[atom_A][subshell_A]
     number_of_gaussians_B = number_of_gaussians[atom_B][subshell_B]
     slater_exponent_A = slater_exponents[atom_A][subshell_A]
@@ -191,11 +191,12 @@ def compute_STO_integrals(...) -> tuple[float,list[float],list[float]]:
     quadrupol = vector(6)
     for gaussian_i in range(number_of_gaussians_A):
         for gaussian_j in range(number_of_gaussians_B):
-            exponent_i = normalised_gaussian_exponent(...)
-            exponent_j = normalised_gaussian_exponent(...)
-            contraction_i = normalised_contraction_coeficient(...)
-            contraction_j = normalised_contraction_coeficient(...)
-            s,d,q = compute_GTO_integrals(...)
+            exponent_i = normalised_gaussian_exponent(atom_A, subshell_A, gaussian_i, slater_exponent_A)
+            exponent_j = normalised_gaussian_exponent(atom_B, subshell_B, gaussian_j, slater_exponent_B)
+            contraction_i = normalised_contraction_coeficient(atom_A, subshell_A, gaussian_i, exponent_i)
+            contraction_j = normalised_contraction_coeficient(atom_B, subshell_B, gaussian_j, exponent_j)
+            distance_between_A_B = euclidean_distance(R_A, R_B)
+            s,d,q = compute_GTO_integrals(R_A, l_A, orbital_A, R_B, l_B, orbital_B, exponent_i, exponent_j, distance_between_A_B)
             overlap += contraction_i*contraction_j*s
             for dir in [x,y,z]:
                 dipol[dir] += contraction_i*contraction_j*d[dir]
@@ -216,16 +217,16 @@ TODO: snak med kurt om den generelle form.
 We only need the GTO ones and can compute them in the following way:
 \begin{figure}[H]
 \begin{minted}{python}
-def normalised_gaussian_exponent(atom:int, subshell:int, gaussian:int, slater_exponent:float) -> float:
+def normalised_gaussian_exponent(atom: int, subshell: int, gaussian: int, slater_exponent: float) -> float:
     normalisation_factor = slater_exponent**2
     return gaussian_exponents[atom][subshell][gaussian]*normalisation_factor
 
-def normalised_contraction_coefficient(atom:int, subshell:int, gaussian:int, gaussian_exponent:float) -> float:
+def normalised_contraction_coefficient(atom: int, subshell: int, gaussian: int, gaussian_exponent: float) -> float:
     l = angular_momentum_of_subshell[atom][subshell]
     normalization_factor = (((2.0*gaussian_exponent)/pi)**(3/4)) * (sqrt(4*gaussian_exponent)**l) / sqrt(double_factorial(l))
     return contraction_coeficients[atom][shell][gaussian]*normalisation_factor
 
-def double_factorial(n:int) -> int:
+def double_factorial(n: int) -> int:
     if n <= 1:
         return 1
     return n*double_factorial(n-2)
@@ -268,7 +269,7 @@ This rewrite only works if we also shift the polynomial prefactors to be relativ
 \end{equation}
 \begin{figure}[H]
 \begin{minted}{python}
-def shift_polynomial(l_dim, difference_to_P_dim) -> list[float]:
+def shift_polynomial(l_dim: int, difference_to_P_dim: float) -> list[float]:
     poly_coefficients = vector(l_dim+1)
     for m in range(l_dim+1):
         poly_coefficients[m] = comb(l_dim, m)*difference_to_P_dim**(l_dim-m)
@@ -287,7 +288,7 @@ If we multiply these shifted prefactors we get the prefactors for the product.
 In the code we compute the values of $v_t$ as a convolution:
 \begin{figure}[H]
 \begin{minted}{python}
-def convolute(coef_A, coef_B) -> float:
+def convolute(coef_A: list[float], coef_B: list[float]) -> list[float]:
     max_t = len(coef_A)+len(coef_B)
     poly_coefficients = vector(max_t+1)
     for i,ci in enumerate(coef_A):
@@ -375,7 +376,7 @@ We compute an extra $2$ factors to accommodate $\delta_{ux}+\delta_{vx}$
 
 \begin{figure}[H]
 \begin{minted}{python}
-def compute_GTO_integrals(...)-> tuple[float,list[float],list[float]]:
+def compute_GTO_integrals(R_A: float, l_A: int, orbital_A: int, R_B: float, l_B: int, orbital_B: int, exponent_i: float, exponent_j: float, distance_between_A_B: float) -> tuple[float,list[float],list[float]]:
     alpha = exponent_i + exponent_j
     exponents = exponent_i * exponent_j
     K_AB = ((2*exponents)/(alpha*pi))**(3/4) * e**(-(exponents/alpha)*distance)
@@ -401,7 +402,6 @@ def compute_GTO_integrals(...)-> tuple[float,list[float],list[float]]:
                 second_moment[dim] += comb(2,m) * gaussian_product_center_in_dim**(2-m) * vt * integral_factors[t+m]
 
     overlap = zeroth_moment[x]*zeroth_moment[y]*zeroth_moment[z]
-
     dipol = vector(3)
     dipol[x] = first_moment[x]*zeroth_moment[y]*zeroth_moment[z]
     dipol[y] = zeroth_moment[x]*first_moment[y]*zeroth_moment[z]
