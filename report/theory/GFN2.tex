@@ -125,7 +125,7 @@ Thus \verb|fractional_occupations| will contain a repeating series of $\frac{1}{
 
 \section{Constructing the overlap, dipol and quadrupol tensors}
 
-We need the overlap matrix, $S$, for several of the terms.
+We need the overlap matrix, $S$, for several of the terms. 
 The related dipol and quadrupol tensors denoted $D$ and $Q$ are also needed and due to their very similar construction we will go over the implementation and mathematics in one fell swoop. 
 An element in each tensor is computed in the following way.
 \begin{align}
@@ -222,7 +222,7 @@ def compute_STO_integrals(atom_A: int, subshell_A: int, orbital_A: int, R_A: flo
     \caption{Python snippet illustrating construction of the STO integrals $\braket{\psi_\nu|\cdots|\psi_\mu}$.}
 \end{figure}
 
-The gaussian normalisation term in accordance with equation 5.55 in Quanntum Chemistry\cite{daudel}:
+The gaussian normalisation term\cite[eq. 5.55]{daudel} is:
 \begin{align}
     1&=N_{GTO,l}^2(2\alpha_{i,\nu})^{-(l+3/2)}\frac{({l_A}_x-1)!!({l}_y-1)!!({l}_z-1)!!}{2^{l/2}}\pi^{3/2}\\
     N_{GTO,l}^2&=\left((2\alpha_{i,\nu})^{-(l+3/2)}\frac{({l}_x-1)!!({l}_y-1)!!({l}_z-1)!!}{2^{l/2}}\pi^{3/2}\right)^{-1}\\
@@ -268,7 +268,7 @@ We see that we have to compute the products of GTOs. The product of two Gaussian
     \pmb R_P = \frac{\alpha_{i,\nu}\pmb R_A+\alpha_{j,\mu}\pmb R_B}{\alpha}\\
     \phi(\alpha_{i,\mu},\pmb r-\pmb R_A)\phi(\alpha_{j,\nu},\pmb r-\pmb R_B) = K_{AB}\phi(\alpha,\pmb r-\pmb R_P)
 \end{gather}
-This rewrite only works if we also shift the polynomial prefactors to be relative to the product centre $R_P$, for all $u\in x,y,z$:
+This rewrite only works if we also shift the polynomial prefactors to be relative to the product centre $R_P$, for all $u\in x,y,z$\cite[eq. 5.46]{daudel1983}:
 \begin{equation}
 \begin{split}
     (r_u-{R_A}_u)^{{l_A}_u} = &\sum_{m_i=0}^{{l_A}_u}\binom{{l_A}_u}{m_i}({R_P}_u-{R_A}_u)^{({l_A}_u-m_i)}(r_u-{R_P}_u)^{{l_A}_u}\\
@@ -309,9 +309,9 @@ def convolute(coef_A: list[float], coef_B: list[float]) -> list[float]:
 
 
 To compute the integrals over the GTOs we can split them in terms of the 3 dimensions we are integrating over, $x,y$ and $z$. We can also pull the GTO normalisation terms out front. 
-Each of these integrals can now be expanded using the analytical solution to Gaussian integrals of this form in equation 5.53 in Quantum Chemistry\cite{daudel1983}. All the integrals get solutions of the following form for even $t$:
+Each of these integrals can now be expanded using the analytical solution to Gaussian integrals of this form. All the integrals get solutions of the following form for even $t$\cite[eq. 5.53]{daudel1983}:
 \begin{equation}
-    \alpha^{-(t+1)/2}\frac{(t-1)!!}{2^{t/2}}\sqrt{\pi}
+    i_t = \alpha^{-(t+1)/2}\frac{(t-1)!!}{2^{t/2}}\sqrt{\pi}
 \end{equation}
 And 0 for odd $t$.
 The analytical solution to the integrals is independent of the direction so we can precompute them: 
@@ -329,9 +329,12 @@ def compute_gaussian_integral_factors(alpha:float, l_A:int, l_B:int)-> list[floa
 \end{minted}
     \caption{Python code illustrating computation of the integral factors for even and odd powers}
 \end{figure}
-We compute an extra $2$ factors to accommodate for the second moment later. 
-
-We then multipy each with the appropriate $v_t$ and sum over $t$.
+We compute an extra $2$ factors to accommodate for the second moment. 
+We then multiply each with the appropriate $v_t$ and sum over $t$\cite[eq. 5.49]{daudel1983}.
+We also compute the higher moments\cite[sec. 5.2.2.5]{daudel1983} in the same code block in accordance with the sum:
+\begin{equation}
+    \sum_{t=0}^{l+M}\sum_{m=0}^M \binom{M}{m}{R_P}_u^{M-m}v_ti_t
+\end{equation}
 \begin{figure}[H]
 \begin{minted}{python}
 def compute_GTO_integrals(R_A: float, l_A: int, orbital_A: int, R_B: float, l_B: int, orbital_B: int, exponent_i: float, exponent_j: float, distance_between_A_B: float) -> tuple[float,list[float],list[float]]:
@@ -365,7 +368,7 @@ def compute_GTO_integrals(R_A: float, l_A: int, orbital_A: int, R_B: float, l_B:
     dipol[y] = zeroth_moment[x]*first_moment[y]*zeroth_moment[z]
     dipol[z] = zeroth_moment[x]*zeroth_moment[y]*first_moment[z]
 
-    quadrupol = vector(3)
+    quadrupol = vector(6)
     quadrupol[xx] = second_moment[x]*zeroth_moment[y]*zeroth_moment[z]
     quadrupol[yy] = zeroth_moment[x]*second_moment[y]*zeroth_moment[z]
     quadrupol[zz] = zeroth_moment[x]*zeroth_moment[y]*second_moment[z]
