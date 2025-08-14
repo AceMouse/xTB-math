@@ -1,7 +1,7 @@
 \chapter{High Performance Parallel Computing}\label{sec:hppc}
 
-Now that we have taken a look at the computations performed by the xTB method, we can begin to see that the steps are the same for all molecules, and that the exact amount of steps are identical between isomers. Isomers are molecules that are identical in their composition of atoms, that is, they have the same molecular formula, and differ only in the relative positions between atoms or the bonds between them.
-This project focuses on large isomer spaces of fullerenes in the range \(C_{20}, \cdots, C_{200} \) which is a total of $2157751423$ molecules, or in other words in the order of $10^9$. A fullerene is a molecule consisting only of carbon atoms where each atom has three neighbors and is arranged such that the molecule produces a mesh of exactly $12$ pentagonal faces and the rest being hexagonal faces.
+Now that we have taken a look at the computations performed by the xTB method, we can begin to see that the steps are the same for all molecules, and that the exact number of steps are identical between isomers. Isomers are molecules that are identical in their composition of atoms, that is, they have the same molecular formula, and differ only in the relative positions between atoms or the bonds between them.
+This project focuses on large isomer spaces of fullerenes in the range \(C_{20}, \cdots, C_{200} \) which is a total of $2,157,751,423$ molecules, or in other words in the order of $10^9$. A fullerene is a molecule consisting only of carbon atoms where each atom has three neighbors and is arranged such that the molecule produces a mesh of exactly $12$ pentagonal faces and the rest being hexagonal faces.
 
 \begin{figure}[H]
 \centering
@@ -35,9 +35,7 @@ This project focuses on large isomer spaces of fullerenes in the range \(C_{20},
 \label{fig:carbon-degree}
 \end{figure}
 
-For each isomerspace we essentially have two matrices, one for the coordinates of each carbon atom, and one containing the three neighbors for each of the atoms. The first matrix as seen in \autoref{fig:isomerspace_atom_coords}, is of size $N \times 3 \times M$ where $N$ is the amount of atoms for each of the fullerenes within the same isomerspace, $3$ is the three coordinates for each atom, and $M$ is the amount of fullerenes within the isomerspace. The second matrix as seen in \autoref{fig:isomerspace_atom_neighbors}, is the exact same, but instead of coordinates it holds the indices for the three neighboring carbon atoms. The xTB method only needs the positions for each atom, so we are not concerned with the second matrix.
-
-% TODO: Is it true that we do not need the second matrix?
+For each isomerspace we essentially have two matrices, one for the coordinates of each carbon atom, and one containing the three neighbors for each of the atoms. The first matrix as seen in \autoref{fig:isomerspace_atom_coords}, is of size $N \times 3 \times M$ where $N$ is the amount of atoms for each of the fullerenes within the same isomerspace, $3$ is the three coordinates for each atom, and $M$ is the number of fullerenes within the isomerspace. The second matrix as seen in \autoref{fig:isomerspace_atom_neighbors}, is the exact same shape, but instead of coordinates it holds the indices for the three neighboring carbon atoms. The xTB method only needs the positions for each atom, so we are not concerned with the second matrix.
 
 \begin{figure}[H]
 \centering
@@ -141,9 +139,9 @@ For each isomerspace we essentially have two matrices, one for the coordinates o
 \end{figure}
 
 
-The xtb program takes a single molecule as input, but the fact that fullerenes in the same isomerspace executes the same series of instructions, makes a great case for lockstep parallelism. Running computations in lockstep means doing the exact same instructions in parallel, and if we can do this, then we can efficiently utilize the single instruction, multiple threads (SIMT) execution model. The SIMT model is used when a warp scheduler dispatches a single instruction to all threads within a warp. All of the threads in the warp will then execute the instruction simultaniously, which means that they are synchronized at a hardware level. This perfect as it means that we can use warps to execute instructions for multiple fullerenes in lockstep. With this in mind, instead of feeding the program a single fullerene at a time, we want to give it a complete isomerspace so that we can utilize all threads on one or even multiple GPUs. The largest isomerspace we consider is $C_{200}$, which is $214127742$ fullerenes, or in other words in the order of $10^8$.
+The xtb program takes a single molecule as input, but the fact that fullerenes in the same isomerspace executes the same series of instructions, makes a great case for lockstep parallelism. Running computations in lockstep means doing the exact same instructions in parallel, and if we can do this, then we can efficiently utilize the single instruction, multiple threads (SIMT) execution model. The SIMT model is used when a warp scheduler dispatches a single instruction to all threads within a warp. All of the threads in the warp will then execute the instruction simultaniously, which means that they are synchronized at a hardware level. This is perfect as it means that we can use warps to execute instructions for multiple fullerenes in lockstep. With this in mind, instead of feeding the program a single fullerene at a time, we want to give it a complete isomerspace so that we can utilize all threads on one or even multiple GPUs. The largest isomerspace we consider is $C_{200}$, which is $214,127,742$ fullerenes, or in other words in the order of $10^8$. Parallelism scales with the isomerspace, so this means that we can use on the order of $10^8$ GPU cores if available.
 
-It takes around $30$ seconds for a 12th generation Intel mobile processor to run xtb on a single $C_{200}$ fullerene. Going through the whole isomerspace on this CPU would take about $204$ years to complete. This is a bit long to wait for a failed run, and by that time we will probably have achieved more efficient ways of computation, or the world might simply have more pressing matters than keeping this computer alive. The degree of lockstep parallelism scales with the isomerspace, and since there are no interdependencies between the molecules, this makes it a perfect case for horizontal scaling by using hundreds or even thousands or GPUs. The CPU used has $12$ cores and $24$ threads, $12$ of which can run in parallel. An NVIDIA GPU has hundredthousands of threads and tenthousands of CUDA cores, though these cores are not equivalent to CPU cores, and we can in general not compare the relative performance between the two by looking at this. Something that is typically compared though, is the theoretical throughput of floating point operations per second (FLOPS). The top of the line AMD EPYC 9965 CPU has a theoritical throughput of $27.648$ TeraFLOPS (TFLOPS) for $32$-bit floating point values\cite{amd-epyc-performance}, while the NVIDIA A100 has $156$ TFLOPS\cite{nvidia-a100-architecture}. From these observations we can say that the GPU is much more capable of massive parallelism, which is what we seek for these massive isomerspaces.
+It takes around $30$ seconds for a 12th generation Intel mobile processor to run xtb on a single $C_{200}$ fullerene. Going through the whole isomerspace on this CPU would take about $204$ years to complete. This is a bit long to wait for a failed run, and by that time we will probably have achieved more efficient ways of computation, or the world might simply have more pressing matters than keeping this computer alive. The degree of lockstep parallelism scales with the isomerspace, and since there are no interdependencies between the molecules, this makes it a perfect case for horizontal scaling by using hundreds or even thousands or GPUs. The CPU used has $12$ cores and $24$ threads, $12$ of which can run in parallel. An NVIDIA GPU has hundredthousands of threads and tenthousands of CUDA cores, though these cores are not equivalent to CPU cores, and we can in general not compare the relative performance between the two by looking at this. Something that is typically compared though, is the theoretical throughput of floating point operations per second (FLOPS). The top of the line AMD EPYC 9965 CPU has a theoritical throughput of $27.6$ TeraFLOPS (TFLOPS) for $32$-bit floating point values\cite{amd-epyc-performance}, while the NVIDIA A100 has $156$ TFLOPS\cite{nvidia-a100-architecture}. From these observations we can say that the GPU is much more capable of massive parallelism, which is what we seek for these massive isomerspaces.
 %as they refer to the amount of arithmetic logic units (ALUs), while a modern CPU core has multiple ALUs.
 
 %Distributing the isomerspace over $1000$ threads would cut this down to a measly $2.5$ months. This is still a lot and it also assumes that the clock cycles on a GPU is just as fast as on the Intel CPU, which they are not, but this is fine, because we have a lot more than $1000$ threads to work with.
@@ -155,7 +153,7 @@ It takes around $30$ seconds for a 12th generation Intel mobile processor to run
 
 \section{Case Study}
 
-To get an idea of the scale of parallelism we can achieve on a single GPU, we will take a look at the memory specifications of the NVIDIA A100 GPU. We hope to use this to get an idea of how many fullerenes can fit into memory.
+To get an idea of the scale of parallelism we can achieve on a single GPU, we will take a look at the memory specifications of the NVIDIA A100 GPU. We hope to use this to get an idea of how many fullerenes can fit into memory. The equations we present are generally applicable to other GPUs, though be aware that terminology vary between manufacturers.
 
 Using all the levels of memory on a GPU efficiently is crucial to achieve high performance in parallel computing tasks. Let us therefore take a moment to familiarize ourselves with the different types typically found in the memory hiearchy on a GPU. Below you will find an overview of the main memory levels with short explanations for each of them:
 
@@ -498,13 +496,16 @@ We did not consider that a single core can execute more than one instruction per
 
 \section{Introduction to a Parallel Lockstep Algorithm}
 
-We want to ensure that all threads within a warp can work on different fullerenes in parallel. To achieve this we need to remove branching in the code and place upper bounds on all loops to make sure the exact same work is performed by the threads. Luckily, since we are only working with one type of atom, we can simply replace branches with the case that applies for carbon.
+We want to ensure that all threads within a warp can work on different fullerenes in parallel. To achieve this, normally we would need to remove branching in the code and place upper bounds on all loops to make sure the exact same instructions are executed by all threads in a warp. This is not necessary in our case since we are working with sorted isomerspaces (by atom number), which means that the only difference between atoms in a warp, is their positions.
 
-Normally we would have to set upper bounds on all loops to ensure instructions are executed the same amount of times for all atoms. This is not necessary in our case since we only have carbon atoms, because all of them have the same amount of shells, orbitals, electrons and so on.
+This being the only difference between atoms means that we only need to look out for conditionals and loops that depend on the positions. Our computations do not have such conditionals or loops, so the code is already lockstep parallel. We cannot guarantee that such cases do not appear in the reference Fortran implementation, but this observation makes it clear what to look out for.
 
-\section{Orbitals as a constant}
+Our problem domain is even more specialized since we only consider carbon atoms, and this allows us to simplify a lot of code by unrolling loops and removing conditionals by replacing it with the case that applies for carbon. This section will show how we can simplify some of the functions presented in \ref{ch:gfn2-xtb} by virtue of this fact.
 
-This following helper function would never be called in the actual implementation, but instead be computed on the fly. This section will show however, that we never need to compute this at all with fullerenes and can instead store it as a compact constant array. 
+
+\subsection{Orbitals as a Constant}
+
+This following helper function would never be called in the actual implementation, but instead be computed on the fly. This section will show however, that we never need to compute this at all and can instead store it as a compact constant array. 
 
 \begin{figure}[H]
 \begin{minted}{python}
@@ -544,7 +545,7 @@ def get_orbitals() -> list[int]:
 \caption{Helper function for computing the amount of orbitals for a single carbon atom. This function only considers carbon atoms, so only the first atom is computed and we can therefore remove the outer loop over atoms.}
 \end{figure}
 
-We can simplify this even further by unrolling the loops, since they have a constant amount of iterations. Also, since we only access carbon, we can remove values for other atoms from \verb|number_of_subshells| and \verb|angular_momentum_of_subshell|. These changes gives us the following:
+We can simplify this even further by unrolling the loops, since they have a constant number of iterations. Also, since we only access carbon, we can remove values for other atoms from \verb|number_of_subshells| and \verb|angular_momentum_of_subshell|. These changes gives us the following:
 
 \begin{figure}[H]
 \begin{minted}{python}
@@ -573,36 +574,34 @@ def get_orbitals() -> list[int]:
 \caption{Helper function for computing the amount of orbitals a single carbon atom. A carbon atom always has 4 orbitals in total, so this function unrolls the loop over orbtials and show that we always get the same constant array as result.}
 \end{figure}
 
-As noted in the code, this always results in the array \verb|[0,0,1,0,1,2]|, so we can just store this as a constant instead of doing the computation. This array is only for a single carbon atom, but instead of replicating this by the amount of atoms, we can save the space by indexing into this array for all atoms and bound the amount of reads to the count of atoms in the fullerene.
+As noted in the code, this always results in the array \verb|[0,0,1,0,1,2]|, so we can just store this as a constant instead of doing the computation. This array is only for a single carbon atom, but instead of replicating this by the number of atoms, we can save the space by indexing into this array for all atoms and bound the number of reads to the count of atoms in the fullerene.
 
-\section{Simplifying the initial density guess}
-
-The initial density matrix guess can also be simplified when we only consider carbon atoms.
+\subsection{Making a Carbon-specific Initial Density Guess}
 
 \begin{figure}[H]
 \begin{minted}{python}
 def density_initial_guess(atoms: list[int]) -> list[list[float]]:
     orbitals = get_orbitals(atoms)
-    occs = get_square_matrix(len(orbitals))
-    for idx,(_,atom,subshell,_) in enumerate(orbitals):
+    fractional_occupations = square_matrix(len(orbitals))
+    for orbital_idx,(_,atom,subshell,_) in enumerate(orbitals):
         l = angular_momentum_of_subshell[atom][subshell] 
         orbitals_in_subshell = l*2+1 
         electrons_in_subshell = reference_occupations[atom][subshell]
         electrons_per_orbital = electrons_in_subshell/orbitals_in_subshell
-        occs[idx][idx] = electrons_per_orbital
-    return occs
+        fractional_occupations[orbital_idx][orbital_idx] = electrons_per_orbital
+    return fractional_occupations
 \end{minted}
 \caption{The original simplified code for the initial density matrix guess.}
 \end{figure}
 
-We just simplified the orbitals to a constant, but we are only using the length of the array in this function, which is no longer representative of the total amount of orbitals. Instead we can \verb|atom_count*4| as the range, since each atom has four orbitals. Below we show the iteration for the first atom to show that there is always $1$ electron per orbital when distributing them evenly, which means we can just create a matrix with $1$'s along the main diagonal.
+We just simplified the orbitals to a constant, but we are only using the length of the array in this function, which is no longer representative of the total number of orbitals. Instead we can use \verb|atom_count*4| as the range, since each atom has four orbitals. Below we show the iteration for the first atom to show that there is always $1$ electron per orbital when distributing them evenly, which means we can just create a matrix with $1$'s along the main diagonal.
 
 \begin{figure}[H]
 \begin{minted}{python}
 def density_initial_guess(atom_count: int) -> list[list[float]]:
-    row_length = atom_count*4 # There are 4 orbitals for each atom
+    orbital_count = atom_count*4 # There are 4 orbitals for each atom
 
-    orbital_occupations = [0] * row_length**2
+    fractional_occupations = [0] * orbital_count**2
 
     angular_momentum_of_subshell = [0, 1]
     l1 = angular_momentum_of_subshell[0] # Always 0
@@ -619,66 +618,95 @@ def density_initial_guess(atom_count: int) -> list[list[float]]:
     electrons_per_orbital_in_subshell2 = electrons_in_subshell2/orbitals_in_subshell2 # 3/3 = 1
 
     # Subshell 1
-    orbital_occupations[0] = electrons_per_orbital_in_subshell1 # Always 1
+    fractional_occupations[0] = electrons_per_orbital_in_subshell1 # Always 1
     # Subshell 2
     for i in range(1, orbitals_in_subshell2 + 1):
-        orbital_occupations[i * row_length + i] = electrons_per_orbital_in_subshell2 # Always 1
+        fractional_occupations[i * orbital_count + i] = electrons_per_orbital_in_subshell2 # Always 1
 
-    return orbital_occupations
+    return fractional_occupations
 
     # This should be repeated atom_count amount of times so we get the full (atom_count*4)**2 density matrix.
     # Orbital_occupations are always 1 we can just return the (atom_count*4)**2 with 1s along the main diagonal.
 
     # The above computations can therefore be ignored and we can instead just do the following instead:
     
-    density_matrix = [0] * row_length**2
+    fractional_occupations = [0] * row_length**2
     for i in range(row_length):
-        density_matrix[i * row_length + i] = 1
+        fractional_occupations[i * row_length + i] = 1
 
-    return density_matrix
+    return fractional_occupations
 \end{minted}
 \caption{Function for computing the initial density matrix guess. This code only shows an unrolled version of the first iteration to show that we can simply make an array with 1's along the main diagonal, since there is always 1 electron per orbital when distributing them evenly.}
 \end{figure}
 
 
+<<<<<<< HEAD
 \section{Computing overlap in lockstep}
+=======
+\subsection{Making a Carbon-specific Overlap Computation}
+>>>>>>> 5c54e84368aa1cdac453fd204b985f3417e87add
 
 \begin{figure}[H]
 \begin{minted}{python}
-def overlap(atoms: list[int]) -> list[list[float]]:
+def overlap_dipol_quadrupol(atoms: list[int], positions: list[list[float]])-> tuple[list[list[float]],list[list[list[float]]],list[list[list[float]]]]:
     orbitals = get_orbitals(atoms)
-    S = get_square_matrix(len(orbitals))
-    for idx_A, (_,atom_A,subshell_A,orbital_A) in enumerate(orbitals):
-        for idx_B, (_,atom_B,subshell_B,orbital_B) in enumerate(orbitals):
-            if idx_A == idx_B:
-                S[idx_A][idx_B] = 1
-            else:
-                S[idx_A][idx_B] = compute_integral(...)
-    return S
+    S = square_matrix(len(orbitals))
+    D = square_matrix_of_vectors(len(orbitals),3)
+    Q = square_matrix_of_vectors(len(orbitals),6)
+    for idx_A, (atom_idx_A,atom_A,subshell_A,orbital_A) in enumerate(orbitals):
+        for idx_B, (atom_idx_B,atom_B,subshell_B,orbital_B) in enumerate(orbitals):
+            R_A = positions[atom_idx_A]
+            R_B = positions[atom_idx_B]
+            l_A = angular_momentum_of_subshell[atom_A][subshell_A]
+            l_B = angular_momentum_of_subshell[atom_B][subshell_B]
+            s,d,q = compute_STO_integrals(subshell_A, orbital_A, R_A, l_A, subshell_B, orbital_B, R_B, l_B)
+            S[idx_A][idx_B] = s
+            for dir in [x,y,z]:
+                D[idx_A][idx_B][dir] = d[dir]
+            for dir in [xx,yy,zz,xy,xz,yz]:
+                Q[idx_A][idx_B][dir] = q[dir]
+    return S,D,Q
 \end{minted}
 \caption{The original simplified overlap function.}
 \end{figure}
 
+We can again remove the atoms argument and replace it with the number of atoms in a fullerene. This is all we need to compute the subshells and orbitals for each atom, so we do not need to call \verb|get_orbitals|. The angular momentum of subshells for each atom is reduced to only contain the values for carbon, so we only index into it with the subshell. Lastly we have also flattened the first dimension of S, D, and Q. All of these changes can be seen below:
+
 \begin{figure}[H]
 \begin{minted}{python}
-def overlap(atom_count: int) -> list[list[float]]:
-    row_length = atom_count*4 # There are 4 orbitals for each atom
-    S = [0] * row_length**2
+def overlap_dipol_quadrupol(atom_count: int, positions: list[list[float]])-> tuple[list[float],list[list[float]],list[list[float]]]:
+    orbital_count = atom_count*4;
+    S = [0] * orbital_count**2
+    D = [[0,0,0]] * orbital_count**2
+    Q = [[0,0,0,0,0,0]] * orbital_count**2
 
-    for i in range(len(S)):
-        column = i \% row_length
-        row = i // row_length
-        is_diag = int((column ^ row) == 0)
-        is_diag_negated = 1 - is_diag
-        # We mask the input to compute_integral so it does not real work for the main diagonal
-        S[row * row_length + column] = is_diag + compute_integral(is_diag_negated * input_data...)
-        # Otherwise we can also just run it always and not count it like this
-        S[row * row_length + column] = is_diag + is_diag_negated * compute_integral(input_data...)
-        # We should also be able to keep the if statement in this case because row == column for all threads at the same time, thus causing no warp divergence
+    angular_momentum_of_subshell = [0, 1]
 
-    return S
+    for idx_A in range(orbital_count):
+        for idx_B in range(orbital_count):
+            R_A = positions[idx_A]
+            R_B = positions[idx_B]
+
+            orbital_A = idx_A \% 4
+            orbital_B = idx_B \% 4
+
+            subshell_A = int(orbital_A != 0)
+            subshell_B = int(orbital_B != 0)
+
+            l_A = angular_momentum_of_subshell[subshell_A]
+            l_B = angular_momentum_of_subshell[subshell_B]
+
+            s,d,q = compute_STO_integrals(subshell_A, orbital_A, R_A, l_A, subshell_B, orbital_B, R_B, l_B)
+
+            S[idx_A * orbital_count + idx_B] = s
+            for dir in [x,y,z]:
+                D[idx_A * orbital_count + idx_B][dir] = d[dir]
+            for dir in [xx,yy,zz,xy,xz,yz]:
+                Q[idx_A * orbital_count + idx_B][dir] = q[dir]
+
+    return S,D,Q
 \end{minted}
-\caption{This version of the overlap function combines the loops and shows three options for getting rid of the conditional to avoid warp divergence.}
+\caption{This version of the overlap function flattens the first dimension of S, D, and Q. It also uses the reduced angular momentum array, and it computes the subshells on the fly by using the fact that we only have carbon atoms.}
 \end{figure}
 
 
