@@ -540,7 +540,7 @@ With the element and shell specific GFN2 constant $\Gamma_{A,l}$ we also get the
 
 
 
-\section{Anisotropic Electrostatic Energy}
+\section{Anisotropic Electrostatic Energy} \label{sec:AES}
 
 This section goes over the anisotropic electrostatic term $E_{AES}$. We will start by introducing all the necessary definitions.
 
@@ -629,4 +629,13 @@ Now we have all the definitions needed for the anisotropic electrostatic energy,
 
 \section{Anisotropic Exchange Correlation}
 
-, and anisotropic exchange correlation terms $E_{AXC}$.
+The anisotropic exchange correlation term $E_{AXC}$ is supposed to capture changes in the atomic exchange (XC) energy that arise from anisotropic density distributions (polarization). It represents the energy caused by charge-dipole interactions and charge-quadrupole interactions.
+
+\begin{equation}
+\begin{split}
+        \E{AXC} &= \sum_{A} (f_{XC}^{\mu_A} |\pmb{\mu}_A|^2 + f_{XC}^{\Theta_A} ||\pmb{\Theta}_A||^2)\\
+\end{split}
+\end{equation}
+
+In the equation we have the constants $f_{XC}^{\mu_A}$ and $f_{XC}^{\Theta_A}$, which are fitted element-specific parameters. The values for each element can be found in the supporting information of the GFN2-xTB paper\cite{bannwarth2019}.
+We already defined both $\pmb{\mu}_A$ and $\pmb{\Theta}_A$ in \autoref{sec:AES}. 
