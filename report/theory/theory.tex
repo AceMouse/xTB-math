@@ -500,7 +500,7 @@ We want to ensure that all threads within a warp can work on different fullerene
 
 This being the only difference between atoms means that we only need to look out for conditionals and loops that depend on the positions. Our computations do not have such conditionals or loops, so the code is already lockstep parallel. We cannot guarantee that such cases do not appear in the reference Fortran implementation, but this observation makes it clear what to look out for.
 
-Our problem domain is even more specialized since we only consider carbon atoms, and this allows us to simplify a lot of code by unrolling loops and removing conditionals by replacing it with the case that applies for carbon. This section will show how we can simplify some of the functions presented in \ref{ch:gfn2-xtb} by virtue of this fact.
+Our problem domain is even more specialized since we only consider carbon atoms, and this allows us to simplify a lot of code by unrolling loops and removing conditionals by replacing it with the case that applies for carbon. This section will show how we can simplify some of the functions presented in \autoref{sec:gfn2} by virtue of this fact.
 
 
 \subsection{Orbitals as a Constant}
@@ -640,11 +640,7 @@ def density_initial_guess(atom_count: int) -> list[list[float]]:
 \end{figure}
 
 
-<<<<<<< HEAD
-\section{Computing overlap in lockstep}
-=======
 \subsection{Making a Carbon-specific Overlap Computation}
->>>>>>> 5c54e84368aa1cdac453fd204b985f3417e87add
 
 \begin{figure}[H]
 \begin{minted}{python}
