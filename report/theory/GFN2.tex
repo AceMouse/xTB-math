@@ -1,5 +1,4 @@
-\chapter{Theory}
-\section{GFN2-xTB}
+\chapter{GFN2-xTB}\label{sec:gfn2}
 GFN2-xTB is a part of the GFNn-xTB (Geometry, Frequency, Non covalent, eXtended Tight Binding) family of semi-empirical methods for computational chemistry. 
 
 The method gives good approximations for molecular geometries, vibrational frequencies, and non-covalent interaction energies and also does well on a variety other properties. 
@@ -10,13 +9,11 @@ In contrast to forcefield methods that often operate on the level of atoms or ev
 
 GFN2-xTB uses a Self-Consistent Charges (SCC) approach i.e. it makes an initial guess at a density matrix and an energy which it then iteratively refines until both have converged. We are mostly interested in the final energy. 
 
-\subsection{Energy terms}
+\section{Energy terms}
 The terms in GFN2-xTB that determine the energy are as follows
 \begin{equation}
 E =\E{rep}+\E{disp}^{D4'}+\E{EHT}+\E{\gamma}+\E{AES}+\E{AXC}+\E{\Gamma} + G_{Fermi}
 \end{equation}
-
-TODO: snak med Kurt om anisotropiske termer og fermi.
 
 We then have to also factor in the SCC. 
 Let us consider the following code sketch in figure \ref{lst:total_energy} which we will fill out in this chapter. The chapter will go over each term and add code snippets illustrating the mathematics in a more concrete way. 
@@ -81,7 +78,30 @@ def square_matrix_of_vectors(n: int, v:int) -> list[list[list[float]]]:
 \end{minted}
     \caption{Python code for creating a $n$ long vector, $n\times n$ matrix and $n\times n \times v$ tensor.}
 \end{figure}
-\subsection{Constructing the initial density matrix}
+
+For many of the upcoming calculations we will need to work with the distance between atoms. We will say the position of atom A is:
+\begin{equation}
+\pmb{R}_A=
+    \begin{pmatrix}
+    {R_A}_x\\
+    {R_A}_y\\{R_A}_z
+    \end{pmatrix}
+\end{equation}
+Where $R_u$ with $u\in x,y,z$ is the coresponding component in $\pmb{R}$.
+
+Then we note the euclidean distance as follows:
+\begin{align}
+    \pmb{R}_{AB} &= \pmb{R}_A-\pmb{R}_B=
+    \begin{pmatrix}
+    {R_A}_x-{R_B}_x\\
+    {R_A}_y-{R_B}_y\\
+    {R_A}_z-{R_B}_z
+    \end{pmatrix}
+\\
+    R_{AB} &= \sqrt{({R_{AB}}_x)^2+({R_{AB}}_y)^2+({R_{AB}}_x)^2}
+\end{align}
+Now let us dig into the calculations. 
+\section{Constructing the initial density matrix}
 Many of the terms use the density matrix as part of their calculation and it is central to the SCC method. In the GFN2 paper the initial density matrix guess is formulated as a superposition of neutral atomic reference densities $P_0 = \sum_{A}P_{A_0}$. In simpler terms this means that we let $P_0$ be a diagonal matrix that is $n$ by $n$ where $n$ is the total number of orbitals across the whole molecule. The values on the diagonal are the fractional number of electrons in the orbitals, the fractional occupations. They are reference densities so we get them in a table we can index into per subshell, thus we just have to divide the electrons evenly between the orbitals in the subshell. The number of orbitals in a subshell is $2l+1$ where l is the quantum number corresponding to the angular momentum of the subshell.
 \begin{figure}[H]
 \begin{minted}{python}
@@ -103,12 +123,7 @@ For fullerenes the guess is simply all ones on the diagonal as \verb|number_of_s
 Here \verb|C=5| is the index for carbon. 
 Thus \verb|fractional_occupations| will contain a repeating series of $\frac{1}{0\cdot2+1},\frac{3}{1\cdot2+1},\frac{3}{1\cdot2+1},\frac{3}{1\cdot2+1}$ on the diagonal.
 
-\subsection{Constructing the overlap, dipol and quadrupol tensors}
-
-\begin{align}
-    \pmb{R}_{AB} &= \pmb{R}_A-\pmb{R}_B\\
-    R_{AB} &= \sqrt{(\pmb{R}^x_{AB})^2+(\pmb{R}^y_{AB})^2+(\pmb{R}^z_{AB})^2}
-\end{align}
+\section{Constructing the overlap, dipol and quadrupol tensors}
 
 We need the overlap matrix, $S$, for several of the terms.
 The related dipol and quadrupol tensors denoted $D$ and $Q$ are also needed and due to their very similar construction we will go over the implementation and mathematics in one fell swoop. 
@@ -164,14 +179,14 @@ For the sake of clarity we will define the indices corresponding to the combinat
 To compute the integrals we need to remember that in GFN2-xTB an STO is approximated as a linear combination of gaussian type orbitals:
 \begin{equation}
     \begin{split}
-        \ket{\psi_\nu} =&\psi(\zeta_{A,l},r-R_A) \\
-        = &N_{STO,l}|r-R_A|^{n-1}e^{-\zeta_{A,l}|r-R_A|}Y_l^m(r-R_A)\\
-        \approx &\sum_i^{N_{A,l}}c_{i,\nu}N_{GTO,l}(r_x-{R_A}_x)^{l_x}(r_y-{R_A}_y)^{l_y}(r_z-{R_A}_z)^{l_z}e^{-\alpha_{i,\nu}|r-R_A|^2}\\
-        =& \sum_i^{N_{A,l}}c_{i,\nu}\phi(\alpha_{i,\nu},r-R_A)\\
+        \ket{\psi_\nu} =&\psi(\zeta_{A,l},\pmb r-\pmb R_A) \\
+        = &N_{STO,l}|\pmb r-\pmb R_A|^{n-1}e^{-\zeta_{A,l}|\pmb r-\pmb R_A|}Y_l^m(\pmb r-\pmb R_A)\\
+        \approx &\sum_i^{N_{A,l}}c_{i,\nu}N_{GTO,l}(r_x-{R_A}_x)^{l_x}(r_y-{R_A}_y)^{l_y}(r_z-{R_A}_z)^{l_z}e^{-\alpha_{i,\nu}|\pmb r-\pmb R_A|^2}\\
+        =& \sum_i^{N_{A,l}}c_{i,\nu}\phi(\alpha_{i,\nu},\pmb r-\pmb R_A)\\
         =& \sum_i^{N_{A,l}}c_{i,\nu}\ket{\phi_i}
     \end{split}
 \end{equation}
-Where $N_{A,l}$ is an element and shell dependant constant, it is the number of GTOs used to approximate the STO. $\zeta$ and $\alpha$ are the slater and gaussian exponents. The contraction coefficient $c$ is a fitted value, it is fitted with the assumption that $\zeta=1$ and to get the value we will actually be using, we need to scale the fitted value by $\zeta^2$. $R_A$ is the position of atom $A$. $N_{STO,l}$ and $N_{GTO,l}$ are normalisation terms. 
+Where $N_{A,l}$ is an element and shell dependant constant, it is the number of GTOs used to approximate the STO. $\zeta$ and $\alpha$ are the slater and gaussian exponents. The contraction coefficient $c$ is a fitted value, it is fitted with the assumption that $\zeta=1$ and to get the value we will actually be using, we need to scale the fitted value by $\zeta^2$. $N_{STO,l}$ and $N_{GTO,l}$ are normalisation terms. 
 We will refer to the terms $(r_u-{R_A}_u)^{l_u}\quad\forall{u\in x,y,z}$ as polynomial prefactors. 
 The approximation in terms of GTOs means we can express our overlap in terms of GTO integrals instead:
 \begin{align}
@@ -206,12 +221,17 @@ def compute_STO_integrals(...) -> tuple[float,list[float],list[float]]:
     \caption{Python snippet illustrating construction of the STO integrals $\braket{\psi_\nu|\cdots|\psi_\mu}$.}
 \end{figure}
 
-For an s-orbital the normalisation terms would be:
+The gaussian normalisation term would be:
 \begin{align}
-    N_{STO,0}&=\sqrt{\frac{\zeta_{A,l}^3}{\pi}}\\
-    N_{GTO,0}&=\left(\frac{2\alpha_{i,\nu}}{\pi}\right)^{3/4}
+    1&=N_{GTO,l}^2(2\alpha_{i,\nu})^{-(l+3/2)}\frac{({l_A}_x-1)!!({l}_y-1)!!({l}_z-1)!!}{2^{l/2}}\pi^{3/2}\\
+    N_{GTO,l}^2&=\left((2\alpha_{i,\nu})^{-(l+3/2)}\frac{({l}_x-1)!!({l}_y-1)!!({l}_z-1)!!}{2^{l/2}}\pi^{3/2}\right)^{-1}\\
+    N_{GTO,l}&=\left((2\alpha_{i,\nu})^{-(l+3/2)}\frac{({l}_x-1)!!({l}_y-1)!!({l}_z-1)!!}{2^{l/2}}\pi^{3/2}\right)^{-1/2}
 \end{align}
-TODO: snak med kurt om den generelle form.
+Here $l_u$ for $u\in x,y,z$ is the angular momentum in that dimension for the orbital, summing over $u$ gives $l$.
+Which for fullerenes would be 
+\begin{align}
+    N_{GTO,l}&=\left((2\alpha_{i,\nu})^{-(l+3/2)}2^{-l/2}\pi^{3/2}\right)^{-1/2}
+\end{align}
 
 We only need the GTO ones and can compute them in the following way:
 \begin{figure}[H]
@@ -222,7 +242,13 @@ def normalised_gaussian_exponent(atom:int, subshell:int, gaussian:int, slater_ex
 
 def normalised_contraction_coefficient(atom:int, subshell:int, gaussian:int, gaussian_exponent:float) -> float:
     l = angular_momentum_of_subshell[atom][subshell]
-    normalization_factor = (((2.0*gaussian_exponent)/pi)**(3/4)) * (sqrt(4*gaussian_exponent)**l) / sqrt(double_factorial(l))
+    l_x = angular_momentum_of_subshell_in_dimension[atom][subshell][x]
+    l_y = angular_momentum_of_subshell_in_dimension[atom][subshell][y]
+    l_z = angular_momentum_of_subshell_in_dimension[atom][subshell][z]
+    df_x = double_factorial(l_x-1)
+    df_y = double_factorial(l_y-1)
+    df_z = double_factorial(l_z-1)
+    normalization_factor = (2*alpha)**(-(l+3/2)) * ((df_x*df_y*df_z)/(2**(l/2))) * pi**(3/2)
     return contraction_coeficients[atom][shell][gaussian]*normalisation_factor
 
 def double_factorial(n:int) -> int:
@@ -237,27 +263,27 @@ As the GTOs in the integral are real valued functions we can drop the conjugatio
 
 For the overlap matrix:
 \begin{align}
-        \braket{\phi_i|\phi_j} = &\int \phi^*(\alpha_{i,\nu},r-R_A)\phi(\alpha_{j,\mu},r-R_B)\,dr\\
-        =&\int \phi(\alpha_{i,\nu},r-R_A)\phi(\alpha_{j,\mu},r-R_B)\,dr\notag
+        \braket{\phi_i|\phi_j} = &\int \phi^*(\alpha_{i,\nu},\pmb r-\pmb R_A)\phi(\alpha_{j,\mu},\pmb r-\pmb R_B)\,dr\\
+        =&\int \phi(\alpha_{i,\nu},\pmb r-\pmb R_A)\phi(\alpha_{j,\mu},\pmb r-\pmb R_B)\,dr\notag
 \end{align}
 
 For the dipol tensor:
 \begin{align}
-        \braket{\phi_i|(r_u-{R_P}_u)|\phi_j} = &\int \phi^*(\alpha_{i,\nu},r-R_A)(r_u-{R_P}_u)\phi(\alpha_{j,\mu},r-R_B)\,dr\\
-        =&\int (r_u-{R_P}_u)\phi(\alpha_{i,\nu},r-R_A)\phi(\alpha_{j,\mu},r-R_B)\,dr\notag
+        \braket{\phi_i|(r_u-{R_P}_u)|\phi_j} = &\int \phi^*(\alpha_{i,\nu},\pmb r-\pmb R_A)(r_u-{R_P}_u)\phi(\alpha_{j,\mu},\pmb r-\pmb R_B)\,dr\\
+        =&\int (r_u-{R_P}_u)\phi(\alpha_{i,\nu},\pmb r-\pmb R_A)\phi(\alpha_{j,\mu},\pmb r-\pmb R_B)\,dr\notag
 \end{align}
 
 For the quadrupol tensor:
 \begin{align}
-        \braket{\phi_i|(r_u-{R_P}_u)(r_v-{R_P}_v)|\phi_j} = &\int \phi^*(\alpha_{i,\nu},r-R_A)(r_u-{R_P}_u)(r_v-{R_P}_v)\phi(\alpha_{j,\mu},r-R_B)\,dr\\
-        =&\int (r_u-{R_P}_u)(r_v-{R_P}_v)\phi(\alpha_{i,\nu},r-R_A)\phi(\alpha_{j,\mu},r-R_B)\,dr\notag
+        \braket{\phi_i|(r_u-{R_P}_u)(r_v-{R_P}_v)|\phi_j} = &\int \phi^*(\alpha_{i,\nu},\pmb r-\pmb R_A)(r_u-{R_P}_u)(r_v-{R_P}_v)\phi(\alpha_{j,\mu},\pmb r-\pmb R_B)\,dr\\
+        =&\int (r_u-{R_P}_u)(r_v-{R_P}_v)\phi(\alpha_{i,\nu},\pmb r-\pmb R_A)\phi(\alpha_{j,\mu},\pmb r-\pmb R_B)\,dr\notag
 \end{align}
 Now we see that we have to compute the products of GTOs. The product of two Gaussians is a new Gaussian centred at a point between the two, $R_P$, which we will finally introduce properly.
 \begin{gather}
     \alpha = \alpha_{i,\nu}+\alpha_{j,\mu}\\
-    K_{AB} = \left(\frac{2\alpha_{i,\nu}\alpha_{j,\mu}}{\alpha\pi}\right)^\frac{3}{4}e^{-\frac{\alpha_{i,\nu}\alpha_{j,\mu}}{\alpha}|R_A-R_B|^2}\\
-    R_P = \frac{\alpha_{i,\nu}R_A+\alpha_{j,\mu}R_B}{\alpha}\\
-    \phi(\alpha_{i,\mu},r-R_A)\phi(\alpha_{j,\nu},r-R_B) = K_{AB}\phi(\alpha,r-R_P)
+    K_{AB} = \left(\frac{2\alpha_{i,\nu}\alpha_{j,\mu}}{\alpha\pi}\right)^\frac{3}{4}e^{-\frac{\alpha_{i,\nu}\alpha_{j,\mu}}{\alpha}R_{AB}^2}\\
+    \pmb R_P = \frac{\alpha_{i,\nu}\pmb R_A+\alpha_{j,\mu}\pmb R_B}{\alpha}\\
+    \phi(\alpha_{i,\mu},\pmb r-\pmb R_A)\phi(\alpha_{j,\nu},\pmb r-\pmb R_B) = K_{AB}\phi(\alpha,\pmb r-\pmb R_P)
 \end{gather}
 This rewrite only works if we also shift the polynomial prefactors to be relative to the product centre $R_P$, for all $u\in x,y,z$:
 \begin{equation}
@@ -303,7 +329,7 @@ To compute the integrals over the GTOs we can split them in terms of the 3 dimen
 
 For the overlap matrix:
 \begin{align}
-        \int \phi(\alpha_{i,\nu},r-R_A)\phi(\alpha_{j,\mu},r-R_B)\,dr=K_{AB}&\int \phi(\alpha,r-R_P)\,dr\\
+        \int \phi(\alpha_{i,\nu},\pmb r-\pmb R_A)\phi(\alpha_{j,\mu},\pmb r-\pmb R_B)\,dr=K_{AB}&\int \phi(\alpha,\pmb r-\pmb R_P)\,dr\\
         =N_{GTO,l_A}N_{GTO,l_B}K_{AB}&\int \phi(\alpha,r_x-{R_P}_x)\,dx\notag\\
             \times&\int \phi(\alpha,r_y-{R_P}_y)\,dy\notag\\
             \times&\int \phi(\alpha,r_z-{R_P}_z)\,dz\notag
@@ -311,7 +337,7 @@ For the overlap matrix:
 
 For the dipol tensor:
 \begin{align}
-        \int (r_u-{R_P}_u)\phi(\alpha_{i,\nu},r-R_A)\phi(\alpha_{j,\mu},r-R_B)\,dr=K_{AB}&\int (r_u-{R_P}_u)\phi(\alpha,r-R_P)\,dr\\
+        \int (r_u-{R_P}_u)\phi(\alpha_{i,\nu},\pmb r-\pmb R_A)\phi(\alpha_{j,\mu},\pmb r-\pmb R_B)\,dr=K_{AB}&\int (r_u-{R_P}_u)\phi(\alpha,\pmb r-\pmb R_P)\,dr\\
         =N_{GTO,l_A}N_{GTO,l_B}K_{AB}&\int (r_u-{R_P}_u)\phi(\alpha,r_x-{R_P}_x)\,dx\notag\\
             \times&\int (r_u-{R_P}_u)\phi(\alpha,r_y-{R_P}_y)\,dy\notag\\
             \times&\int (r_u-{R_P}_u)\phi(\alpha,r_z-{R_P}_z)\,dz\notag
@@ -319,7 +345,7 @@ For the dipol tensor:
 
 For the quadrupol tensor:
 \begin{align}
-        \int (r_u-{R_P}_u)(r_v-{R_P}_v)\phi(\alpha_{i,\nu},r-R_A)\phi(\alpha_{j,\mu},r-R_B)\,dr=K_{AB}&\int (r_u-{R_P}_u)(r_v-{R_P}_v)\phi(\alpha,r-R_P)\,dr\\
+        \int (r_u-{R_P}_u)(r_v-{R_P}_v)\phi(\alpha_{i,\nu},\pmb r-\pmb R_A)\phi(\alpha_{j,\mu},\pmb r-\pmb R_B)\,dr=K_{AB}&\int (r_u-{R_P}_u)(r_v-{R_P}_v)\phi(\alpha,\pmb r-\pmb R_P)\,dr\\
         =N_{GTO,l_A}N_{GTO,l_B}K_{AB}&\int (r_u-{R_P}_u)(r_v-{R_P}_v)\phi(\alpha,r_x-{R_P}_x)\,dx\notag\\
             \times&\int (r_u-{R_P}_u)(r_v-{R_P}_v)\phi(\alpha,r_y-{R_P}_y)\,dy\notag\\
             \times&\int (r_u-{R_P}_u)(r_v-{R_P}_v)\phi(\alpha,r_z-{R_P}_z)\,dz\notag
@@ -330,17 +356,17 @@ TODO: find den rigtig reference for eq 34 https://mathworld.wolfram.com/Gaussian
 
 For the overlap matrix:
 \begin{align}
-    \int \phi(\alpha,r_x-{R_P}_x)\,dx = \int \sum_{t=0}^{{l_A}_x+{l_B}_x}v_t(r_x-{R_P}_x)^te^{-\alpha|r_x-{R_P}_x|^2}\,dx\\
-        =  \sum_{t=0}^{{l_A}_x+{l_B}_x}v_t\int(r_x-{R_P}_x)^{t}e^{-\alpha|r_x-{R_P}_x|^2}\,dx\notag\\
+    \int \phi(\alpha,r_x-{R_P}_x)\,dx = \int \sum_{t=0}^{{l_A}_x+{l_B}_x}v_t(r_x-{R_P}_x)^te^{-\alpha(r_x-{R_P}_x)^2}\,dx\\
+        =  \sum_{t=0}^{{l_A}_x+{l_B}_x}v_t\int(r_x-{R_P}_x)^{t}e^{-\alpha(r_x-{R_P}_x)^2}\,dx\notag\\
         =  \sum_{\{t\in0,..,{l_A}_x+{l_B}_x | odd(t)\}}v_{t}\frac{\left(\frac{t-1}{2}\right)!}{2a^{\frac{t+1}{2}}}+
         \sum_{\{t\in0,..,{l_A}_x+{l_B}_x | even(t)\}}v_{t}\frac{\left(t-1\right)!!}{2^{\frac{t}{2}+1}a^{\frac{t+1}{2}}}\sqrt{\frac{\pi}{\alpha}}\notag
 \end{align}
 
 For the dipol tensor:
 \begin{align}
-    \int (r_u-{R_P}_u)\phi(\alpha,r_x-{R_P}_x)\,dx = \int \sum_{t=0}^{{l_A}_x+{l_B}_x}v_t(r_u-{R_P}_u)(r_x-{R_P}_x)^te^{-\alpha|r_x-{R_P}_x|^2}\,dx\\
-        =  \sum_{t=0}^{{l_A}_x+{l_B}_x}v_t\int(r_x-{R_P}_x)^{t+\delta_{ux}}e^{-\alpha|r_x-{R_P}_x|^2}\,dx\notag\\
-        =  \sum_{t=\delta_{ux}}^{{l_A}_x+{l_B}_x+\delta_{ux}}v_{t-\delta_{ux}}\int(r_x-{R_P}_x)^{t}e^{-\alpha|r_x-{R_P}_x|^2}\,dx\notag\\
+    \int (r_u-{R_P}_u)\phi(\alpha,r_x-{R_P}_x)\,dx = \int \sum_{t=0}^{{l_A}_x+{l_B}_x}v_t(r_u-{R_P}_u)(r_x-{R_P}_x)^te^{-\alpha(r_x-{R_P}_x)^2}\,dx\\
+        =  \sum_{t=0}^{{l_A}_x+{l_B}_x}v_t\int(r_x-{R_P}_x)^{t+\delta_{ux}}e^{-\alpha(r_x-{R_P}_x)^2}\,dx\notag\\
+        =  \sum_{t=\delta_{ux}}^{{l_A}_x+{l_B}_x+\delta_{ux}}v_{t-\delta_{ux}}\int(r_x-{R_P}_x)^{t}e^{-\alpha(r_x-{R_P}_x)^2}\,dx\notag\\
         =  \sum_{\{t\in\delta_{ux},..,{l_A}_x+{l_B}_x+\delta_{ux} | odd(t)\}}v_{t-\delta_{ux}}\frac{\left(\frac{t-1}{2}\right)!}{2a^{\frac{t+1}{2}}}+
         \sum_{\{t\in\delta_{ux},..,{l_A}_x+{l_B}_x+\delta_{ux} | even(t)\}}v_{t-\delta_{ux}}\frac{\left(t-1\right)!!}{2^{\frac{t}{2}+1}a^{\frac{t+1}{2}}}\sqrt{\frac{\pi}{\alpha}}\notag
 \end{align}
@@ -348,9 +374,9 @@ For the dipol tensor:
 For the quadrupol tensor:
 \begin{align}
     \int (r_u-{R_P}_u)(r_v-{R_P}_v)\phi(\alpha,r_x-{R_P}_x)\,dx \\
-    = \int \sum_{t=0}^{{l_A}_x+{l_B}_x}v_t(r_u-{R_P}_u)(r_v-{R_P}_v)(r_x-{R_P}_x)^te^{-\alpha|r_x-{R_P}_x|^2}\,dx\notag\\
-        =  \sum_{t=0}^{{l_A}_x+{l_B}_x}v_t\int(r_x-{R_P}_x)^{t+\delta_{ux}+\delta_{vx}}e^{-\alpha|r_x-{R_P}_x|^2}\,dx\notag\\
-        =  \sum_{t=\delta_{ux}+\delta_{vx}}^{{l_A}_x+{l_B}_x+\delta_{ux}}v_{t-\delta_{ux}-\delta_{-vx}}\int(r_x-{R_P}_x)^{t}e^{-\alpha|r_x-{R_P}_x|^2}\,dx\notag\\
+    = \int \sum_{t=0}^{{l_A}_x+{l_B}_x}v_t(r_u-{R_P}_u)(r_v-{R_P}_v)(r_x-{R_P}_x)^te^{-\alpha(r_x-{R_P}_x)^2}\,dx\notag\\
+        =  \sum_{t=0}^{{l_A}_x+{l_B}_x}v_t\int(r_x-{R_P}_x)^{t+\delta_{ux}+\delta_{vx}}e^{-\alpha(r_x-{R_P}_x)^2}\,dx\notag\\
+        =  \sum_{t=\delta_{ux}+\delta_{vx}}^{{l_A}_x+{l_B}_x+\delta_{ux}}v_{t-\delta_{ux}-\delta_{-vx}}\int(r_x-{R_P}_x)^{t}e^{-\alpha(r_x-{R_P}_x)^2}\,dx\notag\\
         =  \sum_{\{t\in\delta_{ux}+\delta_{vx},..,{l_A}_x+{l_B}_x+\delta_{ux}+\delta_{vx} | odd(t)\}}v_{t-\delta_{ux}-\delta_{vx}}\frac{\left(\frac{t-1}{2}\right)!}{2a^{\frac{t+1}{2}}}+\notag\\
         \sum_{\{t\in\delta_{ux}+\delta_{vx},..,{l_A}_x+{l_B}_x+\delta_{ux}+\delta_{vx} | even(t)\}}v_{t-\delta_{ux}-\delta_{vx}}\frac{\left(t-1\right)!!}{2^{\frac{t}{2}+1}a^{\frac{t+1}{2}}}\sqrt{\frac{\pi}{\alpha}}\notag
 \end{align}
@@ -424,7 +450,7 @@ def compute_GTO_integrals(...)-> tuple[float,list[float],list[float]]:
 %\frac{(4\alpha_i)^{\ell}}{(2\ell_x-1)!!\,(2\ell_y-1)!!\,(2\ell_z-1)!!}},
 %\end{equation}
 
-\subsection{Building the Hückel matrix}
+\section{Building the Hückel matrix}
 As a part of computing the Hückel energy we need to construct the Hückel matrix.
 The Hückel matrix comes from extended Hückel theory. Before we can construct it we need a few definitions. 
 First the GFN2 type coordination number for atom $A$ is
@@ -433,7 +459,7 @@ First the GFN2 type coordination number for atom $A$ is
         CN_A' = &\sum_{B\neq A}\left(1+e^{-10\left(\frac{4\left(R_{A,cov}+R_{B,cov}\right)}{3R_{AB}}-1\right)}\right)^{-1}\left(1+e^{-20\left(\frac{4\left(R_{A,cov}+R_{B,cov}+2\right)}{3R_{AB}}-1\right)}\right)^{-1}
     \end{split}
 \end{gather}
-Where $R_{A,cov}$ is the covalent atomic radius of $A$ specified for the GFN2 method. $R_{AB}$ is the euclidean distance between $A$ and $B$.
+Where $R_{A,cov}$ is the covalent atomic radius of $A$ specified for the GFN2 method.
 Now with $EN_A$ being the Pauling electronegativity and $k_EN=0.02$ as well as $k_{A,l}^{\text{poly}}$ being GFN2 specific constants we define the following 3 functions:
 \begin{gather}
     X(EN_A,EN_B) = 1 + k_{EN}(EN_A-EN_B)^2\\
@@ -519,7 +545,7 @@ def get_GFN2_Huckel_energy(density_matrix:list[list[int]], huckel_matrix:list[li
 \end{figure}
 
 
-\subsection{Repulsion energy}
+\section{Repulsion energy}
 The repulsion energy in GFN2-xTB is computed classically using the following formula:
 \begin{align}
     \E{rep} &= \frac{1}{2}\sum_{A}\sum_{B\neq A}\frac{Z^{eff}_A Z^{eff}_B}{R_{AB}}e^{-\sqrt{a_Aa_B}(R_{AB})^{(k_f)}}\\
@@ -554,7 +580,7 @@ def get_GFN2_repulsion_energy(atoms: list[int], positions : list[list[float]]) -
 \caption{Python code illustrating computation of the repulsion energy}
 \end{figure}
 
-\subsection{Isotropic Energy}
+\section{Isotropic Energy}
 The isotropic energy terms $\E{\gamma}$ and $\E{\Gamma}$ require us to first do a Mulliken population analysis to get the subshell-wise partial Mulliken charges $q_{A,l}$.
 \begin{equation}
     q_{A,l} = \text{TODO:Snak med kurt}\\
@@ -579,7 +605,7 @@ With the element and shell specific GFN2 constant $\Gamma_{A,l}$ we also get the
 
 
 
-\subsection{Anisotropic Electrostatic Energy}
+\section{Anisotropic Electrostatic Energy}
 
 This section goes over the anisotropic electrostatic term $E_{AES}$. We will start by introducing all the necessary definitions.
 
@@ -666,6 +692,6 @@ Now we have all the definitions needed for the anisotropic electrostatic energy,
 \end{equation}
 
 
-\subsection{Anisotropic Exchange Correlation}
+\section{Anisotropic Exchange Correlation}
 
 , and anisotropic exchange correlation terms $E_{AXC}$.

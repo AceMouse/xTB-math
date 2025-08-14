@@ -1,4 +1,4 @@
-\section{Introduction to quantum algorithmic approaches}\label{sec:quant}
+\chapter{Introduction to quantum algorithmic approaches}\label{sec:quant}
 In this section we will construct quantum algorithms for calculating the isotropic energy terms of GFN2-xTB\cite{bannwarth2019}: $E^\Gamma$ from equation \ref{eq:Gamma} and $E^\gamma$ from equation \ref{eq:gamma}.
 We will showcase two very different approaches to doing a calculation as a building block of a larger circuit.
 
@@ -34,7 +34,7 @@ A sketch of the preparation could be to generate all the IDs of the isomers, cre
 
 As a final note leading in to the implementations Quantum Amplitude Amplification is not to be confused with Quantum Amplitude Amplification, both shortened to QAA some times. 
 We will be very explicit in which we are discussing in this thesis.
-\subsection{Calculating $E^\Gamma$ using Quantum Digital Arithmetic}
+\section{Calculating $E^\Gamma$ using Quantum Digital Arithmetic}
 The GFN2-xTB $E^\Gamma$ term has the following form\cite{bannwarth2021}
 \begin{equation}
     E^\Gamma = \frac{1}{3}\sum_A\sum_{\mu\in A} (q_{A,\mu})^3\Gamma_{A,\mu},
@@ -140,7 +140,7 @@ Let us say we are given a circuit, SDA, for encoding a molecule from its ID in t
 will give us the $E^\Gamma$ energy term in the E register corresponding to the ID in the ID register.
 Let us look at what happens as we are given a superposition of molecules as input instead. We will use a method introduced in the same paper\cite{wang2020} as Quantum Amplitude Arithmetic for sampling the low energy candidates. This will lead us gently into the later section where we use Quantum Amplitude Arithmetic to construct a circuit for calculating $E^\Gamma$.
 
-\subsection{Sampling using Quantum Amplitude Arithmetic}
+\section{Sampling using Quantum Amplitude Arithmetic}
 Assume that we are given an equal superposition of all the canonical IDs of the fullerenes in an isomer-space. We can apply SDA to set up the encoding and then apply $DA$. We now have computed the $E^\Gamma$ energies for every isomer. However we can only sample once.
 Let us say that we are interested in the isomers with the lowest energies. We then would like the probability of sampling an isomer to be proportional to the gap between the highest energy and the energy of the isomer. 
 
@@ -162,7 +162,7 @@ If we now sample from this superposition and postselect for $W_1 = 0$ and $W_2 =
 Let us now look at what it would take to prepare the $E^\Gamma_{id}$ energies directly in the amplitude using Quantum Amplitude Arithmetic. 
 
 
-\subsection{Calculating $E^\Gamma$ with Quantum Amplitude Arithmetic.}
+\section{Calculating $E^\Gamma$ with Quantum Amplitude Arithmetic.}
 In this section we will encode a molecule as follows
 \begin{equation}
    \resizebox{.9\hsize}{!}{$\begin{split}
@@ -469,7 +469,7 @@ we get that $$E_{\sin}=(\frac{\Gamma_1}{2}+\frac{\Gamma_2}{2^2}+\frac{\Gamma_3}{
 
 We will now take a look at the $E^\gamma$ term.
 
-\subsection{Calculating $E^\gamma$ using Quantum Digital Arithmetic}
+\section{Calculating $E^\gamma$ using Quantum Digital Arithmetic}
 The $E_\gamma$ term is formulated as follows:
 \begin{gather}
     \eta_{AB,ll'} = \frac{1}{2}\left[\eta_A(1+K_A^l)+\eta_B(1+K_B^{l'})\right]\\
@@ -591,7 +591,7 @@ Using this circuit along with a constant addition of $\eta_{AB,ll'}$ and the use
 This rearrangement is also something they do in the xtb software.
 Let us take take a brief look at the complexity of these quantum algorithms. 
 
-\subsection{Complexity}
+\section{Complexity}
 All these algorithms use $i = \lceil log_2(f) \rceil$ qubits to keep the fullerene IDs, where $f$ is the number of fullerenes in the isomer space $C_c$ that we are considering, thus $O(f^9)$. 
 
 The first circuit uses 5 QFT fused multiplication addition circuits. Each with $O(b^{3})$\cite{perez2017} gates and no additional qubits, where $b$ is the number of bits used to encode the numbers. Thus if we have encoded an isomer space we need the two $\varGamma_0,\varGamma_1$ as well as the partial Mulliken charges for each atom $q_{A,0},q_{A,1}$ each using $b$ bits we will need to perform $10c$ multiplications, resulting in $10c\cdot O(b^3)=O(cb^3)$ gates, on $i + 2cb + 2b + 3b = O(cb+i)$ qubits. We can do trade-offs in circuit depth and amount of ancillary qubits by having multiple running sums e.g. in a binary tree pattern instead of immediately summing them all in the same register, resulting in a depth of $O(log_2(c)b^3)$. 
@@ -600,7 +600,7 @@ If we add in the sampling step we then have to run the state preparation circuit
 
 If we want to say something about the number of samplings needed to have found a good candidate we have to assume a distribution for the energies in the isomer space. As a best guess we will assume they are evenly distributed between the highest and lowest energies $E^\Gamma_H$ and $E^\Gamma_L$. Then for a successful run of the algorithm the probability of sampling a given id is proportional to the energy $E_{id}^\Gamma$. Let us first find the exact proportionality.
 \begin{equation}
-    1=\int_{E^\Gamma_L}^{0}eC \,de=\int_{E^\Gamma_L}^{E^\Gamma_H}eC \,de
+    1=C\int_{E^\Gamma_L}^{0}e \,de=C\int_{E^\Gamma_L}^{E^\Gamma_H}e \,de=-C\frac{{E^\Gamma_L}^2-{E^\Gamma_H}^2}{2}
 \end{equation}
 If we solve for C
 \begin{equation}
@@ -609,7 +609,7 @@ If we solve for C
 Then the probability of sampling a fullerene with energy within $\delta$ of $E^\Gamma_L$ is 
 \begin{equation}
     \begin{split}
-        \int_{E^\Gamma_L}^{E^\Gamma_L+\delta}-\frac{2e}{{E^\Gamma_L}^2-{E^\Gamma_H}^2} \,de&=-\frac{2}{{E^\Gamma_L}^2-{E^\Gamma_H}^2}\int_{E^\Gamma_L}^{E^\Gamma_L+\delta}e \,de\\
+        -\frac{2}{{E^\Gamma_L}^2-{E^\Gamma_H}^2}\int_{E^\Gamma_L}^{E^\Gamma_L+\delta}e \,de
         &=-\frac{2}{{E^\Gamma_L}^2-{E^\Gamma_H}^2}\left(\frac{(E^\Gamma_L+\delta)^2}{2}-\frac{(E^\Gamma_L)^2}{2}\right)\\
         &=-\frac{2}{{E^\Gamma_L}^2-{E^\Gamma_H}^2}\frac{(E^\Gamma_L+\delta)^2-(E^\Gamma_L)^2}{2}\\
         &=-\frac{2}{{E^\Gamma_L}^2-{E^\Gamma_H}^2}\frac{(E^\Gamma_L+\delta+E^\Gamma_L)(E^\Gamma_L+\delta-E^\Gamma_L)}{2}\\
@@ -635,14 +635,14 @@ Considering that $f$ is on the order of $O(c^9)$ for the $C_c$ space, that enabl
 
 Aassuming a fixed $b$ the number of qubits used for each of these quantum algorithms scales with $O(c+i)$ and the circuit depth scales with $O(c)$ or $O(c^2)$. This is modest compared to the size of the isomer spaces we are feeding into them as a super position.
 
-%\subsection{Cleaning up $\omega$}
+%\section{Cleaning up $\omega$}
 %We would like to get rid of the $\ket{\omega}$ term in both algorithms to avoid having to post select.
 %We can achieve this with amplitude amplification. 
 %To do amplitude amplification we first need to define what a 'good' state is, in our case we know all good states have $\ket{0}_C\ket{1}_W$. 
 %Second we need an oracle in terms of a unitary which flips the sign of the good state, i.e. reflecting the state around the bad state, this would be $I-2\ket{0}_C\bra{0}_C\ket{1}_W\bra{1}_W$, which can be easily implemented with controlled rotations. 
 %We also need a circuit which would reflect around the initial state by flipping the sign of it, given that we have a circuit $U$ for preparing the initial state that would be $I-2U\ket{0}\bra{0}U^\dagger$.
 %In our case the angle between the bad and initial states are $\theta_{DA} = arcsin(\frac{1}{2}\frac{E^\Gamma}{2^n}),\theta_{AA} = arcsin(\frac{1}{2^4}\frac{E^\Gamma}{2^{n4}})$ for the two algorithms. We have to do $\lfloor\frac{\pi}{4\theta}\rfloor$ repetitions to maximize the probability of measuring a good state.%Todo: fix every calculation and number in this. the propably all wrong 
-%\subsection{Concentrating the probabilities on the best candidates}
+%\section{Concentrating the probabilities on the best candidates}
 %We now have a superposition where the probability of sampling a fullerene is proportional to the energy of that fullerene.
 %But is that ideal? The energies might be quite close to each other in absolute terms.
 %Therefore we would like to exaggerate the difference between them and then sample according to that difference.
@@ -651,6 +651,6 @@ Aassuming a fixed $b$ the number of qubits used for each of these quantum algori
 %This is of cause not as good but quite achievable. In both algorithms we can encode $ex$ in a register and then use a digital subtraction or do a QAA state preparation addition but with all the $R_y$ gates inverted, resulting in a counter-clockwise rotation, in effect subtracting $ex$.
 %%Note: the following is dumb, we don't want to invert the probabilities! 
 %If we expect the results from these shifted energy calculations to be in the interval $]0,1[$ we can exaggerate them further by taking the reciprocal. 
-%\subsection{Discussion}
+%\section{Discussion}
 %From the asymptotic resource use the second algorithm is clearly superior, even if some of the multiplications and additions can be run in parallel in the first one. We do have a factor 8 lower chance of getting a useful state out, but this again does not change the asymptotics, as we can just repeat it. 
 %QA-Amplification might be possible since we have a very clear "good" state in both algorithms. This would reduce the need for postselection and repetitions. Preparing the initial encoding of the isomer space seems less straight forwards in the second approach than in the first unfortunately. 

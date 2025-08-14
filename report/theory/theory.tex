@@ -1,5 +1,4 @@
-
-\section{High Performance Parallel Computing}\label{sec:hppc}
+\chapter{High Performance Parallel Computing}\label{sec:hppc}
 
 Now that we have taken a look at the computations performed by the xTB method, we can begin to see that the steps are the same for all molecules, and that the exact amount of steps are identical between isomers. Isomers are molecules that are identical in their composition of atoms, that is, they have the same molecular formula, and differ only in the relative positions between atoms or the bonds between them.
 This project focuses on large isomer spaces of fullerenes in the range \(C_{20}, \cdots, C_{200} \) which is a total of $2157751423$ molecules, or in other words in the order of $10^9$. A fullerene is a molecule consisting only of carbon atoms where each atom has three neighbors and is arranged such that the molecule produces a mesh of exactly $12$ pentagonal faces and the rest being hexagonal faces.
@@ -154,7 +153,7 @@ It takes around $30$ seconds for a 12th generation Intel mobile processor to run
 
 %We want to run molecules in lockstep. Fullerenes in the same isomerspace does the same steps. We have to find the upperbound for iterations and array allocations to run the exact same instructions for each. If we do the exact same on molecules within the same warp, then we can get a constant flow of throughput since we will need no barriers. In this case, synchronization is not needed within the same warp, so no barriers! Doing the exact same on the level of isomers is great, because we have so many, so we can keep scaling up the hardware to use 100, 1000 GPUs and we will still be able to utilize all cores because the isomerspace sizes scale in the order of magnitude of 10\^9 or something.
 
-\subsection{Case Study}
+\section{Case Study}
 
 To get an idea of the scale of parallelism we can achieve on a single GPU, we will take a look at the memory specifications of the NVIDIA A100 GPU. We hope to use this to get an idea of how many fullerenes can fit into memory.
 
@@ -308,7 +307,7 @@ Depending on the upperbound on intermediate data required by the GFN2-xTB algori
 %
 %Distributing the global memory across the blocks gives each of them $26.042$ MB. Combined with the non-global memory, this results in each block having a total of $26.088$ MB of memory.
 
-%\subsection{Optimizing GPU Configuration for Isolated Molecules}
+%\section{Optimizing GPU Configuration for Isolated Molecules}
 %
 %Computing xTB-GFN2 for a molecule is completely isolated, so if we do the whole xTB computation in lockstep, then we only have to concern ourselves with how many warps and blocks a single molecule needs in order to keep all its data in device memory. When we know these details, then we can simply scale up the number of molecules to be computed in lockstep until all the resources on the GPU are saturated. With this approach, expanding to multiple GPUs should be rather trivial as there are no interdependencies.
 %
@@ -390,7 +389,7 @@ Depending on the upperbound on intermediate data required by the GFN2-xTB algori
 %
 %We cannot do all fullerenes at once for the largest isomerspaces, so they have to be computed in batches. To achieve good speedups we also have to utilize the GPU efficiently.
 
-\subsection{Data Coalescing}
+\section{Data Coalescing}
 
 % TODO: Udvid og strukturer klart. Forklar at det eksisterende xTB program tager et molekyle ad gangen, og hvad vi får ud af at arbejde på flere samtidigt, that is, at vi nu har muligheden for lockstep parallelisering og at flytte flere molekyler i memory samtidigt.
 
@@ -497,13 +496,13 @@ We did not consider that a single core can execute more than one instruction per
 %A complete molecule will most likely not fit in the lower memory levels, so we need to interweave the data in higher levels such that the necessary parts can be accessed as fast as possible. The bottom line is, that when we compute the energies for multiple molecules in the same warp, then we would like to move the necessary data for the molecules at the same time to minimize data accesses to higher levels of memory.
 
 
-\subsection{Introduction to a Parallel Lockstep Algorithm}
+\section{Introduction to a Parallel Lockstep Algorithm}
 
 We want to ensure that all threads within a warp can work on different fullerenes in parallel. To achieve this we need to remove branching in the code and place upper bounds on all loops to make sure the exact same work is performed by the threads. Luckily, since we are only working with one type of atom, we can simply replace branches with the case that applies for carbon.
 
 Normally we would have to set upper bounds on all loops to ensure instructions are executed the same amount of times for all atoms. This is not necessary in our case since we only have carbon atoms, because all of them have the same amount of shells, orbitals, electrons and so on.
 
-\subsection{Orbitals as a constant}
+\section{Orbitals as a constant}
 
 This following helper function would never be called in the actual implementation, but instead be computed on the fly. This section will show however, that we never need to compute this at all with fullerenes and can instead store it as a compact constant array. 
 
@@ -576,7 +575,7 @@ def get_orbitals() -> list[int]:
 
 As noted in the code, this always results in the array \verb|[0,0,1,0,1,2]|, so we can just store this as a constant instead of doing the computation. This array is only for a single carbon atom, but instead of replicating this by the amount of atoms, we can save the space by indexing into this array for all atoms and bound the amount of reads to the count of atoms in the fullerene.
 
-\subsection{Simplifying the initial density guess}
+\section{Simplifying the initial density guess}
 
 The initial density matrix guess can also be simplified when we only consider carbon atoms.
 
@@ -642,7 +641,7 @@ def density_initial_guess(atom_count: int) -> list[list[float]]:
 \end{figure}
 
 
-\subsection{Computing overlap in lockstep}
+\section{Computing overlap in lockstep}
 
 \begin{figure}[H]
 \begin{minted}{python}
@@ -684,7 +683,7 @@ def overlap(atom_count: int) -> list[list[float]]:
 
 
 
-%\subsection{Huckel Matrix}
+%\section{Huckel Matrix}
 %
 %\begin{figure}[H]
 %\begin{minted}{python}
