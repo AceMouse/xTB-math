@@ -222,7 +222,7 @@ def compute_STO_integrals(atom_A: int, subshell_A: int, orbital_A: int, R_A: flo
     \caption{Python snippet illustrating construction of the STO integrals $\braket{\psi_\nu|\cdots|\psi_\mu}$.}
 \end{figure}
 
-The gaussian normalisation term would be:
+The gaussian normalisation term in accordance with equation 5.55 in Quanntum Chemistry\cite{daudel}:
 \begin{align}
     1&=N_{GTO,l}^2(2\alpha_{i,\nu})^{-(l+3/2)}\frac{({l_A}_x-1)!!({l}_y-1)!!({l}_z-1)!!}{2^{l/2}}\pi^{3/2}\\
     N_{GTO,l}^2&=\left((2\alpha_{i,\nu})^{-(l+3/2)}\frac{({l}_x-1)!!({l}_y-1)!!({l}_z-1)!!}{2^{l/2}}\pi^{3/2}\right)^{-1}\\
@@ -261,25 +261,7 @@ def double_factorial(n: int) -> int:
 \end{figure}
 
 As the GTOs in the integral are real valued functions we can drop the conjugation when we write them out.
-
-For the overlap matrix:
-\begin{align}
-        \braket{\phi_i|\phi_j} = &\int \phi^*(\alpha_{i,\nu},\pmb r-\pmb R_A)\phi(\alpha_{j,\mu},\pmb r-\pmb R_B)\,dr\\
-        =&\int \phi(\alpha_{i,\nu},\pmb r-\pmb R_A)\phi(\alpha_{j,\mu},\pmb r-\pmb R_B)\,dr\notag
-\end{align}
-
-For the dipol tensor:
-\begin{align}
-        \braket{\phi_i|(r_u-{R_P}_u)|\phi_j} = &\int \phi^*(\alpha_{i,\nu},\pmb r-\pmb R_A)(r_u-{R_P}_u)\phi(\alpha_{j,\mu},\pmb r-\pmb R_B)\,dr\\
-        =&\int (r_u-{R_P}_u)\phi(\alpha_{i,\nu},\pmb r-\pmb R_A)\phi(\alpha_{j,\mu},\pmb r-\pmb R_B)\,dr\notag
-\end{align}
-
-For the quadrupol tensor:
-\begin{align}
-        \braket{\phi_i|(r_u-{R_P}_u)(r_v-{R_P}_v)|\phi_j} = &\int \phi^*(\alpha_{i,\nu},\pmb r-\pmb R_A)(r_u-{R_P}_u)(r_v-{R_P}_v)\phi(\alpha_{j,\mu},\pmb r-\pmb R_B)\,dr\\
-        =&\int (r_u-{R_P}_u)(r_v-{R_P}_v)\phi(\alpha_{i,\nu},\pmb r-\pmb R_A)\phi(\alpha_{j,\mu},\pmb r-\pmb R_B)\,dr\notag
-\end{align}
-Now we see that we have to compute the products of GTOs. The product of two Gaussians is a new Gaussian centred at a point between the two, $R_P$, which we will finally introduce properly.
+We see that we have to compute the products of GTOs. The product of two Gaussians is a new Gaussian centred at a point between the two, $R_P$, which we will finally introduce properly.
 \begin{gather}
     \alpha = \alpha_{i,\nu}+\alpha_{j,\mu}\\
     K_{AB} = \left(\frac{2\alpha_{i,\nu}\alpha_{j,\mu}}{\alpha\pi}\right)^\frac{3}{4}e^{-\frac{\alpha_{i,\nu}\alpha_{j,\mu}}{\alpha}R_{AB}^2}\\
@@ -327,79 +309,29 @@ def convolute(coef_A: list[float], coef_B: list[float]) -> list[float]:
 
 
 To compute the integrals over the GTOs we can split them in terms of the 3 dimensions we are integrating over, $x,y$ and $z$. We can also pull the GTO normalisation terms out front. 
-
-For the overlap matrix:
-\begin{align}
-        \int \phi(\alpha_{i,\nu},\pmb r-\pmb R_A)\phi(\alpha_{j,\mu},\pmb r-\pmb R_B)\,dr=K_{AB}&\int \phi(\alpha,\pmb r-\pmb R_P)\,dr\\
-        =N_{GTO,l_A}N_{GTO,l_B}K_{AB}&\int \phi(\alpha,r_x-{R_P}_x)\,dx\notag\\
-            \times&\int \phi(\alpha,r_y-{R_P}_y)\,dy\notag\\
-            \times&\int \phi(\alpha,r_z-{R_P}_z)\,dz\notag
-\end{align}
-
-For the dipol tensor:
-\begin{align}
-        \int (r_u-{R_P}_u)\phi(\alpha_{i,\nu},\pmb r-\pmb R_A)\phi(\alpha_{j,\mu},\pmb r-\pmb R_B)\,dr=K_{AB}&\int (r_u-{R_P}_u)\phi(\alpha,\pmb r-\pmb R_P)\,dr\\
-        =N_{GTO,l_A}N_{GTO,l_B}K_{AB}&\int (r_u-{R_P}_u)\phi(\alpha,r_x-{R_P}_x)\,dx\notag\\
-            \times&\int (r_u-{R_P}_u)\phi(\alpha,r_y-{R_P}_y)\,dy\notag\\
-            \times&\int (r_u-{R_P}_u)\phi(\alpha,r_z-{R_P}_z)\,dz\notag
-\end{align}
-
-For the quadrupol tensor:
-\begin{align}
-        \int (r_u-{R_P}_u)(r_v-{R_P}_v)\phi(\alpha_{i,\nu},\pmb r-\pmb R_A)\phi(\alpha_{j,\mu},\pmb r-\pmb R_B)\,dr=K_{AB}&\int (r_u-{R_P}_u)(r_v-{R_P}_v)\phi(\alpha,\pmb r-\pmb R_P)\,dr\\
-        =N_{GTO,l_A}N_{GTO,l_B}K_{AB}&\int (r_u-{R_P}_u)(r_v-{R_P}_v)\phi(\alpha,r_x-{R_P}_x)\,dx\notag\\
-            \times&\int (r_u-{R_P}_u)(r_v-{R_P}_v)\phi(\alpha,r_y-{R_P}_y)\,dy\notag\\
-            \times&\int (r_u-{R_P}_u)(r_v-{R_P}_v)\phi(\alpha,r_z-{R_P}_z)\,dz\notag
-\end{align}
-Each of these integrals can now be expanded using the analytical solution to Gaussian integrals of the form $\int x^t e^{-ax^2}\,dx$\cite{}. Let us briefly focus on the integrals over $x$ as they are all identical.
-
-TODO: find den rigtig reference for eq 34 https://mathworld.wolfram.com/GaussianIntegral.html
-
-For the overlap matrix:
-\begin{align}
-    \int \phi(\alpha,r_x-{R_P}_x)\,dx = \int \sum_{t=0}^{{l_A}_x+{l_B}_x}v_t(r_x-{R_P}_x)^te^{-\alpha(r_x-{R_P}_x)^2}\,dx\\
-        =  \sum_{t=0}^{{l_A}_x+{l_B}_x}v_t\int(r_x-{R_P}_x)^{t}e^{-\alpha(r_x-{R_P}_x)^2}\,dx\notag\\
-        =  \sum_{\{t\in0,..,{l_A}_x+{l_B}_x | odd(t)\}}v_{t}\frac{\left(\frac{t-1}{2}\right)!}{2a^{\frac{t+1}{2}}}+
-        \sum_{\{t\in0,..,{l_A}_x+{l_B}_x | even(t)\}}v_{t}\frac{\left(t-1\right)!!}{2^{\frac{t}{2}+1}a^{\frac{t+1}{2}}}\sqrt{\frac{\pi}{\alpha}}\notag
-\end{align}
-
-For the dipol tensor:
-\begin{align}
-    \int (r_u-{R_P}_u)\phi(\alpha,r_x-{R_P}_x)\,dx = \int \sum_{t=0}^{{l_A}_x+{l_B}_x}v_t(r_u-{R_P}_u)(r_x-{R_P}_x)^te^{-\alpha(r_x-{R_P}_x)^2}\,dx\\
-        =  \sum_{t=0}^{{l_A}_x+{l_B}_x}v_t\int(r_x-{R_P}_x)^{t+\delta_{ux}}e^{-\alpha(r_x-{R_P}_x)^2}\,dx\notag\\
-        =  \sum_{t=\delta_{ux}}^{{l_A}_x+{l_B}_x+\delta_{ux}}v_{t-\delta_{ux}}\int(r_x-{R_P}_x)^{t}e^{-\alpha(r_x-{R_P}_x)^2}\,dx\notag\\
-        =  \sum_{\{t\in\delta_{ux},..,{l_A}_x+{l_B}_x+\delta_{ux} | odd(t)\}}v_{t-\delta_{ux}}\frac{\left(\frac{t-1}{2}\right)!}{2a^{\frac{t+1}{2}}}+
-        \sum_{\{t\in\delta_{ux},..,{l_A}_x+{l_B}_x+\delta_{ux} | even(t)\}}v_{t-\delta_{ux}}\frac{\left(t-1\right)!!}{2^{\frac{t}{2}+1}a^{\frac{t+1}{2}}}\sqrt{\frac{\pi}{\alpha}}\notag
-\end{align}
-
-For the quadrupol tensor:
-\begin{align}
-    \int (r_u-{R_P}_u)(r_v-{R_P}_v)\phi(\alpha,r_x-{R_P}_x)\,dx \\
-    = \int \sum_{t=0}^{{l_A}_x+{l_B}_x}v_t(r_u-{R_P}_u)(r_v-{R_P}_v)(r_x-{R_P}_x)^te^{-\alpha(r_x-{R_P}_x)^2}\,dx\notag\\
-        =  \sum_{t=0}^{{l_A}_x+{l_B}_x}v_t\int(r_x-{R_P}_x)^{t+\delta_{ux}+\delta_{vx}}e^{-\alpha(r_x-{R_P}_x)^2}\,dx\notag\\
-        =  \sum_{t=\delta_{ux}+\delta_{vx}}^{{l_A}_x+{l_B}_x+\delta_{ux}}v_{t-\delta_{ux}-\delta_{-vx}}\int(r_x-{R_P}_x)^{t}e^{-\alpha(r_x-{R_P}_x)^2}\,dx\notag\\
-        =  \sum_{\{t\in\delta_{ux}+\delta_{vx},..,{l_A}_x+{l_B}_x+\delta_{ux}+\delta_{vx} | odd(t)\}}v_{t-\delta_{ux}-\delta_{vx}}\frac{\left(\frac{t-1}{2}\right)!}{2a^{\frac{t+1}{2}}}+\notag\\
-        \sum_{\{t\in\delta_{ux}+\delta_{vx},..,{l_A}_x+{l_B}_x+\delta_{ux}+\delta_{vx} | even(t)\}}v_{t-\delta_{ux}-\delta_{vx}}\frac{\left(t-1\right)!!}{2^{\frac{t}{2}+1}a^{\frac{t+1}{2}}}\sqrt{\frac{\pi}{\alpha}}\notag
-\end{align}
-
-TODO: Er det her rigtigt og i så fald hvor kommer $R_P^{(0,1,2)}$ termet i deres, og nu vores, kode fra?
-
-The final sums are something we can compute. For the most part the analytical solution to the integrals is independent of the direction so we can precompute the independent part: 
+Each of these integrals can now be expanded using the analytical solution to Gaussian integrals of this form in equation 5.53 in Quantum Chemistry\cite{daudel1983}. All the integrals get solutions of the following form for even $t$:
+\begin{equation}
+    \alpha^{-(t+1)/2}\frac{(t-1)!!}{2^{t/2}}\sqrt{\pi}
+\end{equation}
+And 0 for odd $t$.
+The analytical solution to the integrals is independent of the direction so we can precompute them: 
 \begin{figure}[H]
 \begin{minted}{python}
 def compute_gaussian_integral_factors(alpha:float, l_A:int, l_B:int)-> list[float]:
     factors = vector(l_A+l_B+3)
     for t in range(l_A+l_B+3):
         if t % 2 == 0:
-            factors[t] = factorial((t-1)//2)/(2*alpha*((t+1)//2))
+            df = double_factorial(t-1)
+            factors[t] = alpha**(-(t+1)/2) * (df/(2**(t/2))) * sqrt(pi)
         else:
-            factors[t] = (double_factorial(t-1)/(2**(t/2+1)*alpha**((t+1)//2))) * sqrt(pi/alpha)
+            factors[t] = 0
     return factors
 \end{minted}
     \caption{Python code illustrating computation of the integral factors for even and odd powers}
 \end{figure}
-We compute an extra $2$ factors to accommodate $\delta_{ux}+\delta_{vx}$
+We compute an extra $2$ factors to accommodate for the second moment later. 
 
+We then multipy each with the appropriate $v_t$ and sum over $t$.
 \begin{figure}[H]
 \begin{minted}{python}
 def compute_GTO_integrals(R_A: float, l_A: int, orbital_A: int, R_B: float, l_B: int, orbital_B: int, exponent_i: float, exponent_j: float, distance_between_A_B: float) -> tuple[float,list[float],list[float]]:
@@ -583,7 +515,7 @@ def get_GFN2_repulsion_energy(atoms: list[int], positions : list[list[float]]) -
 \section{Isotropic Energy}
 The isotropic energy terms $\E{\gamma}$ and $\E{\Gamma}$ require us to first do a Mulliken population analysis to get the subshell-wise partial Mulliken charges $q_{A,l}$.
 \begin{equation}
-    q_{A,l} = \text{TODO:Snak med kurt}\\
+    q_{A,l} = \sum_{\mu\in l}\sum_B\sum_{l'\in B}\sum_{\nu\l'}P_{\mu\nu}S_{\mu\nu}\\
 \end{equation}
 
 With $\eta_A$ being an element specific constant and $k_{A,l}$ being a shell specific constant we define, both specific to the parametrisation of GFN2:
@@ -629,7 +561,7 @@ We define $\pmb{\mu}_A$ as the cumulative atomic dipole moment of atom A, and $\
     \end{pmatrix}
 \end{equation}
 
-$\Theta_A^{uv}$ is a specific element in the quadrupole tensor.
+$\Theta_A^{uv}$ is a specific element in the traceless quadrupole moment matrix for A.
 
 \begin{equation}
 \begin{split}
@@ -642,11 +574,11 @@ Below we define the zeroth, first, and second order cumulative atomic multipole 
 
 \begin{equation}
 \begin{split}
-        q_A &= Z_A - \sum_{l \in A} \sum_{\kappa \in l} \sum_{B} \sum_{l' \in B} \sum_{\lambda \in l'} P_{\kappa \lambda} S_{\lambda \kappa}\\
+    q_A &= Z_A - \sum_{l \in A} q_{A,l}\\
 \end{split}
 \end{equation}
 
-$q_A$ is the Mulliken charge for an atom A. $Z_A$ is the number of protons in the atom A. $\kappa$ and $\lambda$ are the orbitals for atom A and B respectively. $P_{\kappa \lambda}$ is an element in the density matrix, and $S_{\lambda \kappa}$ is a element in the overlap matrix.
+$q_A$ is the Mulliken charge for an atom A. $Z_A$ is the number of protons in the atom A. $q_{A,l}$ is the previously defined partial Mulliken charge.
 
 \begin{equation}
 \begin{split}
@@ -654,7 +586,7 @@ $q_A$ is the Mulliken charge for an atom A. $Z_A$ is the number of protons in th
 \end{split}
 \end{equation}
 
-$\mu_A^u$ is the cumulative atomic dipole moment for a specific dimension $u$ of atom A. $D_{\lambda \kappa}^u$ is the a value in the dipole tensor.
+$\mu_A^u$ is the cumulative atomic dipole moment for a specific dimension $u$ of atom A. $D_{\lambda \kappa}^u$ is an element in the dipole tensor.
 
 \begin{equation}
 \begin{split}
@@ -666,7 +598,7 @@ The Cartesian components $u$ and $v$ are the dimensions for which we compute the
 %$D_{\lambda \kappa}^\alpha$ and $Q_{\lambda \kappa}^{\alpha \beta}$ are the electric dipole and quadrupole moment integrals between the AOs $\phi_\kappa$ and $\phi_\lambda$.
 
 
-We damp the terms at short distances to avoid divergence for the AES energy. The distance dependent damping function is given by:
+At short distances the terms are dampened to avoid divergence for the AES energy. The distance dependent damping function is given by:
 
 \begin{equation}
 \begin{split}
