@@ -1,5 +1,5 @@
 \chapter{GFN2-xTB}\label{sec:gfn2}
-In this section we will go over the GFN2-xTB energy terms put forth in the related papers\cite{grimme2017,bannwarth2019,bannwarth2021}
+In this section we will go over the GFN2-xTB energy terms put forth in the related papers\cite{grimme2017,bannwarth2019,bannwarth2021}.
 GFN2-xTB is a part of the GFNn-xTB (Geometry, Frequency, Non covalent, eXtended Tight Binding) family of semi-empirical methods for computational chemistry. 
 
 The method gives good approximations for molecular geometries, vibrational frequencies, and non-covalent interaction energies and also does well on a variety other properties. 
@@ -20,19 +20,19 @@ We then have to also factor in the SCC.
 Let us consider the following code sketch in figure \ref{lst:total_energy} which we will fill out in this chapter. The chapter will go over each term and add code snippets illustrating the mathematics in a more concrete way. 
 \begin{figure}[H]
 \begin{minted}{python}
-def get_GFN2_energy(atoms: list[int], positions : list[list[float]]) -> float:
+def get_GFN2_energy(atoms: list[int], positions : list[list[float]], free_electrons : int, charge : int) -> float:
     density = density_initial_guess(atoms)
-    overlap, dipol_dipol, charge_quadrupol = overlap(atoms, positions)
-    initial_hamiltonian = H0(atoms, positions)
-    huckel_theory_matrix = H_EHT(atoms, positions, overlap, initial_hamiltonian)
-    charges = mulliken_population_analysis(density,atoms)
-    eigen_values = diagonalize(initial_hamiltonian, overlap) # HC=SCe 
-    E_repulsion = repulsion(atoms, positions)
-    E_dispersion = D4Prime(charges, atoms, positions)
-    E_huckel = Huckel(density, extended_huckel_theory_matrix)
-    E_anisotropic = AES(charges, overlap, dipol_dipol, charge_quadrupol, positions)
-    E_isotropic = IES(charges, positions)
-    E_fermi = Fermi(...)
+    overlap, dipol_dipol, charge_quadrupol = overlap_dipol_quadrupol(atoms, positions)
+    huckel_matrix = huckel_matrix(atoms, positions, overlap)
+    charges = mulliken_population_analysis(density, atoms)
+    E_repulsion = repulsion_energy(atoms, positions)
+    E_dispersion = D4Prime_energy(charges, atoms, positions)
+    E_huckel = huckel_energy(density, extended_huckel_theory_matrix)
+    E_anisotropic = anisotropic_energy(charges, overlap, dipol_dipol, charge_quadrupol, positions)
+    E_isotropic = isotropic_energy(charges, positions)
+    initial_hamiltonian = fock_matrix(...)
+    eigen_values = diagonalise(initial_hamiltonian, overlap) # HC=SCe 
+    E_fermi = fermi_energy(eigen_values, atoms, free_electrons, charge)
     E = E_repulsion + E_dispersion + E_huckel + E_anisotropic + E_isotropic + E_Fermi
     while not (energy_converged and densities_converged):
         # change densities along the gradients and 
@@ -44,7 +44,7 @@ def get_GFN2_energy(atoms: list[int], positions : list[list[float]]) -> float:
         density = new_density
 \end{minted}
 \caption{Python code illustrating the main loop of a GFN2-xTB implementation.
-Line 2-16 computes the energy in a non SCC manner, line 15-23 iteratively improves the energy using SCC.
+Line 2-14 computes the energy in a non SCC manner, line 15-22 iteratively improves the energy using SCC.
 Another way to describe this is that the zeroth iteration of SCC happens outside the loop as there is some setup required. 
 }
     \label{lst:total_energy}
@@ -469,7 +469,7 @@ Using this we can now compute the Hückel energy where $P$ is the density matrix
 
 \begin{figure}[H]
 \begin{minted}{python}
-def get_GFN2_Huckel_energy(density_matrix:list[list[int]], huckel_matrix:list[list[int]]) -> float:
+def huckel_energy(density_matrix:list[list[int]], huckel_matrix:list[list[int]]) -> float:
     E_EHT = 0
     orbitals = len(density_matrix)
     for shell_mu in range(orbitals):
@@ -495,7 +495,7 @@ This can be implemented in the following way:
 \begin{minted}{python}
 H = 0
 He = 1
-def get_GFN2_repulsion_energy(atoms: list[int], positions : list[list[float]]) -> float:
+def repulsion_energy(atoms: list[int], positions : list[list[float]]) -> float:
     sum = 0
     for idx_A, (atom_A, position_A) in enumerate(zip(atoms, positions)):
         for idx_B, (atom_B, position_B) in enumerate(zip(atoms, positions)):
@@ -646,7 +646,7 @@ In GFNn-xTB they use the following term to assign the (spin restricted) fraction
 \begin{equation}
     n_{i\sigma} = \frac{1}{e^{(\varepsilon_{ii}-\varepsilon^\sigma_F)/(K_BT_{el})}+1}
 \end{equation}
-with the Fermi level $\varepsilon_F^\sigma$ chosen such that the following equation holds $\sum_in_{i\sigma}=N_{\sigma}$. Here $K_B$ is the Boltzmann constant. $N_\alpha=\frac{N-N_f}{2}+N_f $ and $N_\beta=\frac{N-N_f}{2}$ is based on the total number of electrons $N$ and the requested number of free electrons $N_f$ with the restriction that $0\leq N-N_f$ is even. 
+with the Fermi level $\varepsilon_F^\sigma$ chosen such that the following equation holds $\sum_in_{i\sigma}=N_{\sigma}$. Here $K_B$ is the Boltzmann constant. $N_\alpha=\frac{N-N_f}{2}+N_f $ and $N_\beta=\frac{N-N_f}{2}$ is based on the total number of electrons $N=C+\sum_AZ_A$ and the requested number of free electrons $N_f$ with the restriction that $0\leq N-N_f$ is even. $C$ is the requested total charge. 
 The Fermi energy term is then:
 \begin{equation}
     G_{Fermi} = K_BT_{el}\sum_{\sigma\in\alpha,\beta}\sum_in_{i\sigma}\ln(n_{i\sigma}) + (1-n_{i\sigma})\ln(1-n_{i\sigma})
