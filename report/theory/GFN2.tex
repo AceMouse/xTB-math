@@ -543,9 +543,10 @@ With the element and shell specific GFN2 constant $\Gamma_{A,l}$ we also get the
 
 \section{Anisotropic Electrostatic Energy} \label{sec:AES}
 
-This section goes over the anisotropic electrostatic term $E_{AES}$. We will start by introducing all the necessary definitions.
+The anisotropic electrostatic energy term $E_{AES}$ is supposed to capture changes in the energy for electrostatic interactions that arise from anisotropic density distributions (polarization). It represents the energy caused by charge-dipole interactions and charge-quadrupole interactions.
 
-We define $\pmb{\mu}_A$ as the cumulative atomic dipole moment of atom A, and $\pmb{\Theta}_A$ as the corresponding traceless quadrupole moment. The superscript $T$ is the vector transpose operation.
+Below we introduce all the necessary definitions for the energy term.
+$\pmb{\mu}_A$ is the cumulative atomic dipole moment of atom A, and $\pmb{\Theta}_A$ as the corresponding traceless quadrupole moment. The superscript $T$ is the vector transpose operation.
 
 \begin{equation}
     \pmb{\mu}_A = 
@@ -655,3 +656,123 @@ This repeated diagonalising is one of the more computationally demanding tasks f
 
 
 
+\section{Dispersion Energy}
+
+The dispersion energy term is used to include the energy caused by London dispersion forces.
+
+A London dispersion force is a temporary attractive force that occurs when electrons in two adjacent atoms occupy positions that causes the atoms to form temporary dipoles\cite{purdue-dispersion}.
+
+%The dispersion energy is the weak, attractive forces that appear from temporary fluctuations in the electron distribution around a molecule.
+This happens from temporary fluctuations in the electron distribution around a molecule. Expansions and contractions of the atomic density will therefore respectively incerase and decrease the magnitude or the interation\cite{bannwarth2019}.
+
+%The D4' dispersion model treats dispersion interactions by means of a self-consistent variant of the recently published D4 dispersion model\cite{bannwarth2019}.
+
+%D4' include effects up to second order within the self-consistent formulation of the D4 dispersion model.
+
+The two-body London dispersion energy is given by
+
+\begin{equation}
+\begin{split}
+        -\sum_{A>B} \sum_{n=6,8} s_n \frac{C_n^{AB} (q_A, CN^A_{cov}, q_B, CN^B_{cov})}{R^n_{AB}} f^{(n)}_{damp,BJ} (R_{AB})
+\end{split}
+\end{equation}
+
+The values $q_A$ and $q_B$ are the Mulliken charges for the atoms, and the scaling parameters $s_n$ are defined as
+\[
+  s6 = 1.0 \quad\quad s8 = 2.7
+\]
+
+The Becke–Johnson (BJ) damping function is used because it has shown to provide better results for nonbonded distances\cite{grimme2011}, which are the only type of distances we consider in xTB methods.
+With it, no pair-speciﬁc cut-off radii are required and no artiﬁcial repulsive interatomic forces at short distances are present. The BJ damping function is given by
+
+\begin{equation}
+\begin{split}
+        f_{damp,BJ}^{(n)} (R_{AB}) = \frac{R_{AB}^n}{R_{AB}^n + (a_1 R_{AB}^0 + a_2)^n}\label{eq:damp-bj}\\
+\end{split}
+\end{equation}
+
+\autoref{eq:damp-bj} is taken from \cite{bannwarth2021} where they raise the parenthesised term in the denominator to the power of n, whereas the constant 6 is used in the GFN2 paper\cite{bannwarth2019}. We do not have an explanation for this, so it is worth taking note of this discrepancy.
+
+
+The global damping parameters are
+\[
+  a1 = 0.52 \quad\quad a2 = 5.0
+\]
+and the damping constant is given by
+
+\begin{equation}
+\begin{split}
+        R_{AB}^0 = \sqrt{C_8^{AB} / C_6^{AB}}\\
+\end{split}
+\end{equation}
+
+
+
+\(C_6^{AB}\) is the pairwise dipole-dipole dispersion coefficients calculated by numerical integration as given by
+\begin{equation}
+  C_6^{AB} = \frac{3}{\pi} \sum_{j} w_j \overline{\alpha}_A (i\omega_j, q_A, CN_{cov}^A)\overline{\alpha}_B (i\omega_j, q_B, CN_{cov}^B)
+\end{equation}
+
+
+
+\(C_9^{ABC}\) is the triple-dipole constant and is given by
+\begin{equation}
+  C_9^{ABC} = \frac{3}{\pi} \int_0^\infty \alpha^A(i\omega) \alpha^B(i\omega)\alpha^C(i\omega)d\omega
+\end{equation}
+
+This three-body contribution is typically \(<5-10\%\) of \(E_{disp}\), so it is small enough that we can reasonably approximate the coefficients by a geometric mean as\cite{grimme2010}
+
+
+\begin{equation}
+  C_9^{ABC} \approx -\sqrt{C_6^{AB} C_6^{AC} C_6^{BC}}
+\end{equation}
+
+
+
+\(C_8^{AB}\) is calculated recursively from the lowest order \(C_6^{AB}\) coefficients.
+\begin{equation}
+  C_8^{AB} = 3C_6^{AB} \sqrt{\mathcal{Q}^A\mathcal{Q}^B}
+\end{equation}
+
+\begin{equation}
+  \mathcal{Q}^A = s_{42} \sqrt{Z^A} \frac{\braket{r^4}^A}{\braket{r^2}^A}
+\end{equation}
+
+We have not been able to find $s_{42}$ nor the fraction in any related research papers or supporting material, but we were able to find both in the code for the dftd4 project\footnote{\url{https://github.com/dftd4/dftd4}}. The whole term $\mathcal{Q}^A$ is stored as an array of element-specific constants, named \verb|sqrt_z_r4_over_r2|, with $s_{42}$ set to $0.5$. Lastly we have $Z^A$, which is the atomic number of A.
+
+\autoref{eq:ATM-term} is the Axilrod–Teller–Muto (ATM) term, which describes the three-body interaction energy between atoms, and \autoref{eq:ATM-damping} is the corresponding zero-damping function for the term.
+
+\begin{equation}
+\begin{split}
+        -s_9 \sum_{A>B>C} \frac{(3cos(\theta_{ABC})cos(\theta_{BCA})cos(\theta_{CAB})+1)C_9^{ABC}(CN_{cov}^A,CN_{cov}^B,CN_{cov}^C)}{(R_{AB} R_{AC} R_{BC})^3} \label{eq:ATM-term}
+\end{split}
+\end{equation}
+
+\begin{equation}
+\begin{split}
+        f^{(9)}_{damp,zero}(R_{AB},R_{AC},R_{BC}) \label{eq:ATM-damping}
+\end{split}
+\end{equation}
+
+
+The scaling parameter $s_9$ is $5.0$, and the values \(\theta_{ABC}\), \(\theta_{BCA}\), and \(\theta_{CAB}\) are the angles between the edges going from B, C, and A to the other two atoms respectively.
+
+
+
+
+
+%The last term is the charge-independent three-body dispersion term, which incorporates the dorminant part of the many-body dispersion energy.
+
+The final D4' energy term is given by
+
+
+\begin{equation}
+\begin{split}
+  \E{disp}^{D4'} = &-\sum_{A>B} \sum_{n=6,8} s_n \frac{C_n^{AB} (q_A, CN^A_{cov}, q_B, CN^B_{cov})}{R^n_{AB}} f^{(n)}_{damp,BJ} (R_{AB}) \\
+  &-s_9 \sum_{A>B>C} \frac{(3cos(\theta_{ABC})cos(\theta_{BCA})cos(\theta_{CAB})+1)C_9^{ABC}(CN_{cov}^A,CN_{cov}^B,CN_{cov}^C)}{(R_{AB} R_{AC} R_{BC})^3} \\
+  &\times f^{(9)}_{damp,zero}(R_{AB},R_{AC},R_{BC})
+\end{split}
+\end{equation}
+
+
+%The dispersion energy is the last term 
