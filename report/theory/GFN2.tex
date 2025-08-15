@@ -1,4 +1,4 @@
-\chapter{GFN2-xTB}\label{sec:gfn2}
+\chapter{Introduction to GFN2-xTB}\label{sec:gfn2}
 In this section we will go over the GFN2-xTB energy terms put forth in the related papers\cite{grimme2017,bannwarth2019,bannwarth2021}.
 GFN2-xTB is a part of the GFNn-xTB (Geometry, Frequency, Non covalent, eXtended Tight Binding) family of semi-empirical methods for computational chemistry. 
 
@@ -10,7 +10,7 @@ In contrast to forcefield methods that often operate on the level of atoms or ev
 
 GFN2-xTB uses a Self-Consistent Charges (SCC) approach i.e. it makes an initial guess at a density matrix and an energy which it then iteratively refines until both have converged. We are mostly interested in the final energy. 
 
-\section{Energy terms}
+\section{Energy Terms}
 The terms in GFN2-xTB that determine the energy are as follows
 \begin{equation}
 E =\E{rep}+\E{disp}^{D4'}+\E{EHT}+\E{\gamma}+\E{AES}+\E{AXC}+\E{\Gamma} + G_{Fermi}
@@ -102,7 +102,7 @@ Then we note the euclidean distance as follows:
     R_{AB} &= \sqrt{({R_{AB}}_x)^2+({R_{AB}}_y)^2+({R_{AB}}_x)^2}
 \end{align}
 Now let us dig into the calculations. 
-\section{Constructing the initial density matrix}
+\section{Constructing the Initial Density Matrix}
 Many of the terms use the density matrix as part of their calculation and it is central to the SCC method. In the GFN2 paper the initial density matrix guess is formulated as a superposition of neutral atomic reference densities $P_0 = \sum_{A}P_{A_0}$. In simpler terms this means that we let $P_0$ be a diagonal matrix that is $n$ by $n$ where $n$ is the total number of orbitals across the whole molecule. The values on the diagonal are the fractional number of electrons in the orbitals, the fractional occupations. They are reference densities so we get them in a table we can index into per subshell, thus we just have to divide the electrons evenly between the orbitals in the subshell. The number of orbitals in a subshell is $2l+1$ where l is the quantum number corresponding to the angular momentum of the subshell.
 \begin{figure}[H]
 \begin{minted}{python}
@@ -124,7 +124,7 @@ For fullerenes the guess is simply all ones on the diagonal as \verb|number_of_s
 Here \verb|C=5| is the index for carbon. 
 Thus \verb|fractional_occupations| will contain a repeating series of $\frac{1}{0\cdot2+1},\frac{3}{1\cdot2+1},\frac{3}{1\cdot2+1},\frac{3}{1\cdot2+1}$ on the diagonal.
 
-\section{Constructing the overlap, dipol and quadrupol tensors}
+\section{Constructing the Overlap, Dipol and Quadrupol Tensors}
 
 We need the overlap matrix, $S$, for several of the terms. 
 The related dipol and quadrupol tensors denoted $D$ and $Q$ are also needed and due to their very similar construction we will go over the implementation and mathematics in one fell swoop. 
@@ -386,7 +386,7 @@ def compute_GTO_integrals(R_A: float, l_A: int, orbital_A: int, R_B: float, l_B:
 %\frac{(4\alpha_i)^{\ell}}{(2\ell_x-1)!!\,(2\ell_y-1)!!\,(2\ell_z-1)!!}},
 %\end{equation}
 
-\section{Building the Hückel matrix}
+\section{Building the Hückel Matrix}
 As a part of computing the Hückel energy we need to construct the Hückel matrix.
 The Hückel matrix comes from extended Hückel theory. Before we can construct it we need a few definitions. 
 First the GFN2 type coordination number for atom $A$ is
@@ -481,7 +481,7 @@ def huckel_energy(density_matrix:list[list[int]], huckel_matrix:list[list[int]])
 \end{figure}
 
 
-\section{Repulsion energy}
+\section{Repulsion Energy}
 The repulsion energy in GFN2-xTB is computed classically using the following formula:
 \begin{align}
     \E{rep} &= \frac{1}{2}\sum_{A}\sum_{B\neq A}\frac{Z^{eff}_A Z^{eff}_B}{R_{AB}}e^{-\sqrt{a_Aa_B}(R_{AB})^{(k_f)}}\\
@@ -642,7 +642,7 @@ The anisotropic exchange correlation term $E_{AXC}$ is supposed to capture chang
 In the equation we have the constants $f_{XC}^{\mu_A}$ and $f_{XC}^{\Theta_A}$, which are fitted element-specific parameters. The values for each element can be found in the supporting information of the GFN2-xTB paper\cite{bannwarth2019}.
 We already defined both $\pmb{\mu}_A$ and $\pmb{\Theta}_A$ in \autoref{sec:AES}. 
 
-\section{Electronic entropy}
+\section{Electronic Entropy}
 In GFNn-xTB they use the following term to assign the (spin restricted) fractional orbital occupations. It is based on the eigenvalues from diagonalising $FC=SC\varepsilon$ where F is the GFN2-xTB equivalent of a Fock matrix, and C is the matrix of GTO contraction coefficients. S is the overlap matrix and $\varepsilon$ is the diagonal matrix of eigen values. The electronic temperature $T_{el}=300$ kelvin is non-zero and thus we have fractional occupations $n_{i\sigma}$ for the $i$'th molecular spin orbital with spin $\sigma$ chosen based on the Fermi-distribution:: 
 \begin{equation}
     n_{i\sigma} = \frac{1}{e^{(\varepsilon_{ii}-\varepsilon^\sigma_F)/(K_BT_{el})}+1}
