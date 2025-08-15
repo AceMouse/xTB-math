@@ -598,24 +598,10 @@ The first circuit uses 5 QFT fused multiplication addition circuits. Each with $
 
 If we add in the sampling step we then have to run the state preparation circuit which adds $O(\log b)$ qubits and $O(b\log b)$ gates\cite{wang2020}, however that is not enough to change the asymptotic runtime further given $b<c$ in most cases we care about. 
 
-If we want to say something about the number of samplings needed to have found a good candidate we have to assume a distribution for the energies in the isomer space. As a best guess we will assume they are evenly distributed between the highest and lowest energies $E^\Gamma_H$ and $E^\Gamma_L$. Then for a successful run of the algorithm the probability of sampling a given id is proportional to the energy $E_{id}^\Gamma$. Let us first find the exact proportionality.
+If we want to say something about the number of samplings needed to have found a good candidate we have to assume a distribution for the energies in the isomer space. As a best guess we will assume they are evenly distributed between the highest and lowest energies $E^\Gamma_H$ and $E^\Gamma_L$. Then for a successful run of the algorithm the probability of sampling a given id is the amplitude squared. The amplitude is proportional to the energy $E_{id}^\Gamma$. The probability of the sample having energy within $\delta$ of $E^\Gamma_L$ is then
 \begin{equation}
-    1=C\int_{E^\Gamma_L}^{0}e \,de=C\int_{E^\Gamma_L}^{E^\Gamma_H}e \,de=-C\frac{{E^\Gamma_L}^2-{E^\Gamma_H}^2}{2}
-\end{equation}
-If we solve for C
-\begin{equation}
-    C = -\frac{2}{{E^\Gamma_L}^2-{E^\Gamma_H}^2}
-\end{equation}
-Then the probability of sampling a fullerene with energy within $\delta$ of $E^\Gamma_L$ is 
-\begin{equation}
-    \begin{split}
-        -\frac{2}{{E^\Gamma_L}^2-{E^\Gamma_H}^2}\int_{E^\Gamma_L}^{E^\Gamma_L+\delta}e \,de
-        &=-\frac{2}{{E^\Gamma_L}^2-{E^\Gamma_H}^2}\left(\frac{(E^\Gamma_L+\delta)^2}{2}-\frac{(E^\Gamma_L)^2}{2}\right)\\
-        &=-\frac{2}{{E^\Gamma_L}^2-{E^\Gamma_H}^2}\frac{(E^\Gamma_L+\delta)^2-(E^\Gamma_L)^2}{2}\\
-        &=-\frac{2}{{E^\Gamma_L}^2-{E^\Gamma_H}^2}\frac{(E^\Gamma_L+\delta+E^\Gamma_L)(E^\Gamma_L+\delta-E^\Gamma_L)}{2}\\
-        &=-\frac{2}{{E^\Gamma_L}^2-{E^\Gamma_H}^2}\frac{(2E^\Gamma_L+\delta)\delta}{2}\\
-        &=-\frac{2E^\Gamma_L\delta+\delta^2}{{E^\Gamma_L}^2-{E^\Gamma_H}^2}
-    \end{split}
+    \frac{\int_{E^\Gamma_L}^{E^\Gamma_L-\delta}|e|^2 \,de}{\int_{E^\Gamma_L}^{E^\Gamma_H}|e|^2 \,de} = 
+    \frac{|{E^\Gamma_L}|^3-|{E^\Gamma_L-\delta}|^3}{|{E^\Gamma_L}|^3-|{E^\Gamma_H}|^3}
     \label{eq:prob}
 \end{equation}
 This is only indirectly related to the size of the isomer space, as we might expect the gap between the highest and lowest energy in the isomer space scale with its size. 
@@ -627,13 +613,17 @@ The algorithm for calculating $E^\gamma$ uses $i+3cb+2cb+9b$ to hold the ids, po
 
 In terms of gates we use 8 subtraction circuits and 3 multiplication circuits for each pair of atoms. For each pair of charges we do an addition by a constant the inverse square root and use 3 fused multiply add operations to add it to the running sum. For the inverse square root we will assume 5 iterations and the number of bits before the decimal point is equal to $b$. These assumptions make the complexity for the inverse square root $O(b^2)$ which is slightly worse than the actual complexity for a more reasonable number of bits before the decimal point, however it is still not the dominating factor. The subtraction circuits have similar complexity to the addition circuits already mentioned. This gives a total gate complexity of $c^2(8\cdot O(b^2)+3\cdot O(b^3)) + (2c)^2(O(b^2)+O(b^2)+3\cdot O(b^3))=O(c^2b^3)$
 
-These complexities are not very impressive for a single computation, in which case we would get better results just running it classically. However if we have an isomer space $C_c$ with $f$ isomers we would have to run it on $n$ of them to have a probability of $\frac{n}{f}$ of having found the lowest energy isomer. Using the algorithm analysed in equation \ref{eq:prob} probability of having found a good candidate after $n$ samplings is only loosely dependent on $f$:
+These complexities are not very impressive for computing a single isomer, in which case we would get better results just running it classically. However the probability of getting a good candidate isomer after $n$ classical calculations is 
 \begin{equation}
-1-\left(1+\frac{2E^\Gamma_L\delta+\delta^2}{{E^\Gamma_L}^2-{E^\Gamma_H}^2}\right)^n
+    1-\left(1-\frac{\delta}{|{E^\Gamma_L}|-|{E^\Gamma_H}|}\right)^n
 \end{equation}
-Considering that $f$ is on the order of $O(c^9)$ for the $C_c$ space, that enables us to potentially run this on much larger isomer spaces and still have a high probability of getting some of the lowest energy candidates. This works only because we took care to sample in such a way that the probability of getting a specific candidate is proportional to its energy or, if we want to improve this result, how different it is energetically to a known high energy isomer. 
+Using the algorithm analysed in equation \ref{eq:prob}, the probability of having found a good candidate after $n$ samples is:
+\begin{equation}
+1-\left(1-\frac{|{E^\Gamma_L}|^3-|{E^\Gamma_L-\delta}|^3}{|{E^\Gamma_L}|^3-|{E^\Gamma_H}|^3}\right)^n
+\end{equation}
+This enables us to potentially run this on larger isomer spaces and still have a high probability of getting some of the lowest energy candidates. This works only because we took care to sample in such a way that the probability of getting a specific candidate is proportional to its energy or, if we want to improve this result, how different it is energetically to a known high energy isomer. 
 
-Aassuming a fixed $b$ the number of qubits used for each of these quantum algorithms scales with $O(c+i)$ and the circuit depth scales with $O(c)$ or $O(c^2)$. This is modest compared to the size of the isomer spaces we are feeding into them as a super position.
+Assuming a fixed $b$ the number of qubits used for each of these quantum algorithms scales with $O(c+i)$ and the circuit depth scales with $O(c)$ or $O(c^2)$. This is modest compared to the size of the isomer spaces we are feeding into them as a super position.
 
 %\section{Cleaning up $\omega$}
 %We would like to get rid of the $\ket{\omega}$ term in both algorithms to avoid having to post select.

@@ -12,7 +12,15 @@ This thesis contributes an in-depth walk-through of the GFN2-xTB algorithm with 
 
 We have also presented a case study with the NVIDIA A100 data centre GPU to show how GPU architectures are structured and how to use the technical specifications to estimate hardware requirements.
 
-Additionally we have designed quantum circuits for computing the isotropic energy terms in GFN2-xTB, with some theoretic advantages in sampling. These could be used as a starting point for a fully quantum computational approach. 
+Additionally we have designed quantum circuits for computing the isotropic energy terms in GFN2-xTB, with probability 
+\begin{equation}
+1-\left(1-\frac{|{E^\Gamma_L}|^3-|{E^\Gamma_L-\delta}|^3}{|{E^\Gamma_L}|^3-|{E^\Gamma_H}|^3}\right)^n
+\end{equation}
+of finding a candidate within $\delta$ of the lowest energy using $n$ samples, compared to the classical
+\begin{equation}
+    1-\left(1-\frac{\delta}{|{E^\Gamma_L}|-|{E^\Gamma_H}|}\right)^n
+\end{equation}. 
+These could be used as a starting point for a fully quantum computational approach. 
 
 \section{Validation}
 
