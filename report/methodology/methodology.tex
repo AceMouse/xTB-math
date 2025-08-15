@@ -13,7 +13,7 @@ We started implementing the equations from the paper directly, but found that it
 %Another example is that they do not explain clearly that the covalent radii of the atoms are different for equation 18 and 19 in the paper. For equation 19, the covalent radii is apparently computed from the dispersion model.
 
 
-In \cite{grimme2017} they write that they use SCC, but they do not mention which method they use. It turns out that they use Broyden's method. The unit convertions between angström and bohr that are applied to the input geometry data, does also not seem to be mentioned anywhere.
+In \cite{grimme2017} they write that they use SCC, but they do not mention which method they use. It turns out that they use Broyden's method for achieving convergence. The unit convertions between angström and bohr as well as between electron volts and Hartree that are applied to the input geometry data and constants, are sparsely mentioned.
 
 Suffice to say, at the time we were not aware of all these details, so for the sake of correctness it was safer to follow the code rather than the papers. This approach came with its own challenges as we had to become acquainted with Fortran as a programming language while deciphering all its unintuitive quirks.
 Here is an overview of different challenges, inconsistencies, and confusing language quirks we have encountered while working with the xtb project.
@@ -21,7 +21,7 @@ Here is an overview of different challenges, inconsistencies, and confusing lang
 \begin{itemize}
         \item The project is written in object-oriented Fortran, which makes the execution flow difficult to follow.
         \item Arrays in Fortran start at 1 by default, but it is possible to specify that it should start at any other index. We have encountered a wide mix of start indices including 0, 1, 5, and 11.
-        \item Variable names in Fortran are case-insensitive, and we encountered a variable that was defined with uppercase but referenced with lowercase.
+        \item Variable names in Fortran are case-insensitive, and we encountered a variables that was defined with uppercase but referenced with lowercase. This makes the codebase difficult to search in.
         \item Fortran uses column-major indexing, so we have swapped the indices in Python.
         \item The goto statement exists in Fortran, and has been used inconsistently for something that should have been a simple for loop.
         \item Interfaces in Fortran are a way to overload a method, and it can be difficult to know which function it calls without digging into the subtle type differences of the arguments.
