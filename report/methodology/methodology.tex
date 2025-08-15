@@ -54,7 +54,7 @@ When porting code from an implementation and a language with so many quirks and 
 \section{Testing}\label{sec:testing}
 
 The xtb codebase has a large footprint, and there is a lot of overlap between the xTB methods it implements, so even focusing on just one of them still requires a great amount of code.
-The large amount of computations we have to deal with when porting the code makes proper validation especially important, as it becomes increasingly easy to make mistakes.With the discrepancies between the paper and the code, in addition to details that seem to go unexplained, we realized that the obvious approach forward was to lean towards the existing implementation rather than the paper.
+The large amount of computations we have to deal with when porting the code makes proper validation especially important, as it becomes increasingly easy to make mistakes.With the discrepancies between the paper and the code, in addition to details that seem to go unexplained, we realised that the obvious approach forward was to lean towards the existing implementation rather than the paper.
 
 One of the hurdles from testing against an existing program becomes the lack of transparency regarding the logic that takes place between the initial input and the final output presented to the user. Thankfully, the source code is publicly available, which allows for easy manipulation of the original flow of execution, thus avoiding the hassle of testing against a black box or the need to resort to methods of reverse engineering.
 
@@ -64,7 +64,7 @@ On behalf of these considerations we decided to write patches that allow us to i
 
 An important part of any software is reproducability, and applying certain patches in certain scenarios is something that should preferably be automated, reproducable, and optimally also portable. This is especially important for this approach to validation as it requires a way to reproduce a specific version of xtb linked to the same versions of dependencies. Essentially an exact copy of the original shell environment to ensure that patches work, results are the same, and no new bugs appear in the program itself or its dependencies. All of this should be achievable without having to add, remove, downgrade or upgrade system packages on your system.
 
-The well-known contenders for this is any of the numerous containerization solutions on Linux, such as Docker, Podman, LXC etc. There are some problems with these options though, one being that it can be difficult to truly reproduce package versions without saving the resulting container image, another being that it does not solve the problem of having multiple versions of the same package installed. Some other notable limitations are that it limits the process to run within the container and passing in a GPU or other hardware is not as straightforward. A container also does not have access to the X or Wayland session needed to run GUI applications, though that is not currently relevant in this case.
+The well-known contenders for this is any of the numerous containerisation solutions on Linux, such as Docker, Podman, LXC etc. There are some problems with these options though, one being that it can be difficult to truly reproduce package versions without saving the resulting container image, another being that it does not solve the problem of having multiple versions of the same package installed. Some other notable limitations are that it limits the process to run within the container and passing in a GPU or other hardware is not as straightforward. A container also does not have access to the X or Wayland session needed to run GUI applications, though that is not currently relevant in this case.
 
 Another approach which has been growing in popularity in recent years are tools that take unique approaches to package management in order to make not only packages reproducable, but also shell environments, system configurations and other forms of "outputs". Two such popular package managers are Nix\footnote{\url{https://nixos.org/}} from the Nix team and Guix\footnote{\url{https://guix.gnu.org/}} from the GNU foundation. Nix is arguably the more popular option and it is also the solution that has been chosen for this project.
 
@@ -220,9 +220,9 @@ Writing a file for each call to a function is a bit excessive and will produce a
 With the binary files containing the arguments and results, we now have all the data necessary to compare against our Python implementation. We have made a test suite in the file \verb|cmp-impls.py| where all tests follow these same steps:
 
 \begin{enumerate}
-   \item Load an deserialize a binary file for the appropriate function
-   \item Call the corresponding Python function with the deserialized arguments
-   \item Compare the result against the deserialized Fortran result
+   \item Load an deserialise a binary file for the appropriate function
+   \item Call the corresponding Python function with the deserialised arguments
+   \item Compare the result against the deserialised Fortran result
    \item Repeat until there are no more binary files for this function
 \end{enumerate}
 
@@ -254,6 +254,6 @@ With the binary files containing the arguments and results, we now have all the 
 
       print(f"matches! [{fn_name}]")
 \end{minted}
-\caption{This is some of the code from the test for the electro function. It shows how we iterate through each binary file, deserialize its data, call the corresponding Python implementation, and then compare the results.}
+\caption{This is some of the code from the test for the electro function. It shows how we iterate through each binary file, deserialise its data, call the corresponding Python implementation, and then compare the results.}
 \label{fig:testcode}
 \end{figure}

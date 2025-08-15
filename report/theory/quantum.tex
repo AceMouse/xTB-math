@@ -112,7 +112,7 @@ MADD
         \node[] at (-0.4+\x*1.3+4,1+\x-.1) {D}; 
     }
 \end{tikzpicture}
-    \caption{Visualization of the circuit presented in equation \ref{EiG}. The arrows going into a block symbolise that qubit being used for the calculation happening in a given block. The arrows leaving a block symbolise the block changing something about that qubit. $\dagger$ is the complex conjugate used for doing an operation in reverse.}
+    \caption{Visualisation of the circuit presented in equation \ref{EiG}. The arrows going into a block symbolise that qubit being used for the calculation happening in a given block. The arrows leaving a block symbolise the block changing something about that qubit. $\dagger$ is the complex conjugate used for doing an operation in reverse.}
 \end{figure}
 Let us follow the process:
 
@@ -146,7 +146,7 @@ Let us say that we are interested in the isomers with the lowest energies. We th
 
 
 \vspace{\baselineskip}
-Wang et al. use their introduced addition and multiplication primitives to construct a probabilistic circuit which transforms the state $\ket{x}_D\ket{0}_C\ket{0}_W \to \big[\frac{1}{2}\frac{1}{2^n}\big]x\ket{x}_D\ket{0}_C\ket{1}_W+\alpha\ket{\omega}_{D \otimes C\otimes W}$ where $\alpha$ is some normalization factor, and $\ket{\omega}$ is some state with no overlap with the state containing all 0's in the control register, $C$, and 1 in the work register, $W$.
+Wang et al. use their introduced addition and multiplication primitives to construct a probabilistic circuit which transforms the state $\ket{x}_D\ket{0}_C\ket{0}_W \to \big[\frac{1}{2}\frac{1}{2^n}\big]x\ket{x}_D\ket{0}_C\ket{1}_W+\alpha\ket{\omega}_{D \otimes C\otimes W}$ where $\alpha$ is some normalisation factor, and $\ket{\omega}$ is some state with no overlap with the state containing all 0's in the control register, $C$, and 1 in the work register, $W$.
 This property makes it very easy to check if the circuit succeeded, we can just use the measurement output that collapses the state to see if we measured the correct pattern of all zeroes and a one. The term in the brackets is the probability of success with $n$ being the number of bits used to describe $x$. $\alpha$ is then related to the probability of failure as the result should be normalised. 
 
 
