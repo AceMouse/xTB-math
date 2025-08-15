@@ -2,8 +2,8 @@
 In this section we will go over the GFN2-xTB energy terms put forth in the related papers\cite{grimme2017,bannwarth2019,bannwarth2021}.
 GFN2-xTB is a part of the GFNn-xTB (Geometry, Frequency, Non covalent, eXtended Tight Binding) family of semi-empirical methods for computational chemistry. 
 
-The method gives good approximations for molecular geometries, vibrational frequencies, and non-covalent interaction energies and also does well on a variety other properties. 
-Overall it strives to hit a balance between being accurate, close to the physics, general over a wide range of elements and not too computationally expensive.
+The method gives good approximations for molecular geometries, vibrational frequencies, and non-covalent interaction energies and also does well on a variety of other properties. 
+Overall it strives to hit a balance between being accurate, close to the physics, general over a wide range of elements, and not too computationally expensive.
 
 This is achieved by approximating a true quantum mechanical simulation, using carefully chosen approximations and parameters. 
 In contrast to forcefield methods that often operate on the level of atoms or even functional groups interacting, GFN2-xTB still treats the calculations at the level of individual orbitals in many places. 
@@ -44,7 +44,7 @@ def get_GFN2_energy(atoms: list[int], positions : list[list[float]], free_electr
         density = new_density
 \end{minted}
 \caption{Python code illustrating the main loop of a GFN2-xTB implementation.
-Line 2-14 computes the energy in a non SCC manner, line 15-22 iteratively improves the energy using SCC.
+Line 2-14 computes the energy in a non SCC manner, and line 15-22 iteratively improves the energy using SCC.
 Another way to describe this is that the zeroth iteration of SCC happens outside the loop as there is some setup required. 
 }
     \label{lst:total_energy}
@@ -61,10 +61,10 @@ def get_orbitals(atoms: list[int]) -> list[tuple[int]]:
                 orbitals.append((atom_idx,atom,subshell,orbital))
     return orbitals
 \end{minted}
-\caption{Python code for generating a convenient list of orbitals to iterate though. }
+\caption{Python code for generating a convenient list of orbitals to iterate through.}
 \end{figure}
 
-And some functions used when we want to signal to the reader that the python list we just created will stay a fixed size. Additionally we get to contain the python list comprehension syntax here. 
+We also define some functions used when we want to signal to the reader that the Python list we just created will stay a fixed size. The Python list comprehension syntax is contained within these functions to make the rest of the code simpler to read.
 
 \begin{figure}[H]
 \begin{minted}{python}
@@ -77,10 +77,10 @@ def square_matrix(n: int) -> list[list[float]]:
 def square_matrix_of_vectors(n: int, v:int) -> list[list[list[float]]]:
     return [[[0.0 for _ in range(v)] for _ in range(n)] for _ in range(n)]
 \end{minted}
-    \caption{Python code for creating a $n$ long vector, $n\times n$ matrix and $n\times n \times v$ tensor.}
+    \caption{Python code for creating an $n$ long vector, $n\times n$ matrix and $n\times n \times v$ tensor.}
 \end{figure}
 
-For many of the upcoming calculations we will need to work with the distance between atoms. We will say the position of atom A is:
+For many of the upcoming calculations we will need to work with the distance between atoms. We will define the position of atom A as
 \begin{equation}
 \pmb{R}_A=
     \begin{pmatrix}
@@ -103,7 +103,7 @@ Then we note the euclidean distance as follows:
 \end{align}
 Now let us dig into the calculations. 
 \section{Constructing the Initial Density Matrix}
-Many of the terms use the density matrix as part of their calculation and it is central to the SCC method. In the GFN2 paper the initial density matrix guess is formulated as a superposition of neutral atomic reference densities $P_0 = \sum_{A}P_{A_0}$. In simpler terms this means that we let $P_0$ be a diagonal matrix that is $n$ by $n$ where $n$ is the total number of orbitals across the whole molecule. The values on the diagonal are the fractional number of electrons in the orbitals, the fractional occupations. They are reference densities so we get them in a table we can index into per subshell, thus we just have to divide the electrons evenly between the orbitals in the subshell. The number of orbitals in a subshell is $2l+1$ where l is the quantum number corresponding to the angular momentum of the subshell.
+Many of the terms use the density matrix as part of their calculation and it is central to the SCC method. In the GFN2 paper the initial density matrix guess is formulated as a superposition of neutral atomic reference densities $P_0 = \sum_{A}P_{A_0}$. In simpler terms this means that we let $P_0$ be a diagonal matrix that is $n$ by $n$ where $n$ is the total number of orbitals across the whole molecule. The values on the diagonal are the fractional number of electrons in the orbitals, the fractional occupations. They are reference densities so we get them in a table that we can index into per subshell, thus we just have to divide the electrons evenly between the orbitals in the subshell. The number of orbitals in a subshell is $2l+1$ where l is the quantum number corresponding to the angular momentum of the subshell.
 \begin{figure}[H]
 \begin{minted}{python}
 def density_initial_guess(atoms: list[int]) -> list[list[float]]:
@@ -127,17 +127,19 @@ Thus \verb|fractional_occupations| will contain a repeating series of $\frac{1}{
 \section{Constructing the Overlap, Dipol and Quadrupol Tensors}
 
 We need the overlap matrix, $S$, for several of the terms. 
-The related dipol and quadrupol tensors denoted $D$ and $Q$ are also needed and due to their very similar construction we will go over the implementation and mathematics in one fell swoop. 
+The related dipol and quadrupol tensors denoted $D$ and $Q$ are also needed, and due to their very similar construction we will go over the implementation and mathematics together. 
 An element in each tensor is computed in the following way.
 \begin{align}
     S_{\nu\mu} &= \braket{\psi_\nu|\psi_\mu} &\forall \nu \in l \in A,\quad\forall\mu \in l' \in B, \\
     D_{\nu\mu}^{u} &= \braket{\psi_\nu|(r_u-{R_P}_u)|\psi_\mu}  &\forall  u\in x,y,z\\
     Q_{\nu\mu}^{uv} &= \braket{\psi_\nu|(r_u-{R_P}_u)(r_v-{R_P}_v)|\psi_\mu} &\forall  v\in x,y,z
 \end{align}
-These are integrals between two Slater type orbitals (STOs) over the positions $r$. When we write $l \in A$ we mean to iterate though the subshells in every element A and take their angular momentum. $\nu\in l$ means that we iterate though the $2l+1$ orbitals in the subshell with quantum number $m\in\{-l,..,0,..,l\}$. See figure \ref{lst:orbitals} for a code example. ${R_P}$ is the $x,y,z$ position of the product of the orbitals, we will define this later.
+These are integrals between two Slater type orbitals (STOs) over the positions $r$. When we write $l \in A$ we mean to iterate though the subshells in every element A and take their angular momentum. $\nu\in l$ means that we iterate though the $2l+1$ orbitals in the subshell with quantum number $m\in\{-l,..,0,..,l\}$ (See figure \ref{lst:orbitals} for a code example). ${R_P}$ is the $x,y,z$ position of the product of the orbitals, we will define this later.
 
-For $D$ there are 3 unique values, corresponding to the 3 dimensions, to compute for each pair of orbitals which we will pack into an array. 
-Since $(r_u-{R_P}_u)(r_v-{R_P}_v)=(r_v-{R_P}_v)(r_u-{R_P}_u)$ there are 6, rather than 9, unique combinations of dimensions to compute for each element in the $Q$ tensor which we will also pack into an array.
+%The $D$ matrix contains arrays of 3 unique values for each orbital in the molecule. These values correspond to the 3 dimensions of the orbitals.
+
+For $D$ there are $3$ unique values, corresponding to the $3$ dimensions, to compute for each pair of orbitals which we will pack into an array. 
+Since $(r_u-{R_P}_u)(r_v-{R_P}_v)=(r_v-{R_P}_v)(r_u-{R_P}_u)$ there are $6$, rather than $9$, unique combinations of dimensions to compute for each element in the $Q$ tensor which we will also pack into an array.
 For the sake of clarity we will define the indices corresponding to the combinations of directions, these are however arbitrary and only used for array indexing.  
 \begin{figure}[H]
 \begin{minted}{python}
@@ -223,7 +225,7 @@ def compute_STO_integrals(atom_A: int, subshell_A: int, orbital_A: int, R_A: flo
     \caption{Python snippet illustrating construction of the STO integrals $\braket{\psi_\nu|\cdots|\psi_\mu}$.}
 \end{figure}
 
-The gaussian normalisation term\cite[eq. 5.55]{daudel} is:
+The gaussian normalisation term\cite[eq. 5.55]{daudel1983} is:
 \begin{align}
     1&=N_{GTO,l}^2(2\alpha_{i,\nu})^{-(l+3/2)}\frac{({l_A}_x-1)!!({l}_y-1)!!({l}_z-1)!!}{2^{l/2}}\pi^{3/2}\\
     N_{GTO,l}^2&=\left((2\alpha_{i,\nu})^{-(l+3/2)}\frac{({l}_x-1)!!({l}_y-1)!!({l}_z-1)!!}{2^{l/2}}\pi^{3/2}\right)^{-1}\\
@@ -309,7 +311,7 @@ def convolute(coef_A: list[float], coef_B: list[float]) -> list[float]:
 \end{figure}
 
 
-To compute the integrals over the GTOs we can split them in terms of the 3 dimensions we are integrating over, $x,y$ and $z$. We can also pull the GTO normalisation terms out front. 
+To compute the integrals over the GTOs we can split them in terms of the $3$ dimensions we are integrating over, $x,y$ and $z$. We can also pull the GTO normalisation terms out front. 
 Each of these integrals can now be expanded using the analytical solution to Gaussian integrals of this form. All the integrals get solutions of the following form for even $t$\cite[eq. 5.53]{daudel1983}:
 \begin{equation}
     i_t = \alpha^{-(t+1)/2}\frac{(t-1)!!}{2^{t/2}}\sqrt{\pi}
