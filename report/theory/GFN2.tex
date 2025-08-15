@@ -13,7 +13,7 @@ GFN2-xTB uses a Self-Consistent Charges (SCC) approach i.e. it makes an initial 
 \section{Energy Terms}
 The terms in GFN2-xTB that determine the energy are as follows
 \begin{equation}
-E =\E{rep}+\E{disp}^{D4'}+\E{EHT}+\E{\gamma}+\E{AES}+\E{AXC}+\E{\Gamma} + G_{Fermi}
+        E =\E{rep}+\E{disp}^{D4'}+\E{EHT}+\E{\gamma}+\E{AES}+\E{AXC}+\E{\Gamma} + G_{Fermi} \label{eq:gfn2-energies}
 \end{equation}
 
 We then have to also factor in the SCC. 
@@ -386,7 +386,7 @@ def compute_GTO_integrals(R_A: float, l_A: int, orbital_A: int, R_B: float, l_B:
 %\frac{(4\alpha_i)^{\ell}}{(2\ell_x-1)!!\,(2\ell_y-1)!!\,(2\ell_z-1)!!}},
 %\end{equation}
 
-\section{Building the Hückel Matrix}
+\section{Extended Hückel Energy}
 As a part of computing the Hückel energy we need to construct the Hückel matrix.
 The Hückel matrix comes from extended Hückel theory. Before we can construct it we need a few definitions. 
 First the GFN2 type coordination number for atom $A$ is
@@ -775,4 +775,4 @@ The final D4' energy term is given by
 \end{equation}
 
 
-%The dispersion energy is the last term 
+The dispersion energy was the last of the energy terms in GFN2-xTB that we needed to cover. To reiterate, we have now walked through all the energy terms for GFN2-xTB, which are shown in full in \autoref{eq:gfn2-energies}.
